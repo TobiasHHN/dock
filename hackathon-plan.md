@@ -143,7 +143,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 |---|---|---|---|
 | 2.1 | Routing (Login, Sign-up, Home, Dokument, Tabelle, Workflow, Run), API-Client mit Token, Name und Rolle im Header | Navigation funktioniert gegen Stubs | 0.8 |
 | 2.2 | Login und Sign-up mit Rollenauswahl | Anmeldung liefert Token und leitet auf Home | 2.1 (später 1.1) |
-| 2.3 | **Sync-Store**: Server-Stand + eigene ausstehende Batches, optimistische Änderungen, `ack`/`reject`, Reconnect mit `since`, Anwenden fremder Ops (L 7.4, T 5.3). Arbeitet gegen Fake-Events, bis 1.5 steht. | Fixtures aus 0.9 laufen auch in `vitest` grün, Reject setzt den Zustand korrekt zurück | 0.4, 0.9 |
+| 2.3 ✅ | **Sync-Store**: Server-Stand + eigene ausstehende Batches, optimistische Änderungen, `ack`/`reject`, Reconnect mit `since`, Anwenden fremder Ops (L 7.4, T 5.3). Arbeitet gegen Fake-Events, bis 1.5 steht. | Fixtures aus 0.9 laufen auch in `vitest` grün, Reject setzt den Zustand korrekt zurück | 0.4, 0.9 |
 | 2.4 | Dokument-Ansicht: Blöcke der Typen Überschrift, Absatz, Liste, Zitat, Code, Trennlinie; Blöcke einfügen, verschieben, löschen; Kennzeichnung des Autors (Mensch, Agent mit „im Auftrag von“, Workflow) | Dokument lässt sich im Browser aufbauen, Änderungen anderer erscheinen live | 2.3 |
 | 2.5 | Textblöcke bearbeiten, Präsenz-Avatare, „X bearbeitet“ an gesperrten Blöcken, Hinweis bei Konflikt (L 7.5) | Zwei Browser bearbeiten verschiedene Blöcke gleichzeitig | 2.4 (später 1.5) |
 | 2.6 | Home: Listen für Dokumente, Tabellen, Workflows, „Neues Dokument“, Suchfeld, Zähler für Aufgaben und Benachrichtigungen | Neue Dokumente erscheinen ohne Neuladen | 2.1 |
