@@ -146,7 +146,7 @@ def _stub_search(monkeypatch):
 
 @pytest.fixture(autouse=True)
 def _stub_reads(monkeypatch):
-    """Dokument- und Tabellen-Lesezugriffe sind seit 1.4 echt (DB); dieser Test prüft nur die MCP-Werkzeuge,
+    """Dokument-, Tabellen- und Workflow-Lesezugriffe sind seit 1.4/4.1 echt (DB); dieser Test prüft nur die MCP-Werkzeuge,
     deshalb liefern die Abfragen hier die Beispieldaten aus `stub_data`."""
     from app.api import stub_data as D
     from app.domain import queries
@@ -185,7 +185,20 @@ def _stub_reads(monkeypatch):
     async def list_documents(s):
         return [d.model_dump() for d, _ in D.DOCS.values()]
 
-    for name, fn in [("list_tables", list_tables), ("fetch_table", fetch_table), ("query_rows", query_rows),
+    async def list_workflows(s):
+        w = D.WORKFLOW
+        return [{"id": w.id, "key": w.key, "name": w.name, "latest_version": w.latest_version}]
+
+    async def fetch_workflow(s, ref):
+        if ref not in (D.WORKFLOW.id, D.WORKFLOW.key):
+            raise PipelineError("NOT_FOUND", f"Workflow '{ref}' wurde nicht gefunden")
+        return D.WORKFLOW.model_dump(by_alias=True)
+
+    async def validate_workflow(s, actor, workflow, definition):
+        return {"ok": True, "issues": []}
+
+    for name, fn in [("list_workflows", list_workflows), ("fetch_workflow", fetch_workflow),
+                     ("validate_workflow", validate_workflow), ("list_tables", list_tables), ("fetch_table", fetch_table), ("query_rows", query_rows),
                      ("fetch_document", fetch_document), ("fetch_document_markdown", fetch_document_markdown),
                      ("list_documents", list_documents)]:
         monkeypatch.setattr(queries, name, fn)

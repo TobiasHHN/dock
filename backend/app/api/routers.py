@@ -217,21 +217,30 @@ workflows = APIRouter(prefix="/api", tags=["workflows"])
 
 
 @workflows.get("/workflows", response_model=list[WorkflowSummary])
-async def list_workflows(user: User):
-    w = D.WORKFLOW
-    return [WorkflowSummary(id=w.id, key=w.key, name=w.name, latest_version=w.latest_version)]
+async def list_workflows(user: User, session: AsyncSession = Depends(get_session)):
+    return await queries.list_workflows(session)
 
 
 @workflows.get("/workflows/{wf}", response_model=Workflow)
-async def get_workflow(wf: str, user: User):
-    if wf not in (D.WORKFLOW.id, D.WORKFLOW.key):
-        raise HTTPException(404, f"Workflow {wf} nicht gefunden")
-    return D.WORKFLOW
+async def get_workflow(wf: str, user: User, session: AsyncSession = Depends(get_session)):
+    """Workflow per ID oder Key, mit Entwurf (`draft`) und `latest_version`."""
+    try:
+        return await queries.fetch_workflow(session, wf)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 @workflows.post("/workflows/validate", response_model=ValidationResult)
-async def validate_workflow(body: A.WorkflowValidateRequest, user: User):
-    return ValidationResult(ok=True, issues=[])
+async def validate_workflow(body: A.WorkflowValidateRequest, user: User,
+                            session: AsyncSession = Depends(get_session)):
+    """Prüfung nach L 5.7: genau eines von `workflow` (Entwurf) oder `definition`. Fehler blockieren
+    `workflow.publish`, Warnungen nicht."""
+    if (body.workflow is None) == (body.definition is None):
+        raise HTTPException(422, "Genau eines von 'workflow' oder 'definition' angeben")
+    try:
+        return await queries.validate_workflow(session, user.actor, body.workflow, body.definition)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 # ── Runs, Aufgaben, Benachrichtigungen (4.2–4.4) ─────────────────────────────
