@@ -49,6 +49,7 @@ Sobald ein Task abgeschlossen ist, aktualisiert der ausführende Agent `hackatho
 
 ## 5. Arbeitsweise
 
+- **Vor jeder Änderung die Fachdokumente lesen:** `anwendungslogik.md` (Fachlogik: Objekte, Regeln, Operationen, Echtzeit-Abgleich) und `technische-umsetzung.md` (Umsetzung auf den Stack, Abschnittsnummern verweisen auf die Logik). Immer Abschnitt 0 „Kernentscheidungen“, sonst die für den Task relevanten Abschnitte. Bei Widersprüchen gelten diese beiden vor `dokument-plattform-architektur.md` (teilweise überholt).
 - Prompt/Auftrag nennt die Task-ID und die betroffenen Dateien. Nur diese Dateien anfassen.
 - `api/app/schemas.py` ist der Vertrag. Änderungen daran nur nach Absprache mit dem Orchestrator.
 - Keine neuen Dependencies ohne Absprache.

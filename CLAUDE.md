@@ -4,6 +4,15 @@ Projekt: Dokument-Plattform, Demo „Bestellfreigabe im Einkauf“. Details in `
 
 **Verbindlich: Dependency-Check, Branches und Plan-Update laut `@AGENTS.md`** (Modellwahl dort gilt für Codex/Antigravity, hier die Claude-Variante). Kurzfassung:
 
+## Vor jeder Änderung: Fachdokumente lesen
+
+Bevor ein Agent Code oder Doku ändert, muss er die Logik und das Gesamtbild kennen:
+
+- `anwendungslogik.md`: Fachlogik (Objekte, Regeln, Operationen, Echtzeit-Abgleich). Lesen, sobald Verhalten, Datenmodell oder Workflows verstanden werden müssen.
+- `technische-umsetzung.md`: Umsetzung auf den Stack (API, DB, WebSocket, Frontend). Lesen vor jeder Implementierung. Die Abschnittsnummern verweisen auf `anwendungslogik.md`.
+- Bei Widersprüchen gelten diese beiden vor `dokument-plattform-architektur.md` (teilweise überholt).
+- Nur die für den Task relevanten Abschnitte lesen, aber die „Kernentscheidungen“ (Abschnitt 0) immer.
+
 ## Workflow-Regeln
 
 - **Modelle (Claude Code):** Orchestrator = Opus 5.5. Sub-Agents = Sonnet 5.5 für anspruchsvolle und Standard-Implementierung, Haiku 5.5 für triviale Tasks. Nie Opus für Sub-Agents. (`AGENTS.md` ist für Codex/Antigravity und nennt die Modelle nur als Stufen.)
