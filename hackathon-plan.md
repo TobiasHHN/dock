@@ -86,7 +86,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 |---|---|---|---|
 | 0.1 | Demo-Story und Prompts final abnicken (15 min). Welche Rollen und Namen, welche Beispielartikel. | alle | `demo/prompts.md` steht als Entwurf |
 | 0.2 ✅ | Repo und `docker compose` mit Datenbank, API, Worker und Web. Hello-World für API und Frontend. | P1 (+P2 für `frontend/`) | `docker compose up` → `localhost:5173` und `localhost:8000/docs` erreichbar |
-| 0.3 | Datenbankschema komplett (T 4) | P1 + P4 | Tabellen existieren nach `docker compose up` |
+| 0.3 ✅ | Datenbankschema komplett (T 4) | P1 + P4 | Tabellen existieren nach `docker compose up` |
 | 0.4 | API-Vertrag im Schemas-Paket (T 2.2): Operationen, Blocktypen, Spaltentypen, Workflow-Definition, Run, Aufgabe, Event, Statusansicht und alle WebSocket-Nachrichten (L 6, L 7.3, T 2.3), dazu **Stub-Endpunkte** mit Beispieldaten | P3 + P5 (mit allen abgestimmt) | `/docs` zeigt alle Endpunkte, Frontend kann gegen Stubs bauen |
 | 0.5 | Interne Schnittstellen als Funktions-Stubs: Batch ausführen, Ereignis veröffentlichen, Ausdruck auswerten, Formular absenden, Workflow prüfen/veröffentlichen, Run starten, Zuständige auflösen, Neu-Einbetten anstoßen | P1 + P3 + P4 + P5 | Signaturen mit leerem Rumpf im Backend, `domain/`-Struktur wie in T 2.2 |
 | 0.6 | Platzhalter für den angemeldeten Nutzer (Header wählt Anna, Ben oder Chef), bis F1 fertig ist | P1 | alle können ohne echtes Login testen |
