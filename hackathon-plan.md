@@ -132,7 +132,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 ### P1: Backend Core
 | ID | Task | Done wenn | Abhängig von |
 |---|---|---|---|
-| 1.1 ✅ | **F1** Anmeldung: Sign-up mit Rollenwahl, Login, Token mit Rollen, Rollen anlegen/ändern/zuweisen, Akteur aus dem Token bestimmen inklusive „im Auftrag von“ (L 5.8). Platzhalter aus 0.6 entfernen. | Login als Anna/Ben/Chef liefert Token mit richtiger Rolle, falsche Rolle bekommt 403 | 0.3 |
+| 1.1 🚧 | **F1** Anmeldung: Sign-up mit Rollenwahl, Login, Token mit Rollen, Rollen anlegen/ändern/zuweisen, Akteur aus dem Token bestimmen inklusive „im Auftrag von“ (L 5.8). Platzhalter aus 0.6 entfernen. | Login als Anna/Ben/Chef liefert Token mit richtiger Rolle, falsche Rolle bekommt 403 | 0.3 |
 | 1.2 ✅ | **F2** Ausführung von Operationen: Batch atomar ausführen, Keys auflösen, Versionsprüfung mit `CONFLICT`, Wiederholung mit gleicher `batch_id` ungefährlich, Rechteprüfung, Op-Log mit inversen Ops, Referenz-Index (L 6.2, L 9, T 2.4, T 2.5) | Ein Batch mit mehreren Ops ist ganz oder gar nicht gespeichert, zweiter Versuch mit gleicher ID liefert das erste Ergebnis | 0.4, 0.5 |
 | 1.3 ✅ | **F3** Tabellen: `table.*`, `column.*`, `row.*` mit Typumwandlung, Pflicht/Eindeutig/Min/Max, Referenzen mit `on_delete`, Löschschutz mit Liste der Verwendungen, Spaltentyp ändern (L 2) | Fehlerfälle aus L 2.2 liefern verständliche Meldungen pro Feld, Fixtures laufen grün | 1.2 |
 | 1.4 ✅ | **F4** Dokumente: `doc.*`, `block.*` (ohne `text.edit`), Verschachtelungsregeln, lesende Endpunkte für Dokumente, Tabellen und gefilterte Zeilen, Markdown-Ansicht mit Block-IDs und Import (L 3, L 8.2, T 2.2) | `get_document` als Markdown und zurück ergibt dieselben Blöcke | 1.2 |
@@ -179,6 +179,90 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 | 5.4 🚧 | Demo-Dateien `Bestelluebersicht.xlsx` (2–3 Beispielanträge) und `Bestellformular.docx` erstellen, genau nach dem Aufbau aus 0.10 | Beide Dateien importieren ohne Fehler und mit den erwarteten Warnungen (Dateien + Strukturtest stehen, Import-Prüfung in test_demo_files.py wird mit 3.6/3.7 aktiv) | 0.10 |
 | 5.5 | Seed: Nutzer anna/ben/chef mit Rollen, Demo-Tokens, zwei MCP-Konfigurationen (Anna, Ben) | `seed` auf frischer Datenbank, Tokens funktionieren | 1.1 |
 | 5.6 | Demo-Daten als Fallback, falls der Agent hakt: der komplette Bestellprozess als fertiger Batch (L 10.1, mit Rolle `chef` statt `teamleitung`, Import der Demo-Dateien per `import.include`) und ein Skript, das Import und Batch ausführt | Skript legt Tabellen, Workflow und Dokumente an, `validate_workflow` ist ohne Fehler | 5.4, 3.6, 3.7 |
+
+### Handover P1 (Backend Core) → andere Tasks
+
+**Stand (2026-11-25):** 1.2 bis 1.5 sind ✅ auf `main`, 1.1 ist 🚧 (siehe unten). Backend-Suite: 248 passed, 12 skipped. Die Details stehen in den Docstrings der genannten Dateien. Hier steht nur, was andere Tasks wissen oder tun müssen.
+
+**Lücke in P1 (wird von P1 nachgezogen):**
+
+- **1.1 🚧, Rollen-Ops fehlen:** `role.create`, `role.update`, `role.delete`, `user.set_roles` und `agent.set_roles` haben keinen Handler. Die Pipeline lehnt sie mit `VALIDATION` ab, die Rechteprüfung (`einkauf`) existiert. Bis dahin entstehen Rollen nur beim Sign-up.
+
+**Für alle:**
+
+- **Handler:** Neue Ops kommen als Modul in `backend/app/ops/handlers/` mit `@register("<op>")`. Die Schnittstelle (`touch`, `changed`, `set_references`, `add_inverse`, `resolve`, `lock_channel`) steht in `backend/app/ops/context.py`. Versionen erhöht die Pipeline, nicht der Handler.
+- **Fehlende Handler (Stand jetzt):** Alle Ops außer `table.*`, `column.*`, `row.*`, `doc.*` und `block.*` liefern `VALIDATION` („nicht verfügbar“). Das gilt für `draft.*`, `form.submit`, `workflow.*`, `run.*`, `task.*`, `text.edit`, die Rollen-Ops und `import.include`-Inhalte ohne Handler.
+- **Rechte in der Pipeline:** Nur strukturelle Ops verlangen `einkauf` (`table.*`, `column.*`, `doc.*`, `block.*`, `workflow.*`, `role.*`, `text.edit`, `user/agent.set_roles`). `row.*`, `draft.*`, `form.submit`, `run.*` und `task.*` sind auf Pipeline-Ebene offen. Die fachliche Prüfung (Startberechtigung, `can_act`, Sichtbarkeit) muss der jeweilige Handler machen.
+- **Fixtures:** Die In-Memory-Fassung ist `backend/app/ops/memory.py` (Tabellen) plus `memory_documents.py` (Dokumente). Neue Op-Arten registrieren sich mit `@memory_op("<op>")` in einer eigenen Datei. Nicht registrierte Ops werden in `test_fixtures` übersprungen.
+- **Positionen:** Fractional Index in Basis 62, `backend/app/domain/positions.py` (Port von `fractional-indexing`). Das Frontend muss dasselbe Verfahren nutzen.
+- **`after`:**
+  - Bei `column.add`, `row.insert` und `block.insert` hängt ein fehlendes `after` ans Ende.
+  - Bei `column.move` und `row.move` setzt `after=None` an den Anfang.
+  - Bei Blöcken setzt `after: "^"` an den Anfang (Festlegung von P1, nicht in L).
+- **Fehlerpfade (`details.errors`):**
+  - Zellfehler unter dem Spalten-Key.
+  - Mehrere Zeilen in einem `row.insert`: `rows[i].key`.
+  - Definitionen: `columns[i].feld`, `column.feld`, `patch.feld`.
+
+  Die Beispiele stehen in `spec/fixtures/tables/`.
+- **Keys:** Tabellen-Keys dürfen nicht mit `tbl_` beginnen, Spalten-Keys nicht mit `col_`. Sie würden sonst als ID gelesen.
+
+**2.2 Login (P2):** `POST /api/auth/signup` (Name, E-Mail, Passwort mit mindestens 8 Zeichen, Rolle `einkauf`, `mitarbeiter` oder `chef`) und `POST /api/auth/login` liefern ein JWT (8 h). `GET /api/me`, `/api/roles` und `/api/users?role=` lesen aus der DB. `X-Demo-User` gibt es nicht mehr, ohne Token kommt 401.
+
+**2.3 Sync-Store und 2.5 Präsenz (P2):**
+
+- **Anmeldung am WebSocket:** `/ws?token=<JWT>` (oder `Authorization: Bearer`). Ohne gültiges Token schließt der Server mit Code `4401`.
+- **Eigene Ops kommen zurück:** Der Absender bekommt seine eigenen Ops (gleiche `batch_id`) zusätzlich zum `ack`, damit `seq` lückenlos bleibt. Der Client dedupliziert nach `batch_id`.
+- **Abgelehntes Abo:** Der Vertrag hat dafür keinen eigenen Typ. Der Server schickt `reject` mit `batch_id = "subscribe:<kanal>"` (bzw. `"presence:<kanal>"`) und Code `FORBIDDEN`, `NOT_FOUND` oder `VALIDATION`.
+- **Nachholen:** Ist `since` älter als 1000 Ops (`CATCHUP_LIMIT`) oder hat das Log Lücken, kommt ein Snapshot statt der Ops.
+- **Präsenz:** `editing` verfällt nach 30 s (`EDITING_TTL`). Das Frontend schickt beim Tippen spätestens alle 25 s erneut `presence` mit `editing`. In `doc:` und `run:` entsteht der Präsenz-Eintrag beim Abonnieren automatisch.
+
+**3.1 Tabellen-Editor (P3):** `GET` für gefilterte Zeilen kennt die Operatoren `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, `in` und `is_null` sowie `limit` und `offset` (`backend/app/domain/queries.py`). Ausdrücke `{{ }}` in Filterwerten liefern 422, bis 3.2 fertig ist.
+
+**3.2 Ausdrücke (P3):** Wenn `domain/expressions` steht, die Filterauswertung in `domain/queries.py` daran anschließen (dort ist die 422-Stelle).
+
+**3.3 Formulare (P3):**
+
+- **Rechte:** `form.submit` und `draft.*` prüfen die Rechte selbst, siehe „Rechte in der Pipeline“.
+- **Kanäle:** Zusätzlich betroffene Kanäle (z. B. `user:<id>`) mit `ctx.lock_channel` sperren. Das ist ein später Lock mit Deadlock-Restrisiko, also möglichst wenige Kanäle und immer in sortierter Reihenfolge.
+- **Verweise:** Die Block-Handler melden schon die Kanten für `field`, `line_items` und Formular-Actions (`set_references`). Wer Actions erweitert, muss die Kanten mitpflegen.
+
+**3.6/3.7 Import (P3):**
+
+- **Ergebnis:** `import.include` liefert im `BatchResult` nur `{"included": n}`, nicht die Ergebnisse der einzelnen importierten Ops.
+- **Import-Regeln:** Ein Import gehört dem Ersteller (sonst `FORBIDDEN`), gilt 1 h und ist einmalig (`IMPORT_USED`). `used_at` wird erst beim Commit gesetzt.
+- **Erzeugte Keys:** Sie müssen die Key-Regel oben einhalten.
+- **Markdown für Word:** Ein Markdown-Import ist schon möglich, über `doc.create` mit Feld `markdown` (L 8.2). Im Markdown stehen Tabellen- und Spalten-Keys statt IDs. Fehler kommen als `VALIDATION` mit Zeilennummer.
+
+**4.1 bis 4.4 Workflow (P4):**
+
+- **Prüfungen im Handler:** `run.*` und `task.*` prüfen Startberechtigung und `can_act` im Handler.
+- **Löschen und Verweise:** `doc.delete` liefert `IN_USE`, wenn ein Workflow das Dokument nutzt. Die Workflow-Handler müssen dafür ihre Kanten melden (`set_references`).
+- **Run-Kontext:** `GET /api/documents/{doc}?run=` ignoriert `run` noch (gehört zu 4.3).
+- **Sichtbarkeit:** Wer `run:<id>` abonnieren darf, steht in `backend/app/realtime/access.py`: Antragsteller, Beteiligte an Aufgaben (Person oder Rolle) und `einkauf`. Dass `einkauf` alle Runs sieht, ist eine Festlegung von P1.
+- **Rollenänderung bei offener Verbindung:** Abos werden nicht beendet und es kommt kein neuer `user:`-Snapshot (L 7.2/7.3). Das muss mit `user.set_roles` bzw. der Engine kommen.
+- **Benachrichtigungen (4.4):** Ereignisse außerhalb der Pipeline über `realtime.hub.publish(channel, event)` verteilen. Mit `seq` geht es per `pg_notify` an alle Instanzen.
+
+**5.2 Suche (P5):** Die Pipeline ruft `enqueue_reembed` nach dem Commit für geänderte Dokumente, Tabellen und Workflows auf. Ausnahme: Läuft `apply_batch` in einer fremden Transaktion, entfällt das.
+
+**5.3 MCP und 5.5 Seed (P5):**
+
+- **MCP-Anmeldung:** Der MCP-Server reicht `Authorization` bzw. `DOCK_TOKEN` weiter, `DOCK_DEMO_USER` gibt es nicht mehr.
+- **Agent-Tokens:** Es gibt noch keinen Endpunkt, der sie ausstellt. Vorhanden sind `create_access_token(user_id, roles, actor=Actor(type="agent", id="agt_…", on_behalf_of=user_id))` in `backend/app/auth.py` und ein Eintrag in der Tabelle `agents`. 5.5 sollte darüber die Demo-Tokens für Annas und Bens Agent erzeugen.
+- **Seed:** Er kann Nutzer per `POST /api/auth/signup` oder direkt per SQL anlegen. Passwort-Hashes mit `hash_password` aus `auth.py`.
+- **JWT-Secret:** Der Dev-Default ist `dev-secret-change-me-please-use-32-bytes-min`.
+
+**Undo (Stretch F16):** Inverse Ops werden für alle Tabellen- und Dokument-Ops ins Op-Log geschrieben. Sie sind gegen die Pipeline nur für Dokumente durchgetestet. Wiederhergestellte Zeilen landen am Ende statt an ihrer alten Position.
+
+**Vom Team abzunicken (Festlegungen von P1, wo L/T offen sind):**
+
+- `einkauf` sieht alle Runs.
+- `after: "^"` bei Blöcken.
+- Ein einzelner Punkt mit genau drei Nachkommastellen (`"1.234"`) ist ein Tausenderpunkt.
+- Referenzspalten haben keinen Standardwert.
+- Wird die Anzeigespalte gelöscht, rückt die erste verbleibende Spalte nach.
+- Zeilen-Ops erhöhen die Tabellenversion nicht.
+- `block.move` über Dokumentgrenzen ist verboten.
 
 ---
 
