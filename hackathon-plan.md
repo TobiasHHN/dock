@@ -84,7 +84,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 
 | ID | Task | Owner | Done wenn |
 |---|---|---|---|
-| 0.1 | Demo-Story und Prompts final abnicken (15 min). Welche Rollen und Namen, welche Beispielartikel. | alle | `demo/prompts.md` steht als Entwurf |
+| 0.1 ✅ | Demo-Story und Prompts final abnicken (15 min). Welche Rollen und Namen, welche Beispielartikel. | alle | `demo/prompts.md` steht als Entwurf |
 | 0.2 ✅ | Repo und `docker compose` mit Datenbank, API, Worker und Web. Hello-World für API und Frontend. | P1 (+P2 für `frontend/`) | `docker compose up` → `localhost:5173` und `localhost:8000/docs` erreichbar |
 | 0.3 ✅ | Datenbankschema komplett (T 4) | P1 + P4 | Tabellen existieren nach `docker compose up` |
 | 0.4 ✅ | API-Vertrag im Schemas-Paket (T 2.2): Operationen, Blocktypen, Spaltentypen, Workflow-Definition, Run, Aufgabe, Event, Statusansicht und alle WebSocket-Nachrichten (L 6, L 7.3, T 2.3), dazu **Stub-Endpunkte** mit Beispieldaten | P3 + P5 (mit allen abgestimmt) | `/docs` zeigt alle Endpunkte, Frontend kann gegen Stubs bauen |
@@ -93,7 +93,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 | 0.7 | `CLAUDE.md` und `AGENTS.md` nach dem Aufbau abgleichen (Struktur, Befehle) | P2 | Befehle stimmen mit dem Repo überein |
 | 0.8 ✅ | TypeScript-Typen aus dem API-Schema erzeugen (Befehl siehe `CLAUDE.md`) | P2 | Typen im Frontend nutzbar |
 | 0.9 ✅ | Gemeinsamer Ordner `spec/fixtures/` mit Testfällen im Format „Zustand + Operationen → erwarteter Zustand“, den `pytest` und `vitest` beide lesen (T 5.3). Zwei Beispielfälle je für Tabellen, Dokumente, Ausdrücke und Import (kleine Beispieldateien mit erwarteten Ops). | P1 + P2 + P3 | Beide Test-Runner laden dieselben Fälle |
-| 0.10 | Aufbau der Demo-Dateien festlegen, so dass der Import (L 8.3) ohne Handarbeit brauchbar ist: Spalten und Beispielzeilen in `Bestelluebersicht.xlsx`, Feldzeilen („Name: ____“), Artikeltabelle und Kontrollkästchen in `Bestellformular.docx`. Als Notiz in `demo/prompts.md`. | P3 + P5 | Notiz steht, beide verstehen die erwarteten Spalten, Felder und Warnungen |
+| 0.10 ✅ | Aufbau der Demo-Dateien festlegen, so dass der Import (L 8.3) ohne Handarbeit brauchbar ist: Spalten und Beispielzeilen in `Bestelluebersicht.xlsx`, Feldzeilen („Name: ____“), Artikeltabelle und Kontrollkästchen in `Bestellformular.docx`. Als Notiz in `demo/prompts.md`. | P3 + P5 | Notiz steht, beide verstehen die erwarteten Spalten, Felder und Warnungen |
 
 **Exit-Kriterium:** Alle können `git pull && docker compose up` ausführen und gegen die Stubs entwickeln.
 
