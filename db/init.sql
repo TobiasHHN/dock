@@ -81,7 +81,7 @@ CREATE TABLE row_links (
   from_row  text NOT NULL REFERENCES rows ON DELETE CASCADE,
   column_id text NOT NULL,
   to_row    text NOT NULL REFERENCES rows,
-  PRIMARY KEY (from_row, column_id, to_row)
+  PRIMARY KEY (from_row, column_id)
 );
 
 -- Dokumente (3)

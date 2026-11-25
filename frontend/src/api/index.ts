@@ -27,4 +27,6 @@ export type WsMessages = S["WsMessages"];
 export type WsClientMessage = WsMessages["client"][number];
 export type WsServerMessage = WsMessages["server"][number];
 
+export type SnapshotData = WsMessages["snapshots"][number];
+
 export type { components };

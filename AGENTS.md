@@ -65,6 +65,7 @@ Stack und Struktur stehen in `technische-umsetzung.md`. Zusätzlich gilt:
 - Bis Task 1.1 fertig ist, wählt der Header `X-Demo-User: anna|ben|chef` den Nutzer (`backend/app/auth.py`, Default Anna).
 - Alle REST-Endpunkte sind Stubs mit Beispieldaten (`backend/app/api/routers.py`, `stub_data.py`), bis der jeweilige Task sie ersetzt. Die Stub-Schnittstellen in `domain/`, `ops/`, `realtime/`, `imports/`, `search/` und `mcp/` haben leere Rümpfe mit Task-Verweis im Docstring.
 - Gemeinsame Testfälle für Backend und Frontend liegen in `spec/fixtures/` (Format: `spec/fixtures/README.md`). Neue Fälle immer dort ergänzen.
+- `db/init.sql` ist die Quelle der Wahrheit für das Schema. `db/models.py` (SQLAlchemy) und `db/migrations/` aus `technische-umsetzung.md` 2.2 gibt es bewusst noch nicht und entstehen mit Task 1.2, falls die Handler sie brauchen (keine Migrationen, Schemaänderung = `init.sql` + `docker compose down -v`).
 - `mcp` ist auf `<2` gepinnt, weil `technische-umsetzung.md` die `FastMCP`-API voraussetzt. Embedding-Dimension 384 (`db/init.sql`, `backend/app/config.py`).
 
 ```

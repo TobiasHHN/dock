@@ -40,3 +40,9 @@ def test_openapi_contains_contract():
     comps = client.get("/openapi.json").json()["components"]["schemas"]
     for name in ["OpBatch", "WsMessages", "RunStatusView", "TaskDetail", "ImportPlan"]:
         assert any(k == name or k.startswith(name + "-") for k in comps), name
+
+
+def test_openapi_contains_ws_snapshots():
+    comps = client.get("/openapi.json").json()["components"]["schemas"]
+    for name in ["SnapshotDoc", "SnapshotTable", "SnapshotRun", "SnapshotUser", "SnapshotWorkspace"]:
+        assert any(k == name or k.startswith(name + "-") for k in comps), name
