@@ -10,4 +10,4 @@ docker compose up -d --build
 - API-Doku: http://localhost:8000/docs
 - Datenbank (Host-Port): `localhost:5433`, Nutzer/Passwort/DB `dock`
 
-Ohne Login wählt der Header `X-Demo-User: anna|ben|chef` den Nutzer (bis Task 1.1). Befehle für Tests und Typen: `AGENTS.md` Abschnitt 6.
+Die Anmeldung läuft über `POST /api/auth/signup` und `/api/auth/login` (Bearer-Token, Task 1.1). Befehle für Tests und Typen: `AGENTS.md` Abschnitt 6.

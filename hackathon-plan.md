@@ -132,7 +132,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 ### P1: Backend Core
 | ID | Task | Done wenn | Abhängig von |
 |---|---|---|---|
-| 1.1 | **F1** Anmeldung: Sign-up mit Rollenwahl, Login, Token mit Rollen, Rollen anlegen/ändern/zuweisen, Akteur aus dem Token bestimmen inklusive „im Auftrag von“ (L 5.8). Platzhalter aus 0.6 entfernen. | Login als Anna/Ben/Chef liefert Token mit richtiger Rolle, falsche Rolle bekommt 403 | 0.3 |
+| 1.1 ✅ | **F1** Anmeldung: Sign-up mit Rollenwahl, Login, Token mit Rollen, Rollen anlegen/ändern/zuweisen, Akteur aus dem Token bestimmen inklusive „im Auftrag von“ (L 5.8). Platzhalter aus 0.6 entfernen. | Login als Anna/Ben/Chef liefert Token mit richtiger Rolle, falsche Rolle bekommt 403 | 0.3 |
 | 1.2 | **F2** Ausführung von Operationen: Batch atomar ausführen, Keys auflösen, Versionsprüfung mit `CONFLICT`, Wiederholung mit gleicher `batch_id` ungefährlich, Rechteprüfung, Op-Log mit inversen Ops, Referenz-Index (L 6.2, L 9, T 2.4, T 2.5) | Ein Batch mit mehreren Ops ist ganz oder gar nicht gespeichert, zweiter Versuch mit gleicher ID liefert das erste Ergebnis | 0.4, 0.5 |
 | 1.3 | **F3** Tabellen: `table.*`, `column.*`, `row.*` mit Typumwandlung, Pflicht/Eindeutig/Min/Max, Referenzen mit `on_delete`, Löschschutz mit Liste der Verwendungen, Spaltentyp ändern (L 2) | Fehlerfälle aus L 2.2 liefern verständliche Meldungen pro Feld, Fixtures laufen grün | 1.2 |
 | 1.4 | **F4** Dokumente: `doc.*`, `block.*` (ohne `text.edit`), Verschachtelungsregeln, lesende Endpunkte für Dokumente, Tabellen und gefilterte Zeilen, Markdown-Ansicht mit Block-IDs und Import (L 3, L 8.2, T 2.2) | `get_document` als Markdown und zurück ergibt dieselben Blöcke | 1.2 |
