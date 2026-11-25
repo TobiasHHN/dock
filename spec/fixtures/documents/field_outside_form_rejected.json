@@ -1,0 +1,75 @@
+{
+  "name": "field darf nur innerhalb eines form stehen",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "L 3.2 Verschachtelungsregeln.",
+  "state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Doc",
+        "blocks": [
+          {
+            "id": "b1",
+            "parent_id": null,
+            "position": "a0",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Eins"
+                }
+              ]
+            }
+          },
+          {
+            "id": "b2",
+            "parent_id": null,
+            "position": "a1",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Zwei"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "block.insert",
+      "doc": "doc_1",
+      "parent": null,
+      "after": "b2",
+      "block": {
+        "id": "f1",
+        "type": "field",
+        "props": {
+          "key": "x",
+          "label": "X"
+        }
+      }
+    }
+  ],
+  "expect_error": {
+    "code": "VALIDATION",
+    "message_contains": "form"
+  },
+  "expect_block_ids": {
+    "doc_1": [
+      "b1",
+      "b2"
+    ]
+  }
+}

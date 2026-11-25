@@ -1,0 +1,91 @@
+{
+  "name": "Pfade im Run-Kontext",
+  "kind": "expression",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "context": {
+    "fields": {
+      "name": "Ben",
+      "kostenstelle": "4711",
+      "anzahl": 3,
+      "artikel": [
+        {
+          "id": "i1",
+          "artikelname": "Monitor",
+          "preis": 249.5,
+          "anzahl": 2
+        },
+        {
+          "id": "i2",
+          "artikelname": "Maus",
+          "preis": 19.0,
+          "anzahl": 1
+        }
+      ]
+    },
+    "user": {
+      "id": "usr_ben",
+      "name": "Ben Mitarbeiter"
+    },
+    "run": {
+      "id": "run_42",
+      "starter": {
+        "id": "usr_ben",
+        "name": "Ben Mitarbeiter"
+      },
+      "steps": {
+        "erfassen": {
+          "values": {
+            "name": "Ben",
+            "kostenstelle": "4711"
+          },
+          "results": {
+            "order": {
+              "id": "row_b1"
+            }
+          },
+          "completed_by": {
+            "id": "usr_ben",
+            "name": "Ben Mitarbeiter"
+          }
+        }
+      }
+    },
+    "tables": {
+      "kostenstellen": [
+        {
+          "nummer": "4711",
+          "verantwortlich": "usr_chef"
+        },
+        {
+          "nummer": "4712",
+          "verantwortlich": "usr_anna"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "expr": "{{run.id}}",
+      "expect": "run_42"
+    },
+    {
+      "expr": "{{run.starter.name}}",
+      "expect": "Ben Mitarbeiter"
+    },
+    {
+      "expr": "{{run.steps.erfassen.results.order.id}}",
+      "expect": "row_b1"
+    },
+    {
+      "expr": "{{run.steps.erfassen.completed_by.id}}",
+      "expect": "usr_ben"
+    },
+    {
+      "expr": "{{concat(\"Bestellung KS \", coalesce(run.steps.erfassen.values.kostenstelle, \"…\"), \" – \", run.starter.name)}}",
+      "expect": "Bestellung KS 4711 – Ben Mitarbeiter"
+    }
+  ]
+}

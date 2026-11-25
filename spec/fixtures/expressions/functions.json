@@ -1,0 +1,91 @@
+{
+  "name": "Funktionen sum, count, concat, coalesce, lookup",
+  "kind": "expression",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "context": {
+    "fields": {
+      "name": "Ben",
+      "kostenstelle": "4711",
+      "anzahl": 3,
+      "artikel": [
+        {
+          "id": "i1",
+          "artikelname": "Monitor",
+          "preis": 249.5,
+          "anzahl": 2
+        },
+        {
+          "id": "i2",
+          "artikelname": "Maus",
+          "preis": 19.0,
+          "anzahl": 1
+        }
+      ]
+    },
+    "user": {
+      "id": "usr_ben",
+      "name": "Ben Mitarbeiter"
+    },
+    "run": {
+      "id": "run_42",
+      "starter": {
+        "id": "usr_ben",
+        "name": "Ben Mitarbeiter"
+      },
+      "steps": {
+        "erfassen": {
+          "values": {
+            "name": "Ben",
+            "kostenstelle": "4711"
+          },
+          "results": {
+            "order": {
+              "id": "row_b1"
+            }
+          },
+          "completed_by": {
+            "id": "usr_ben",
+            "name": "Ben Mitarbeiter"
+          }
+        }
+      }
+    },
+    "tables": {
+      "kostenstellen": [
+        {
+          "nummer": "4711",
+          "verantwortlich": "usr_chef"
+        },
+        {
+          "nummer": "4712",
+          "verantwortlich": "usr_anna"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "expr": "{{sum(fields.artikel, \"preis\")}}",
+      "expect": 268.5
+    },
+    {
+      "expr": "{{count(fields.artikel)}}",
+      "expect": 2
+    },
+    {
+      "expr": "{{concat(\"KS \", fields.kostenstelle)}}",
+      "expect": "KS 4711"
+    },
+    {
+      "expr": "{{coalesce(fields.fehlt, \"…\")}}",
+      "expect": "…"
+    },
+    {
+      "expr": "{{lookup(\"kostenstellen\", \"nummer\", fields.kostenstelle, \"verantwortlich\")}}",
+      "expect": "usr_chef"
+    }
+  ]
+}

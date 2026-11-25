@@ -1,0 +1,96 @@
+{
+  "name": "Pflichtfeld fehlt -> VALIDATION mit Meldung pro Feld",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": []
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "row.insert",
+      "table": "bestellungen",
+      "rows": [
+        {
+          "id": "row_1",
+          "values": {
+            "kostenstelle": "4711"
+          }
+        }
+      ]
+    }
+  ],
+  "expect_error": {
+    "code": "VALIDATION",
+    "fields": [
+      "name"
+    ]
+  },
+  "expect_state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "rows": []
+      }
+    ]
+  }
+}

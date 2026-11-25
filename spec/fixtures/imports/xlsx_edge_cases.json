@@ -1,0 +1,69 @@
+{
+  "name": "Excel: gemischte Spalte, leere Zeile, leeres Blatt",
+  "kind": "import",
+  "runners": [
+    "pytest"
+  ],
+  "description": "Gemischte Werte -> text mit Warnung; komplett leere Zeile übersprungen; leeres Blatt erzeugt keine Tabelle, nur eine Warnung.",
+  "source": "xlsx",
+  "file": "files/randfaelle.xlsx",
+  "params": {},
+  "expect_ops": [
+    {
+      "op": "table.create",
+      "id": "<bind:tbl>",
+      "key": "daten",
+      "name": "Daten",
+      "display_column": "<bind:col_titel>",
+      "columns": [
+        {
+          "id": "<bind:col_titel>",
+          "key": "titel",
+          "name": "Titel",
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "id": "<bind:col_wert>",
+          "key": "wert",
+          "name": "Wert",
+          "type": {
+            "kind": "text"
+          }
+        }
+      ]
+    },
+    {
+      "op": "row.insert",
+      "table": "<bind:tbl>",
+      "rows": [
+        {
+          "id": "<any>",
+          "values": {
+            "titel": "a",
+            "wert": "1"
+          }
+        },
+        {
+          "id": "<any>",
+          "values": {
+            "titel": "b",
+            "wert": "zwei"
+          }
+        },
+        {
+          "id": "<any>",
+          "values": {
+            "titel": "c",
+            "wert": "3"
+          }
+        }
+      ]
+    }
+  ],
+  "warnings_contain": [
+    "gemischte Werte",
+    "Leer"
+  ]
+}
