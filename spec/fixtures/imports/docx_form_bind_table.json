@@ -1,0 +1,209 @@
+{
+  "name": "Word: bind_table bindet Felder an Spalten und erzeugt den Speichern-Button",
+  "kind": "import",
+  "runners": [
+    "pytest"
+  ],
+  "description": "L 8.3 Abkürzung `bind_table`. Felder, die zu einem Spaltennamen passen (Groß-/Kleinschreibung egal), bekommen `column`; nicht zuordenbare stehen in den Warnungen. Die Warnung „schreibt nirgends hin“ entfällt.",
+  "source": "docx",
+  "file": "files/formular.docx",
+  "params": {
+    "bind_table": "bestellungen"
+  },
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": []
+      }
+    ]
+  },
+  "expect_ops": [
+    {
+      "op": "doc.create",
+      "id": "<any>",
+      "title": "Bestellformular",
+      "blocks": [
+        {
+          "id": "<any>",
+          "type": "heading",
+          "props": {
+            "level": 1,
+            "content": [
+              {
+                "t": "text",
+                "text": "Bestellformular"
+              }
+            ]
+          }
+        },
+        {
+          "id": "<any>",
+          "type": "paragraph",
+          "props": {
+            "content": [
+              {
+                "t": "text",
+                "text": "Bitte alle Felder ausfüllen."
+              }
+            ]
+          }
+        },
+        {
+          "id": "<any>",
+          "type": "form",
+          "props": {
+            "actions": [
+              {
+                "key": "save",
+                "type": "create_row",
+                "table": "tbl_best",
+                "values": {
+                  "col_name": "{{fields.name}}",
+                  "col_ks": "{{fields.kostenstelle}}"
+                }
+              }
+            ],
+            "buttons": [
+              {
+                "id": "save",
+                "label": "Speichern",
+                "actions": [
+                  "save"
+                ]
+              }
+            ]
+          },
+          "children": [
+            {
+              "id": "<any>",
+              "type": "field",
+              "props": {
+                "key": "name",
+                "label": "Name",
+                "input": "text",
+                "required": true,
+                "column": "col_name"
+              }
+            },
+            {
+              "id": "<any>",
+              "type": "field",
+              "props": {
+                "key": "kostenstelle",
+                "label": "Kostenstelle",
+                "input": "text",
+                "required": false,
+                "column": "col_ks"
+              }
+            },
+            {
+              "id": "<any>",
+              "type": "line_items",
+              "props": {
+                "key": "artikel",
+                "label": "Artikel",
+                "columns": [
+                  {
+                    "key": "artikel",
+                    "label": "Artikel",
+                    "input": "text"
+                  },
+                  {
+                    "key": "preis",
+                    "label": "Preis",
+                    "input": "currency"
+                  },
+                  {
+                    "key": "anzahl",
+                    "label": "Anzahl",
+                    "input": "integer"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "<any>",
+              "type": "field",
+              "props": {
+                "key": "lieferung_eilig",
+                "label": "Lieferung eilig",
+                "input": "boolean"
+              }
+            }
+          ]
+        },
+        {
+          "id": "<any>",
+          "type": "paragraph",
+          "props": {
+            "content": [
+              {
+                "t": "text",
+                "text": "Vielen Dank."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "warnings_contain": [
+    "Lieferung eilig"
+  ],
+  "warnings_absent": [
+    "nirgends hin"
+  ]
+}

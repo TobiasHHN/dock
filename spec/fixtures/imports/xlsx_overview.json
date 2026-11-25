@@ -1,0 +1,105 @@
+{
+  "name": "Excel: Typableitung (Text, Ganzzahl, Währung, Datum)",
+  "kind": "import",
+  "runners": [
+    "pytest"
+  ],
+  "description": "L 8.3. Platzhalter: \"<any>\" = beliebiger Wert, \"<bind:x>\" = beim ersten Auftreten merken, danach muss derselbe Wert stehen.",
+  "source": "xlsx",
+  "file": "files/uebersicht.xlsx",
+  "params": {},
+  "expect_ops": [
+    {
+      "op": "table.create",
+      "id": "<bind:tbl>",
+      "key": "bestellungen",
+      "name": "Bestellungen",
+      "display_column": "<bind:col_name>",
+      "columns": [
+        {
+          "id": "<bind:col_name>",
+          "key": "name",
+          "name": "Name",
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "id": "<bind:col_kostenstelle>",
+          "key": "kostenstelle",
+          "name": "Kostenstelle",
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "id": "<bind:col_anzahl>",
+          "key": "anzahl",
+          "name": "Anzahl",
+          "type": {
+            "kind": "integer"
+          }
+        },
+        {
+          "id": "<bind:col_betrag>",
+          "key": "betrag",
+          "name": "Betrag",
+          "type": {
+            "kind": "currency",
+            "currency": "EUR"
+          }
+        },
+        {
+          "id": "<bind:col_datum>",
+          "key": "datum",
+          "name": "Datum",
+          "type": {
+            "kind": "date"
+          }
+        }
+      ]
+    },
+    {
+      "op": "row.insert",
+      "table": "<bind:tbl>",
+      "rows": [
+        {
+          "id": "<any>",
+          "values": {
+            "name": "Anna Beispiel",
+            "kostenstelle": "4711",
+            "anzahl": 2,
+            "betrag": 498.0,
+            "datum": "2026-11-03"
+          }
+        },
+        {
+          "id": "<any>",
+          "values": {
+            "name": "Ben Mitarbeiter",
+            "kostenstelle": "4712",
+            "anzahl": 5,
+            "betrag": 125.5,
+            "datum": "2026-11-10"
+          }
+        }
+      ]
+    }
+  ],
+  "expect_created": {
+    "tables": [
+      {
+        "id": "<bind:tbl>",
+        "key": "bestellungen",
+        "columns": [
+          "name",
+          "kostenstelle",
+          "anzahl",
+          "betrag",
+          "datum"
+        ]
+      }
+    ]
+  },
+  "expect_warnings": []
+}

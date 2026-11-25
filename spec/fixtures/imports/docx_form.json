@@ -1,0 +1,123 @@
+{
+  "name": "Word: Formular aus Feldzeilen, Artikeltabelle und Kontrollkästchen",
+  "kind": "import",
+  "runners": [
+    "pytest"
+  ],
+  "description": "L 8.3. Festlegung: key der `line_items` = Slug der ersten Kopfzeile. Das Formular hat keine Actions und keine Buttons und löst die Warnung aus L 8.3 aus. Titel = erste Überschrift.",
+  "source": "docx",
+  "file": "files/formular.docx",
+  "params": {},
+  "expect_ops": [
+    {
+      "op": "doc.create",
+      "id": "<any>",
+      "title": "Bestellformular",
+      "blocks": [
+        {
+          "id": "<any>",
+          "type": "heading",
+          "props": {
+            "level": 1,
+            "content": [
+              {
+                "t": "text",
+                "text": "Bestellformular"
+              }
+            ]
+          }
+        },
+        {
+          "id": "<any>",
+          "type": "paragraph",
+          "props": {
+            "content": [
+              {
+                "t": "text",
+                "text": "Bitte alle Felder ausfüllen."
+              }
+            ]
+          }
+        },
+        {
+          "id": "<any>",
+          "type": "form",
+          "props": {
+            "actions": []
+          },
+          "children": [
+            {
+              "id": "<any>",
+              "type": "field",
+              "props": {
+                "key": "name",
+                "label": "Name",
+                "input": "text",
+                "required": true
+              }
+            },
+            {
+              "id": "<any>",
+              "type": "field",
+              "props": {
+                "key": "kostenstelle",
+                "label": "Kostenstelle",
+                "input": "text",
+                "required": false
+              }
+            },
+            {
+              "id": "<any>",
+              "type": "line_items",
+              "props": {
+                "key": "artikel",
+                "label": "Artikel",
+                "columns": [
+                  {
+                    "key": "artikel",
+                    "label": "Artikel",
+                    "input": "text"
+                  },
+                  {
+                    "key": "preis",
+                    "label": "Preis",
+                    "input": "currency"
+                  },
+                  {
+                    "key": "anzahl",
+                    "label": "Anzahl",
+                    "input": "integer"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "<any>",
+              "type": "field",
+              "props": {
+                "key": "lieferung_eilig",
+                "label": "Lieferung eilig",
+                "input": "boolean"
+              }
+            }
+          ]
+        },
+        {
+          "id": "<any>",
+          "type": "paragraph",
+          "props": {
+            "content": [
+              {
+                "t": "text",
+                "text": "Vielen Dank."
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "warnings_contain": [
+    "Formular schreibt nirgends hin"
+  ]
+}

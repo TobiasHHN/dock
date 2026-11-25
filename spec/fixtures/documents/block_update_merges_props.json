@@ -1,0 +1,66 @@
+{
+  "name": "block.update führt Props flach zusammen",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "L 7.5: Zwei ändern verschiedene Props eines Blocks, beide gewinnen. Die Block-Version steigt um 1.",
+  "state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Doc",
+        "blocks": [
+          {
+            "id": "h1",
+            "parent_id": null,
+            "position": "a0",
+            "type": "heading",
+            "version": 3,
+            "props": {
+              "level": 1,
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Titel"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "block.update",
+      "block": "h1",
+      "props": {
+        "level": 2
+      }
+    }
+  ],
+  "expect_state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "blocks": [
+          {
+            "id": "h1",
+            "version": 4,
+            "props": {
+              "level": 2,
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Titel"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

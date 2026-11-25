@@ -1,0 +1,74 @@
+{
+  "name": "block.delete löscht auch alle Kinder",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Doc",
+        "blocks": [
+          {
+            "id": "h1",
+            "parent_id": null,
+            "position": "a0",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Titel"
+                }
+              ]
+            }
+          },
+          {
+            "id": "l1",
+            "parent_id": null,
+            "position": "a1",
+            "type": "list",
+            "version": 1,
+            "props": {
+              "ordered": false
+            }
+          },
+          {
+            "id": "li1",
+            "parent_id": "l1",
+            "position": "a0",
+            "type": "list_item",
+            "version": 1,
+            "props": {
+              "content": []
+            }
+          },
+          {
+            "id": "li2",
+            "parent_id": "l1",
+            "position": "a1",
+            "type": "list_item",
+            "version": 1,
+            "props": {
+              "content": []
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "block.delete",
+      "block": "l1"
+    }
+  ],
+  "expect_block_ids": {
+    "doc_1": [
+      "h1"
+    ]
+  }
+}

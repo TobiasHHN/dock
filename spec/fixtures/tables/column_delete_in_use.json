@@ -1,0 +1,122 @@
+{
+  "name": "Spalte löschen ist blockiert, solange sie verwendet wird",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "L 9: IN_USE mit Liste der Verwendungen; es wird nichts gelöscht.",
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": []
+      }
+    ],
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Ansicht",
+        "blocks": [
+          {
+            "id": "blk_tv",
+            "parent_id": null,
+            "position": "a0",
+            "type": "table_view",
+            "props": {
+              "table": "tbl_best",
+              "columns": [
+                "col_preis"
+              ],
+              "editable": false
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "column.delete",
+      "table": "tbl_best",
+      "column": "col_preis"
+    }
+  ],
+  "expect_error": {
+    "code": "IN_USE",
+    "message_contains": "blk_tv"
+  },
+  "expect_state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "columns": [
+          {
+            "id": "col_name"
+          },
+          {
+            "id": "col_ks"
+          },
+          {
+            "id": "col_preis"
+          },
+          {
+            "id": "col_anz"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "name": "Unbekannte Pfade und Funktionen sind Fehler",
+  "kind": "expression",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "context": {
+    "fields": {
+      "name": "Ben",
+      "kostenstelle": "4711",
+      "anzahl": 3,
+      "artikel": [
+        {
+          "id": "i1",
+          "artikelname": "Monitor",
+          "preis": 249.5,
+          "anzahl": 2
+        },
+        {
+          "id": "i2",
+          "artikelname": "Maus",
+          "preis": 19.0,
+          "anzahl": 1
+        }
+      ]
+    },
+    "user": {
+      "id": "usr_ben",
+      "name": "Ben Mitarbeiter"
+    },
+    "run": {
+      "id": "run_42",
+      "starter": {
+        "id": "usr_ben",
+        "name": "Ben Mitarbeiter"
+      },
+      "steps": {
+        "erfassen": {
+          "values": {
+            "name": "Ben",
+            "kostenstelle": "4711"
+          },
+          "results": {
+            "order": {
+              "id": "row_b1"
+            }
+          },
+          "completed_by": {
+            "id": "usr_ben",
+            "name": "Ben Mitarbeiter"
+          }
+        }
+      }
+    },
+    "tables": {
+      "kostenstellen": [
+        {
+          "nummer": "4711",
+          "verantwortlich": "usr_chef"
+        },
+        {
+          "nummer": "4712",
+          "verantwortlich": "usr_anna"
+        }
+      ]
+    }
+  },
+  "cases": [
+    {
+      "expr": "{{fields.kostenstele}}",
+      "expect_error": "kostenstele"
+    },
+    {
+      "expr": "{{run.steps.genehmigung.values.x}}",
+      "expect_error": "genehmigung"
+    },
+    {
+      "expr": "{{eval(\"1\")}}",
+      "expect_error": "eval"
+    }
+  ]
+}

@@ -92,7 +92,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 | 0.6 ✅ | Platzhalter für den angemeldeten Nutzer (Header wählt Anna, Ben oder Chef), bis F1 fertig ist | P1 | alle können ohne echtes Login testen |
 | 0.7 | `CLAUDE.md` und `AGENTS.md` nach dem Aufbau abgleichen (Struktur, Befehle) | P2 | Befehle stimmen mit dem Repo überein |
 | 0.8 | TypeScript-Typen aus dem API-Schema erzeugen (Befehl siehe `CLAUDE.md`) | P2 | Typen im Frontend nutzbar |
-| 0.9 | Gemeinsamer Ordner `spec/fixtures/` mit Testfällen im Format „Zustand + Operationen → erwarteter Zustand“, den `pytest` und `vitest` beide lesen (T 5.3). Zwei Beispielfälle je für Tabellen, Dokumente, Ausdrücke und Import (kleine Beispieldateien mit erwarteten Ops). | P1 + P2 + P3 | Beide Test-Runner laden dieselben Fälle |
+| 0.9 ✅ | Gemeinsamer Ordner `spec/fixtures/` mit Testfällen im Format „Zustand + Operationen → erwarteter Zustand“, den `pytest` und `vitest` beide lesen (T 5.3). Zwei Beispielfälle je für Tabellen, Dokumente, Ausdrücke und Import (kleine Beispieldateien mit erwarteten Ops). | P1 + P2 + P3 | Beide Test-Runner laden dieselben Fälle |
 | 0.10 | Aufbau der Demo-Dateien festlegen, so dass der Import (L 8.3) ohne Handarbeit brauchbar ist: Spalten und Beispielzeilen in `Bestelluebersicht.xlsx`, Feldzeilen („Name: ____“), Artikeltabelle und Kontrollkästchen in `Bestellformular.docx`. Als Notiz in `demo/prompts.md`. | P3 + P5 | Notiz steht, beide verstehen die erwarteten Spalten, Felder und Warnungen |
 
 **Exit-Kriterium:** Alle können `git pull && docker compose up` ausführen und gegen die Stubs entwickeln.

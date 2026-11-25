@@ -1,0 +1,136 @@
+{
+  "name": "Word: Marks, Aufzählung und ausgefüllte Tabelle (-> Tabelle + table_view)",
+  "kind": "import",
+  "runners": [
+    "pytest"
+  ],
+  "description": "Festlegung: Tabellenname/-key = letzte Überschrift davor; Spalten aus Word-Tabellen sind immer `text` (keine Typableitung aus Zeichenketten). Reihenfolge der Ops: table.create, row.insert, doc.create.",
+  "source": "docx",
+  "file": "files/preisliste.docx",
+  "params": {},
+  "expect_ops": [
+    {
+      "op": "table.create",
+      "id": "<bind:tbl>",
+      "key": "preisliste",
+      "name": "Preisliste",
+      "columns": [
+        {
+          "id": "<bind:col_artikel>",
+          "key": "artikel",
+          "name": "Artikel",
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "id": "<bind:col_preis>",
+          "key": "preis",
+          "name": "Preis",
+          "type": {
+            "kind": "text"
+          }
+        }
+      ]
+    },
+    {
+      "op": "row.insert",
+      "table": "<bind:tbl>",
+      "rows": [
+        {
+          "id": "<any>",
+          "values": {
+            "artikel": "Monitor",
+            "preis": "249,00"
+          }
+        },
+        {
+          "id": "<any>",
+          "values": {
+            "artikel": "Tastatur",
+            "preis": "39,90"
+          }
+        }
+      ]
+    },
+    {
+      "op": "doc.create",
+      "id": "<any>",
+      "title": "Preisliste",
+      "blocks": [
+        {
+          "id": "<any>",
+          "type": "heading",
+          "props": {
+            "level": 1,
+            "content": [
+              {
+                "t": "text",
+                "text": "Preisliste"
+              }
+            ]
+          }
+        },
+        {
+          "id": "<any>",
+          "type": "paragraph",
+          "props": {
+            "content": [
+              {
+                "t": "text",
+                "text": "Alle Preise "
+              },
+              {
+                "t": "text",
+                "text": "netto",
+                "marks": [
+                  "bold"
+                ]
+              }
+            ]
+          }
+        },
+        {
+          "id": "<any>",
+          "type": "list",
+          "props": {
+            "ordered": false
+          },
+          "children": [
+            {
+              "id": "<any>",
+              "type": "list_item",
+              "props": {
+                "content": [
+                  {
+                    "t": "text",
+                    "text": "Monitor"
+                  }
+                ]
+              }
+            },
+            {
+              "id": "<any>",
+              "type": "list_item",
+              "props": {
+                "content": [
+                  {
+                    "t": "text",
+                    "text": "Tastatur"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "id": "<any>",
+          "type": "table_view",
+          "props": {
+            "table": "<bind:tbl>"
+          }
+        }
+      ]
+    }
+  ]
+}
