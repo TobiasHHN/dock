@@ -34,7 +34,7 @@ def _stub_pipeline(monkeypatch):
 GET_PATHS = [
     "/api/health", "/api/me", "/api/workflows",
     "/api/workflows/bestellprozess", "/api/runs", "/api/runs/run_42", "/api/tasks", "/api/notifications",
-    "/api/search?q=Bestellung", "/api/schema/ws-messages",
+    "/api/schema/ws-messages",
 ]
 
 

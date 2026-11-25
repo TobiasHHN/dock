@@ -2,7 +2,7 @@
 Phase 1: Jeder Owner ersetzt die Stubs seines Bereichs durch echte Implementierungen (Task-IDs in den Kommentaren)."""
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -311,13 +311,16 @@ search = APIRouter(prefix="/api", tags=["search"])
 
 
 @search.get("/search", response_model=A.SearchResponse)
-async def do_search(q: str, user: User, kinds: str | None = None, limit: int = 10):
-    return A.SearchResponse(query=q, hits=[
-        A.SearchHit(kind="workflow", id="wf_best", title="Bestellprozess", snippet="Bestellung erfassen, genehmigen …",
-                    score=0.9),
-        A.SearchHit(kind="document", id="doc_einkauf", title="Einkauf", snippet="Hier neue Bestellungen starten …",
-                    block_ids=["blk_e_p"], score=0.7),
-    ])
+async def do_search(q: str, user: User, kinds: str | None = None, limit: int = Query(10, ge=1, le=50)):
+    kind_list = None
+    if kinds:
+        kind_list = [k.strip() for k in kinds.split(",") if k.strip()]
+        bad = [k for k in kind_list if k not in ("document", "table", "workflow")]
+        if bad:
+            raise HTTPException(422, f"Unbekannte kinds: {', '.join(bad)}")
+    from app.search.search import hybrid_search
+
+    return await hybrid_search(q, user.actor, kind_list or None, limit)
 
 
 # ── Schema-Hilfe: bringt WS-Nachrichten und Ops ins OpenAPI (für TS-Typen, 0.8) ──
