@@ -132,6 +132,19 @@ def _demo_user(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _stub_search(monkeypatch):
+    """Die Suche (5.2) braucht Modell und DB; dieser Test prüft nur das MCP-Werkzeug `search` und den Pfad."""
+    from app.schemas.api import SearchHit, SearchResponse
+    from app.search import search as search_mod
+
+    async def fake(query, actor, kinds=None, limit=10):
+        return SearchResponse(query=query, hits=[SearchHit(
+            kind="workflow", id="wf_best", title="Bestellprozess", snippet="Bestellung erfassen …", score=0.9)])
+
+    monkeypatch.setattr(search_mod, "hybrid_search", fake)
+
+
+@pytest.fixture(autouse=True)
 def _stub_reads(monkeypatch):
     """Dokument- und Tabellen-Lesezugriffe sind seit 1.4 echt (DB); dieser Test prüft nur die MCP-Werkzeuge,
     deshalb liefern die Abfragen hier die Beispieldaten aus `stub_data`."""
