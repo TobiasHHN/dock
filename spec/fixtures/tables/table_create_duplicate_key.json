@@ -1,0 +1,91 @@
+{
+  "name": "table.create mit vergebenem Key -> VALIDATION am Feld key",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": []
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "table.create",
+      "id": "tbl_x",
+      "key": "bestellungen",
+      "name": "Nochmal",
+      "columns": []
+    }
+  ],
+  "expect_error": {
+    "code": "VALIDATION",
+    "fields": [
+      "key"
+    ],
+    "message_contains": "bestellungen"
+  },
+  "expect_state": {
+    "tables": [
+      {
+        "id": "tbl_best"
+      }
+    ]
+  }
+}

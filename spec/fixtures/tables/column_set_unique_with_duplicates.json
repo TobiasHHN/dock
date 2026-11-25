@@ -1,0 +1,128 @@
+{
+  "name": "Spalte eindeutig machen scheitert bei doppelten Werten",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": [
+          {
+            "id": "row_1",
+            "position": "a0",
+            "version": 1,
+            "values": {
+              "col_name": "Monitor",
+              "col_ks": "4711",
+              "col_preis": 249.5,
+              "col_anz": 2
+            }
+          },
+          {
+            "id": "row_2",
+            "position": "a1",
+            "version": 1,
+            "values": {
+              "col_name": "Kabel",
+              "col_ks": "4711"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "column.update",
+      "table": "tbl_best",
+      "column": "kostenstelle",
+      "patch": {
+        "unique": true
+      }
+    }
+  ],
+  "expect_error": {
+    "code": "VALIDATION",
+    "fields": [
+      "patch.unique"
+    ],
+    "message_contains": "4711"
+  },
+  "expect_state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "columns": [
+          {
+            "id": "col_name"
+          },
+          {
+            "id": "col_ks",
+            "unique": false
+          },
+          {
+            "id": "col_preis"
+          },
+          {
+            "id": "col_anz"
+          }
+        ]
+      }
+    ]
+  }
+}
