@@ -132,7 +132,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 ### P1: Backend Core
 | ID | Task | Done wenn | Abhängig von |
 |---|---|---|---|
-| 1.1 🚧 | **F1** Anmeldung: Sign-up mit Rollenwahl, Login, Token mit Rollen, Rollen anlegen/ändern/zuweisen, Akteur aus dem Token bestimmen inklusive „im Auftrag von“ (L 5.8). Platzhalter aus 0.6 entfernen. | Login als Anna/Ben/Chef liefert Token mit richtiger Rolle, falsche Rolle bekommt 403 | 0.3 |
+| 1.1 ✅ | **F1** Anmeldung: Sign-up mit Rollenwahl, Login, Token mit Rollen, Rollen anlegen/ändern/zuweisen, Akteur aus dem Token bestimmen inklusive „im Auftrag von“ (L 5.8). Platzhalter aus 0.6 entfernen. | Login als Anna/Ben/Chef liefert Token mit richtiger Rolle, falsche Rolle bekommt 403 | 0.3 |
 | 1.2 ✅ | **F2** Ausführung von Operationen: Batch atomar ausführen, Keys auflösen, Versionsprüfung mit `CONFLICT`, Wiederholung mit gleicher `batch_id` ungefährlich, Rechteprüfung, Op-Log mit inversen Ops, Referenz-Index (L 6.2, L 9, T 2.4, T 2.5) | Ein Batch mit mehreren Ops ist ganz oder gar nicht gespeichert, zweiter Versuch mit gleicher ID liefert das erste Ergebnis | 0.4, 0.5 |
 | 1.3 ✅ | **F3** Tabellen: `table.*`, `column.*`, `row.*` mit Typumwandlung, Pflicht/Eindeutig/Min/Max, Referenzen mit `on_delete`, Löschschutz mit Liste der Verwendungen, Spaltentyp ändern (L 2) | Fehlerfälle aus L 2.2 liefern verständliche Meldungen pro Feld, Fixtures laufen grün | 1.2 |
 | 1.4 ✅ | **F4** Dokumente: `doc.*`, `block.*` (ohne `text.edit`), Verschachtelungsregeln, lesende Endpunkte für Dokumente, Tabellen und gefilterte Zeilen, Markdown-Ansicht mit Block-IDs und Import (L 3, L 8.2, T 2.2) | `get_document` als Markdown und zurück ergibt dieselben Blöcke | 1.2 |
@@ -182,16 +182,12 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 
 ### Handover P1 (Backend Core) → andere Tasks
 
-**Stand (2026-11-25):** 1.2 bis 1.5 sind ✅ auf `main`, 1.1 ist 🚧 (siehe unten). Backend-Suite: 248 passed, 12 skipped. Die Details stehen in den Docstrings der genannten Dateien. Hier steht nur, was andere Tasks wissen oder tun müssen.
-
-**Lücke in P1 (wird von P1 nachgezogen):**
-
-- **1.1 🚧, Rollen-Ops fehlen:** `role.create`, `role.update`, `role.delete`, `user.set_roles` und `agent.set_roles` haben keinen Handler. Die Pipeline lehnt sie mit `VALIDATION` ab, die Rechteprüfung (`einkauf`) existiert. Bis dahin entstehen Rollen nur beim Sign-up.
+**Stand (2026-11-25):** 1.1 bis 1.5 sind ✅ auf `main`. Backend-Suite: 254 passed, 12 skipped. Die Details stehen in den Docstrings der genannten Dateien. Hier steht nur, was andere Tasks wissen oder tun müssen.
 
 **Für alle:**
 
 - **Handler:** Neue Ops kommen als Modul in `backend/app/ops/handlers/` mit `@register("<op>")`. Die Schnittstelle (`touch`, `changed`, `set_references`, `add_inverse`, `resolve`, `lock_channel`) steht in `backend/app/ops/context.py`. Versionen erhöht die Pipeline, nicht der Handler.
-- **Fehlende Handler (Stand jetzt):** Alle Ops außer `table.*`, `column.*`, `row.*`, `doc.*` und `block.*` liefern `VALIDATION` („nicht verfügbar“). Das gilt für `draft.*`, `form.submit`, `workflow.*`, `run.*`, `task.*`, `text.edit`, die Rollen-Ops und `import.include`-Inhalte ohne Handler.
+- **Fehlende Handler (Stand jetzt):** Alle Ops außer `table.*`, `column.*`, `row.*`, `doc.*`, `block.*`, `role.*` und `user/agent.set_roles` liefern `VALIDATION` („nicht verfügbar“). Das gilt für `draft.*`, `form.submit`, `workflow.*`, `run.*`, `task.*`, `text.edit` und `import.include`-Inhalte ohne Handler.
 - **Rechte in der Pipeline:** Nur strukturelle Ops verlangen `einkauf` (`table.*`, `column.*`, `doc.*`, `block.*`, `workflow.*`, `role.*`, `text.edit`, `user/agent.set_roles`). `row.*`, `draft.*`, `form.submit`, `run.*` und `task.*` sind auf Pipeline-Ebene offen. Die fachliche Prüfung (Startberechtigung, `can_act`, Sichtbarkeit) muss der jeweilige Handler machen.
 - **Fixtures:** Die In-Memory-Fassung ist `backend/app/ops/memory.py` (Tabellen) plus `memory_documents.py` (Dokumente). Neue Op-Arten registrieren sich mit `@memory_op("<op>")` in einer eigenen Datei. Nicht registrierte Ops werden in `test_fixtures` übersprungen.
 - **Positionen:** Fractional Index in Basis 62, `backend/app/domain/positions.py` (Port von `fractional-indexing`). Das Frontend muss dasselbe Verfahren nutzen.
@@ -206,6 +202,10 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 
   Die Beispiele stehen in `spec/fixtures/tables/`.
 - **Keys:** Tabellen-Keys dürfen nicht mit `tbl_` beginnen, Spalten-Keys nicht mit `col_`. Sie würden sonst als ID gelesen.
+- **Rollen-Ops (`backend/app/ops/handlers/roles.py`):**
+  - Rollen-Keys: Kleinbuchstaben, Ziffern und `_`, beginnend mit einem Buchstaben, nicht mit `rol_`.
+  - `role.delete` liefert `IN_USE`, solange Mitglieder die Rolle haben (`details.members`) oder der Referenz-Index sie nennt (`details.usages`, z. B. Workflow-Zuständige). Die Workflow-Handler müssen die Kanten `step.assignee`, `workflow.starters` und `workflow.managers` melden.
+  - `user/agent.set_roles` liefert die neuen Rollen-IDs in `results` und wirkt ab dem nächsten Batch (L 5.8).
 
 **2.2 Login (P2):** `POST /api/auth/signup` (Name, E-Mail, Passwort mit mindestens 8 Zeichen, Rolle `einkauf`, `mitarbeiter` oder `chef`) und `POST /api/auth/login` liefern ein JWT (8 h). `GET /api/me`, `/api/roles` und `/api/users?role=` lesen aus der DB. `X-Demo-User` gibt es nicht mehr, ohne Token kommt 401.
 
