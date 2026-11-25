@@ -131,6 +131,19 @@ def _demo_user(monkeypatch):
     app.dependency_overrides.pop(get_session, None)
 
 
+@pytest.fixture(autouse=True)
+def _stub_pipeline(monkeypatch):
+    """POST /api/ops läuft seit 1.2 durch die echte Pipeline (Handler kommen mit 1.3/1.4). Diese Tests prüfen
+    nur den Vertrag der Stubs und die Werkzeuge, nicht die Persistenz."""
+    from app.api import routers
+    from app.schemas.ops import BatchResult
+
+    async def fake(batch, actor, session=None):
+        return BatchResult(batch_id=batch.batch_id, seq={"workspace": 1}, results={})
+
+    monkeypatch.setattr(routers, "apply_batch", fake)
+
+
 async def test_exact_tool_set():
     async with create_connected_server_and_client_session(mcp._mcp_server) as client:
         tools = (await client.list_tools()).tools

@@ -18,6 +18,19 @@ def _logged_in_user():
 
 client = TestClient(app)
 
+
+@pytest.fixture(autouse=True)
+def _stub_pipeline(monkeypatch):
+    """POST /api/ops läuft seit 1.2 durch die echte Pipeline (Handler kommen mit 1.3/1.4). Diese Tests prüfen
+    nur den Vertrag der Stubs und die Werkzeuge, nicht die Persistenz."""
+    from app.api import routers
+    from app.schemas.ops import BatchResult
+
+    async def fake(batch, actor, session=None):
+        return BatchResult(batch_id=batch.batch_id, seq={"workspace": 1}, results={})
+
+    monkeypatch.setattr(routers, "apply_batch", fake)
+
 GET_PATHS = [
     "/api/health", "/api/me", "/api/documents", "/api/documents/doc_s1",
     "/api/documents/doc_s1/markdown", "/api/tables", "/api/tables/bestellungen", "/api/workflows",
