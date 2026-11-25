@@ -238,6 +238,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 
 - **Prüfungen im Handler:** `run.*` und `task.*` prüfen Startberechtigung und `can_act` im Handler.
 - **Löschen und Verweise:** `doc.delete` liefert `IN_USE`, wenn ein Workflow das Dokument nutzt. Die Workflow-Handler müssen dafür ihre Kanten melden (`set_references`).
+- **Offen, noch keinem Task zugeordnet (L 9):** `role.delete` und `column.delete` sind nur durch den Entwurf geschützt, nicht durch ältere Workflow-Versionen mit aktiven Runs (gefunden im Review von 4.1).
 - **Run-Kontext:** `GET /api/documents/{doc}?run=` ignoriert `run` noch (gehört zu 4.3).
 - **Sichtbarkeit:** Wer `run:<id>` abonnieren darf, steht in `backend/app/realtime/access.py`: Antragsteller, Beteiligte an Aufgaben (Person oder Rolle) und `einkauf`. Dass `einkauf` alle Runs sieht, ist eine Festlegung von P1.
 - **Rollenänderung bei offener Verbindung:** Abos werden nicht beendet und es kommt kein neuer `user:`-Snapshot (L 7.2/7.3). Das muss mit `user.set_roles` bzw. der Engine kommen.

@@ -301,6 +301,51 @@ def test_subflow_cycle_is_rejected():
     assert any(x.code == "CYCLE" and other in x.message for x in r.issues)
 
 
+def _form(ex: dict, step: str) -> dict:
+    return next(b for b in ex["docs"][ex["ids"][step]] if b["type"] == "form")
+
+
+def test_automatic_save_button_counts():
+    """L 4.3: Formular mit Feldern ohne `buttons` hat einen Speichern-Button (ohne Outcome, braucht also '*')."""
+    ex = example()
+    del _form(ex, "s1")["props"]["buttons"]
+    rest = ex["definition"]["transitions"][1:]
+    assert check(ex, transitions=[{"from": "erfassen", "on": "*", "to": "genehmigung"}, *rest]).ok
+    assert "BUTTON_NO_OUTCOME" in codes(check(ex))
+    _form(ex, "s1")["props"]["buttons"] = []
+    assert "STEP_NO_BUTTONS" in codes(check(ex))
+
+
+def test_dead_ends_are_errors():
+    ex = example()
+    button = _form(ex, "s3")["props"]["buttons"][0]
+    button["outcome"] = None
+    assert "BUTTON_NO_OUTCOME" in codes(check(ex))
+    # 'ordered' führt zum Ende, aber kein Button löst es aus
+    button["outcome"] = "again"
+    loop = [*ex["definition"]["transitions"], {"from": "bestellung", "on": "again", "to": "bestellung"}]
+    r = check(ex, transitions=loop)
+    assert any(x.code == "NO_PATH_TO_END" and x.step == "bestellung" for x in r.issues)
+    # '*' greift nur für Outcomes ohne eigenen Übergang
+    loop = [*loop[:-2], loop[-1], {"from": "bestellung", "on": "*", "to": "end"}]
+    assert "NO_PATH_TO_END" in codes(check(ex, transitions=loop))
+
+
+def test_duplicate_transition_is_error():
+    ex = example()
+    r = check(ex, transitions=[*ex["definition"]["transitions"], {"from": "erfassen", "on": "submitted", "to": "end"}])
+    assert "TRANSITION_DUPLICATE" in codes(r)
+
+
+def test_typos_in_run_step_paths():
+    ex = example()
+    ex["docs"][ex["ids"]["s2"]][0]["props"]["content"][1]["expr"] = (
+        "{{concat(run.steps.erfassen.values.nmae, run.steps.erfassen.results.ordr.id, run.steps.erfassen.valus.name)}}")
+    r = check(ex)
+    assert {"EXPR_UNKNOWN_FIELD", "EXPR_UNKNOWN_RESULT", "EXPR_UNKNOWN_RUN_PATH"} == set(codes(r))
+    assert any("Meinten Sie 'name'" in x.message for x in r.issues)
+
+
 # ── gegen Postgres ───────────────────────────────────────────────────────────
 
 
@@ -341,6 +386,7 @@ async def engine(monkeypatch):
             "DELETE FROM tables WHERE id LIKE '%zz41%'",
             "DELETE FROM member_roles WHERE member_id LIKE '%zz41%' OR role_id LIKE '%zz41%'",
             "DELETE FROM roles WHERE id LIKE '%zz41%'",
+            "DELETE FROM agents WHERE id LIKE '%zz41%'",
         ):
             await c.execute(text(stmt))
     await eng.dispose()
@@ -454,6 +500,41 @@ async def test_create_rejects_bad_and_duplicate_keys(engine):
         with pytest.raises(PipelineError) as exc:
             await run({"op": "workflow.create", "name": "X", "definition": definition, **op})
         assert exc.value.error.code == "VALIDATION" and field in exc.value.error.details["errors"]
+
+
+async def test_agent_may_be_assignee(engine):
+    ex = example()
+    agent = zid("agt")
+    ex["definition"]["steps"][1]["assignees"] = [{"kind": "user", "user": agent}]
+    publish = {"op": "workflow.publish", "workflow": ex["ids"]["wf"]}
+    async with engine.begin() as c:
+        await c.execute(text("INSERT INTO agents (id, workspace_id, name) VALUES (:i, 'ws_demo', 'A')"), {"i": agent})
+    await run(*ex["ops"], publish)
+    async with engine.begin() as c:
+        await c.execute(text("UPDATE agents SET active = false WHERE id = :i"), {"i": agent})
+    with pytest.raises(PipelineError) as exc:
+        await run(publish)
+    assert "USER_UNKNOWN" in {x["code"] for x in exc.value.error.details["issues"]}
+
+
+async def test_cycle_over_published_version_is_rejected(engine):
+    a, b = example(), example()
+
+    def subflow(target):
+        return {"id": zid("blk"), "type": "workflow", "props": {"workflow": target, "mode": "subflow"}}
+
+    await run(*a["ops"])
+    await run(*b["ops"])
+    block = subflow(a["ids"]["wf"])
+    await run({"op": "block.insert", "doc": b["ids"]["s1"], "parent": None, "block": block})
+    await run({"op": "workflow.publish", "workflow": b["ids"]["wf"]})
+    await run({"op": "block.delete", "block": block["id"]})  # nur noch in v1 von b
+    await run({"op": "block.insert", "doc": a["ids"]["s1"], "parent": None, "block": subflow(b["ids"]["wf"])})
+    with pytest.raises(PipelineError) as exc:
+        await run({"op": "workflow.publish", "workflow": a["ids"]["wf"]})
+    assert "CYCLE" in {x["code"] for x in exc.value.error.details["issues"]}
+    await run({"op": "workflow.publish", "workflow": b["ids"]["wf"]})  # v2 ohne a hebt den Zyklus auf
+    await run({"op": "workflow.publish", "workflow": a["ids"]["wf"]})
 
 
 async def test_ben_may_not_create_or_publish(engine):

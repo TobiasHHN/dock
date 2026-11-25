@@ -38,6 +38,7 @@ ROOTS = {"fields", "item", "results", "run", "user", "now", "today"}
 RUN_ATTRS = {"id", "title", "status", "steps", "starter", "input", "children", "started_at", "started_by",
              "current_step", "version", "workflow", "result"}
 CREATE_ACTIONS = {"create_row", "create_rows"}
+STEP_ATTRS = {"outcome", "label", "values", "results", "completed_by", "completed_at"}
 
 
 # ── Schnappschuss der referenzierten Objekte ─────────────────────────────────
@@ -49,9 +50,9 @@ class WorkflowEnv:
 
     documents: dict[str, dict[str, Any]] = field(default_factory=dict)  # doc_id -> {title, owner_workflow, owner_step, blocks}
     roles: dict[str, dict[str, Any]] = field(default_factory=dict)  # rol_id -> {key, name, members}
-    users: dict[str, str] = field(default_factory=dict)  # usr_id -> Name (nur aktive)
+    users: dict[str, str] = field(default_factory=dict)  # usr_id/agt_id -> Name (nur aktive, L 5.8)
     tables: dict[str, dict[str, Any]] = field(default_factory=dict)  # tbl_id -> {key, columns: {col_id: {key, required, default}}}
-    subflows: dict[str, set[str]] = field(default_factory=dict)  # wf_id -> Workflows, die seine Schritte als subflow starten
+    subflows: dict[str, set[str]] = field(default_factory=dict)  # wf_id -> Subflow-Ziele (Entwurf und aktuelle Version)
     workflows: set[str] = field(default_factory=set)  # existierende Workflow-IDs
     workflow_id: str | None = None  # der geprüfte Workflow (None = freie Definition)
 
@@ -115,9 +116,18 @@ def _suggest(name: str, known: set[str]) -> str:
 # ── Graph ────────────────────────────────────────────────────────────────────
 
 
-def _graph(definition: WorkflowDefinition, step_keys: set[str]) -> dict[str, set[str]]:
+def _graph(definition: WorkflowDefinition, step_keys: set[str],
+           outcomes: dict[str, set[str | None]] | None = None) -> dict[str, set[str]]:
+    """Kanten der Übergänge. Mit ``outcomes`` (Schritt -> Outcomes seiner Buttons) nur die auslösbaren; Schritte
+    ohne Eintrag (kein Dokument, keine Buttons) behalten alle Kanten, sie haben schon eine eigene Meldung."""
     edges: dict[str, set[str]] = {k: set() for k in step_keys}
+    exact: dict[str, set[str]] = {}
     for t in definition.transitions:
+        exact.setdefault(t.from_, set()).add(t.on)
+    for t in definition.transitions:
+        produced = (outcomes or {}).get(t.from_)
+        if produced and (not produced - exact[t.from_] if t.on == ANY_OUTCOME else t.on not in produced):
+            continue
         if t.from_ in step_keys and (t.to in step_keys or t.to == END):
             edges[t.from_].add(t.to)
     return edges
@@ -179,6 +189,16 @@ class _Form:
     line_items: dict[str, set[str]]  # key -> Spalten-Keys
     descendants: set[str]
 
+    @property
+    def buttons(self) -> list[dict[str, Any]]:
+        """Buttons nach L 4.3: explizite, sonst automatisch „Speichern“, wenn das Formular Felder hat."""
+        props = self.block["props"]
+        if props.get("buttons") is not None:
+            return props["buttons"]
+        if not self.fields:
+            return []
+        return [{"id": "save", "label": "Speichern", "actions": [a.get("key") for a in props.get("actions") or []]}]
+
 
 def _forms(blocks: list[dict[str, Any]]) -> list[_Form]:
     tree = _children(blocks)
@@ -223,22 +243,37 @@ def check_definition(definition: WorkflowDefinition, env: WorkflowEnv) -> Valida
             issues.error("TRANSITION_UNKNOWN_STEP", f"Übergang {i}: 'to' = '{t.to}' ist weder ein Schritt noch 'end'."
                          + _suggest(t.to, step_keys | {END}), field=f"transitions[{i}].to")
 
+    pairs: set[tuple[str, str]] = set()
+    for i, t in enumerate(definition.transitions):
+        if (t.from_, t.on) in pairs:
+            issues.error("TRANSITION_DUPLICATE", f"Übergang {i}: von '{t.from_}' mit on = '{t.on}' gibt es schon einen "
+                         "Übergang, das Ziel wäre mehrdeutig. Einen davon entfernen.", step=t.from_,
+                         field=f"transitions[{i}]")
+        pairs.add((t.from_, t.on))
+
+    step_forms = {s.key: _forms(env.documents[s.document]["blocks"]) for s in steps if s.document in env.documents}
+    step_outcomes = {k: {b.get("outcome") for f in forms for b in f.buttons} for k, forms in step_forms.items()}
+
     edges = _graph(definition, step_keys)
+    live = _graph(definition, step_keys, step_outcomes)
+    live_reachable = _reachable(live, definition.start) - {END} if definition.start in step_keys else set()
     reachable = _reachable(edges, definition.start) - {END} if definition.start in step_keys else set()
     reverse: dict[str, set[str]] = {}
-    for src, targets in edges.items():
+    for src, targets in live.items():
         for dst in targets:
             reverse.setdefault(dst, set()).add(src)
     leads_to_end = _reachable(reverse, END) - {END}
     if definition.start in step_keys:
         for step in steps:
-            if step.key not in reachable:
+            if step.key not in live_reachable:
                 issues.error("STEP_UNREACHABLE", f"Schritt '{step.key}' ist von start ('{definition.start}') aus "
-                             "nicht erreichbar. Einen Übergang dorthin anlegen oder den Schritt entfernen.",
+                             "nicht erreichbar. Einen Übergang dorthin anlegen (den ein Button auslöst) oder den "
+                             "Schritt entfernen.",
                              step=step.key)
             elif step.key not in leads_to_end:
                 issues.error("NO_PATH_TO_END", f"Von Schritt '{step.key}' führt kein Weg zu 'end'. Einen Übergang "
-                             f"mit \"to\": \"end\" oder zu einem Schritt mit Weg zum Ende ergänzen.", step=step.key)
+                             f"mit \"to\": \"end\" oder zu einem Schritt mit Weg zum Ende ergänzen, "
+                             "den ein Button auslöst.", step=step.key)
 
     # Zyklen in sich selbst (Schritt kann erneut besucht werden)
     revisitable = {k for k in step_keys if any(k in _reachable(edges, n) for n in edges.get(k, ()))}
@@ -263,6 +298,22 @@ def check_definition(definition: WorkflowDefinition, env: WorkflowEnv) -> Valida
                              step=step_key, field=path)
             elif a.kind == "expr":
                 check_expr(a.expr, step_key, None, path, form=None, action=None)
+
+    def check_step_path(p: str, parts: list[str], forms: list[_Form], where: dict[str, Any]) -> None:
+        """``run.steps.<schritt>.<attr>[.<key>]`` gegen die Formulare dieses Schritts."""
+        if len(parts) > 3 and parts[3] not in STEP_ATTRS:
+            issues.error("EXPR_UNKNOWN_RUN_PATH", f"'{p}' ({where['field']}): '{parts[3]}' gibt es in einem "
+                         "Schritt-Ergebnis nicht." + _suggest(parts[3], STEP_ATTRS), **where)
+        elif len(parts) > 4 and parts[3] == "values":
+            known = {k for f in forms for k in f.fields}
+            if parts[4] not in known:
+                issues.error("EXPR_UNKNOWN_FIELD", f"'{p}' ({where['field']}): Schritt '{parts[2]}' hat kein Feld "
+                             f"'{parts[4]}'." + _suggest(parts[4], known), **where)
+        elif len(parts) > 4 and parts[3] == "results":
+            known = {a.get("key") for f in forms for a in f.block["props"].get("actions") or []}
+            if parts[4] not in known:
+                issues.error("EXPR_UNKNOWN_RESULT", f"'{p}' ({where['field']}): Schritt '{parts[2]}' hat keine Action "
+                             f"'{parts[4]}'." + _suggest(parts[4], known), **where)
 
     def check_expr(value: str, step_key: str | None, block: str | None, path: str, *,
                    form: _Form | None, action: dict[str, Any] | None, dominance: bool = True) -> None:
@@ -305,6 +356,8 @@ def check_definition(definition: WorkflowDefinition, env: WorkflowEnv) -> Valida
                     elif dominance and step_key in dom and ref not in dom[step_key] - {step_key}:
                         issues.error("RUN_STEP_NOT_BEFORE", f"'run.steps.{ref}' wird in Schritt '{step_key}' "
                                      f"verwendet, aber '{ref}' liegt nicht auf jedem Weg davor ({path}).", **where)
+                    if ref in step_forms:
+                        check_step_path(p, parts, step_forms[ref], where)
 
     for i, step in enumerate(steps):
         sp = f"steps[{i}]"
@@ -383,7 +436,7 @@ def check_definition(definition: WorkflowDefinition, env: WorkflowEnv) -> Valida
                                              step=step.key, block=bid, field=f"{ap}.values")
                 for path, value in _strings(action, ap):
                     check_expr(value, step.key, bid, path, form=form, action=action)
-            for j, button in enumerate(props.get("buttons") or []):
+            for j, button in enumerate(form.buttons):
                 bp = f"buttons[{j}]"
                 for k, key in enumerate(button.get("actions") or []):
                     if key not in action_keys:
@@ -419,8 +472,9 @@ def check_definition(definition: WorkflowDefinition, env: WorkflowEnv) -> Valida
         for bid, outcome, button_id in outcomes:
             if outcome is None:
                 if not wildcard:
-                    issues.warning("BUTTON_NO_OUTCOME", f"Button '{button_id}' in Schritt '{step.key}' hat kein "
-                                   "outcome und es gibt keinen Übergang mit on = \"*\".", step=step.key, block=bid)
+                    issues.error("BUTTON_NO_OUTCOME", f"Button '{button_id}' in Schritt '{step.key}' hat kein "
+                                 "outcome und es gibt keinen Übergang mit on = \"*\", der Run bliebe stehen. outcome "
+                                 "setzen oder einen solchen Übergang ergänzen.", step=step.key, block=bid)
             elif not wildcard and not any(t.on == outcome for t in own):
                 issues.error("BUTTON_NO_TRANSITION", f"Button '{button_id}' in Schritt '{step.key}' hat Outcome "
                              f"'{outcome}', aber es gibt keinen passenden Übergang. Übergang "
@@ -505,8 +559,11 @@ async def load_env(ctx: Any, definition: WorkflowDefinition, workflow_id: str | 
 
     user_ids = [a.user for a in _all_assignees(definition) if a.kind == "user"]
     if user_ids:
-        rows = await session.execute(text("SELECT id, name FROM users WHERE active AND id = ANY(CAST(:ids AS text[]))"),
-                                     {"ids": user_ids})
+        rows = await session.execute(text(
+            """SELECT id, name FROM users WHERE active AND id = ANY(CAST(:ids AS text[]))
+               UNION ALL
+               SELECT id, name FROM agents
+               WHERE active AND workspace_id = :ws AND id = ANY(CAST(:ids AS text[]))"""), {"ids": user_ids, "ws": ws})
         env.users = {r["id"]: r["name"] for r in rows.mappings()}
 
     # Alle Workflows und ihre Schritt-Dokumente (für Zyklen); die Definition des geprüften gilt mit neuem Stand.
@@ -532,6 +589,17 @@ async def load_env(ctx: Any, definition: WorkflowDefinition, workflow_id: str | 
         for wid, doc_ids in step_docs.items():
             env.subflows[wid] = {b["props"]["workflow"] for d in doc_ids if d in docs for b in docs[d]["blocks"]
                                  if b["type"] == "workflow" and b["props"].get("mode") == "subflow"}
+
+    # Auch die aktuell veröffentlichten Stände zählen: die startet ein Subflow zur Laufzeit (L 5.6).
+    rows = await session.execute(text(
+        """SELECT v.workflow_id, v.documents FROM workflow_versions v
+           JOIN workflows w ON w.id = v.workflow_id AND w.latest_version = v.version
+           WHERE w.workspace_id = :ws"""), {"ws": ws})
+    for r in rows.mappings():
+        if r["workflow_id"] != workflow_id:
+            env.subflows.setdefault(r["workflow_id"], set()).update(
+                b["props"]["workflow"] for blocks in _j(r["documents"]).values() for b in blocks
+                if b["type"] == "workflow" and b["props"].get("mode") == "subflow")
 
     table_ids = sorted({a.get("table") for doc in env.documents.values() for b in doc["blocks"]
                         if b["type"] == "form" for a in b["props"].get("actions") or [] if a.get("table")})
