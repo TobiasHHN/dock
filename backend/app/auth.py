@@ -81,6 +81,7 @@ def create_access_token(
     *,
     actor: Actor | None = None,
     now: datetime | None = None,
+    ttl: timedelta | None = None,
 ) -> str:
     """Issue a user token, or an internal agent-on-behalf token.
 
@@ -95,7 +96,7 @@ def create_access_token(
         "typ": "access",
         "iss": _JWT_ISSUER,
         "iat": issued_at,
-        "exp": issued_at + _ACCESS_TOKEN_TTL,
+        "exp": issued_at + (ttl or _ACCESS_TOKEN_TTL),
     }
     if actor is not None:
         if actor.type != "agent" or actor.on_behalf_of != user_id or not actor.id.startswith("agt_"):
