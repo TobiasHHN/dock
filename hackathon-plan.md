@@ -173,7 +173,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 ### P5: Suche, MCP, Demo
 | ID | Task | Done wenn | Abhängig von |
 |---|---|---|---|
-| 5.1 | **F13** Einbetten: Abschnitte aus Dokumenten, Tabellen-Schemata und Workflows, nur Geänderte neu, entprellt (T 3.1, T 3.2) | Änderung an einem Dokument führt nach kurzer Zeit zu neuen Einträgen | 0.3, 0.5 |
+| 5.1 ✅ | **F13** Einbetten: Abschnitte aus Dokumenten, Tabellen-Schemata und Workflows, nur Geänderte neu, entprellt (T 3.1, T 3.2) | Änderung an einem Dokument führt nach kurzer Zeit zu neuen Einträgen (Aufruf von enqueue_reembed aus der Pipeline kommt mit 1.2) | 0.3, 0.5 |
 | 5.2 | **F13** Hybride Suche über Bedeutung und Stichwörter, Treffer pro Quelle mit Verweis auf den Block, Rechte vor der Rückgabe prüfen (T 3.3) | Suche „Formular für Bestellungen“ findet das Dokument auch ohne exakten Treffer | 5.1 |
 | 5.3 | **F14** MCP-Server mit allen Tools aus L 8.1. Dazu die Import-Tools `import_xlsx` und `import_docx` (lesen die lokale Datei und rufen den Import auf). Tool-Beschreibungen enthalten Hinweise für Agenten (erst Dateien importieren, `list_roles`, dann **ein** `apply_ops`-Batch mit `import.include`; Fehler lesen und korrigieren). Fehler der Pipeline als lesbare Tool-Fehler (T 2.8). | Ein Agent kann alle Tools gegen die Stubs aufrufen | 0.4 (Import-Tools echt ab 3.6/3.7) |
 | 5.4 | Demo-Dateien `Bestelluebersicht.xlsx` (2–3 Beispielanträge) und `Bestellformular.docx` erstellen, genau nach dem Aufbau aus 0.10 | Beide Dateien importieren ohne Fehler und mit den erwarteten Warnungen | 0.10 |
