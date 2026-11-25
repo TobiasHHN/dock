@@ -95,7 +95,33 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 | 0.9 ✅ | Gemeinsamer Ordner `spec/fixtures/` mit Testfällen im Format „Zustand + Operationen → erwarteter Zustand“, den `pytest` und `vitest` beide lesen (T 5.3). Zwei Beispielfälle je für Tabellen, Dokumente, Ausdrücke und Import (kleine Beispieldateien mit erwarteten Ops). | P1 + P2 + P3 | Beide Test-Runner laden dieselben Fälle |
 | 0.10 ✅ | Aufbau der Demo-Dateien festlegen, so dass der Import (L 8.3) ohne Handarbeit brauchbar ist: Spalten und Beispielzeilen in `Bestelluebersicht.xlsx`, Feldzeilen („Name: ____“), Artikeltabelle und Kontrollkästchen in `Bestellformular.docx`. Als Notiz in `demo/prompts.md`. | P3 + P5 | Notiz steht, beide verstehen die erwarteten Spalten, Felder und Warnungen |
 
-> Notiz zu 0.1: ✅ nach Kriterium („Entwurf steht“). Das Abnicken durch das Team steht noch aus (Checkliste am Ende von `demo/prompts.md`).
+## Handover Phase 0 → Phase 1
+
+**Status: Phase 0 ist abgeschlossen** (0.1–0.10 ✅, auf `main`, Review ohne offene Abweichungen). Wer eine Phase-1-Aufgabe übernimmt, startet von `main`, legt einen Branch `task/<id>-<kurzname>` an und hält sich an `AGENTS.md`.
+
+**Was existiert (und wo):**
+
+| Bereich | Stand | Ort |
+|---|---|---|
+| Betrieb | `docker compose up -d --build` startet db (Host-Port **5433**), backend (:8000), worker, frontend (:5173). Frisch: `docker compose down -v && docker compose up -d` | `docker-compose.yml` |
+| Schema | alle Tabellen aus T 4, Workspace `ws_demo`. Quelle der Wahrheit ist `init.sql`, keine Migrationen, keine `models.py` | `db/init.sql` |
+| API-Vertrag | Pydantic-Schemas für alle 40 Ops (L 6.1), Blöcke, Tabellen, Workflows/Runs/Tasks/Status, WebSocket-Nachrichten und Snapshot-Inhalte. **Verbindlich, Änderungen nur nach Absprache** | `backend/app/schemas/` |
+| Stub-Endpunkte | liefern Bestellprozess-Beispieldaten, `/docs` zeigt sie. Jeder Owner ersetzt die Stubs seines Bereichs | `backend/app/api/routers.py`, `stub_data.py`, `ws.py` |
+| Interne Schnittstellen | Funktionen mit Signatur, leerem Rumpf und Task-ID im Docstring (Signaturen sind per Test fixiert, nicht ändern ohne Absprache) | `backend/app/{ops,domain,realtime,imports,search,mcp}/` |
+| Nutzer-Platzhalter | Header `X-Demo-User: anna\|ben\|chef` (Default Anna), `current_user` und `require_role`. 1.1 ersetzt das, die Signaturen bleiben | `backend/app/auth.py` |
+| Frontend | Vite + React + TS, Proxy für `/api`, `/ws`, `/mcp`. **Generierte Typen** und Kurznamen (`OpBatch`, `WsServerMessage`, …) | `frontend/src/api/` |
+| Fixtures | 17 gemeinsame Testfälle, Format und Platzhalter in der README. pytest und vitest laden dieselben Dateien | `spec/fixtures/`, `backend/tests/fixture_support.py`, `frontend/src/sync/fixtureSupport.ts` |
+| Demo | Rollen, Namen, Beispielartikel, Agent-Prompts, Aufbau von `Bestelluebersicht.xlsx` und `Bestellformular.docx` | `demo/prompts.md` |
+
+**Wichtige Hinweise für alle:**
+
+- **Typen neu erzeugen** nach jeder Änderung an Schemas oder Endpunkten: `cd frontend && npm run gen:types` (Backend läuft) und `types.ts` mit committen.
+- **Fixtures sind Pflicht:** `app.ops.memory.apply_ops` (Python) und `sync/apply.ts` (TS) bzw. `evaluate` und die Import-Parser aktivieren die derzeit **übersprungenen** Ausführungstests (17 in pytest) automatisch. Wer sie implementiert, muss sie grün bekommen (Schnittstellen in `spec/fixtures/README.md`). Neue Fälle immer dort ergänzen.
+- **Festlegungen für den Import** (Schlüssel der Zeilenliste = Slug der ersten Kopfzeile, Tabellenname aus Word = letzte Überschrift davor, Word-Tabellen sind `text`) stehen in den Beschreibungen der Import-Fixtures und gelten für 3.6/3.7. Sie sind vom Team noch nicht abgenickt, Abweichungen vorher mit P3/P5 klären.
+- **Abweichungen von T:** `mcp` ist auf `<2` gepinnt (`FastMCP`), Embedding-Dimension ist 384, `db/models.py` und `db/migrations/` gibt es noch nicht (entstehen mit 1.2, falls nötig).
+- **Noch offen aus Phase 0:** Das Team nickt `demo/prompts.md` ab (Checkliste am Ende der Datei). Das Seed-Skript gibt es noch nicht (Task 5.5).
+
+**Sofort startbar** (alle Abhängigkeiten ✅): 1.1 (P1), 1.2 (P1, **Engpass** für 1.3, 1.4, 3.3, 4.1), 2.1 (P2), 2.3 (P2), 3.2 (P3), 5.1 (P5), 5.3 (P5, gegen Stubs), 5.4 (P5). Alles andere wartet auf die genannten Abhängigkeiten, siehe Spalte „Abhängig von“.
 
 **Exit-Kriterium:** Alle können `git pull && docker compose up` ausführen und gegen die Stubs entwickeln.
 
