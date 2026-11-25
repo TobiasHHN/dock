@@ -25,8 +25,8 @@ from app.schemas.common import Actor
 from app.schemas.ops import OpBatch
 
 DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
-ANNA = Actor(type="user", id="usr_anna", name="Anna")
-BEN = Actor(type="user", id="usr_ben", name="Ben")
+ANNA = Actor(type="user", id="usr_zz12anna", name="Anna")  # Rolle einkauf, angelegt in der Fixture `engine`
+BEN = Actor(type="user", id="usr_zz12ben", name="Ben")  # Rolle mitarbeiter
 
 
 def zid(prefix: str) -> str:
@@ -108,6 +108,13 @@ async def engine(monkeypatch):
     except Exception:
         pytest.skip("Postgres nicht erreichbar")
     monkeypatch.setattr(pipeline, "SessionLocal", async_sessionmaker(eng, expire_on_commit=False))
+    async with eng.begin() as c:
+        for member, role in ((ANNA.id, "einkauf"), (BEN.id, "mitarbeiter")):
+            await c.execute(text("""INSERT INTO roles (id, workspace_id, key, name) VALUES (:i, 'ws_demo', :k, :k)
+                                    ON CONFLICT (workspace_id, key) DO NOTHING"""), {"i": f"rol_zz12{role}", "k": role})
+            await c.execute(text("""INSERT INTO member_roles (workspace_id, member_id, role_id)
+                                    SELECT 'ws_demo', :m, id FROM roles WHERE workspace_id = 'ws_demo' AND key = :k
+                                    ON CONFLICT DO NOTHING"""), {"m": member, "k": role})
     yield eng
     async with eng.begin() as c:
         for stmt in (
@@ -174,7 +181,7 @@ async def test_multi_op_batch_with_keys_results_oplog_and_inverse(engine):
     entry = log[0]
     assert entry["ops"][1]["table"] == tbl["id"]  # aufgelöste IDs im Log
     assert [i["op"] for i in entry["inverse"]] == ["row.delete", "table.delete"]  # umgekehrte Reihenfolge
-    assert entry["actor"]["id"] == "usr_anna"
+    assert entry["actor"]["id"] == ANNA.id
     assert calls == ["table.create", "row.insert"]
 
 
@@ -195,11 +202,12 @@ async def test_database_integrity_error_becomes_validation_and_rolls_back(engine
     tid = zid("tbl")
     first = batch(new_table(tid=tid))
     await pipeline.apply_batch(first, ANNA)
-    again = batch(new_table(tid=tid), {"op": "role.create", "id": zid("rol"), "key": zid("r"), "name": "R"})
+    role_id = zid("rol")
+    again = batch(new_table(tid=tid), {"op": "role.create", "id": role_id, "key": zid("r"), "name": "R"})
     with pytest.raises(PipelineError) as e:
         await pipeline.apply_batch(again, ANNA)
     assert e.value.error.code == "VALIDATION"
-    assert await q(engine, "SELECT 1 FROM roles WHERE id LIKE '%zz12%'") == []
+    assert await q(engine, "SELECT 1 FROM roles WHERE id = :i", i=role_id) == []
 
 
 async def test_unknown_handler_is_rejected(engine):
@@ -334,7 +342,7 @@ async def test_roles_come_from_db_and_agents_act_on_behalf(engine):
     with pytest.raises(PipelineError):
         await pipeline.apply_batch(batch(new_table()), Actor(type="user", id=user))
     # Agent im Auftrag von Anna: Rechte der Person; Agent mit eigener Identität ohne Rollen: nein
-    on_behalf = Actor(type="agent", id="agt_zz12", on_behalf_of="usr_anna")
+    on_behalf = Actor(type="agent", id="agt_zz12", on_behalf_of=ANNA.id)
     await pipeline.apply_batch(batch(new_table()), on_behalf)
     with pytest.raises(PipelineError) as e:
         await pipeline.apply_batch(batch(new_table()), Actor(type="agent", id="agt_zz12"))
@@ -500,21 +508,29 @@ async def test_column_add_resolves_table_key_before_remembering_column(engine):
 async def test_rest_endpoint_maps_pipeline_errors(engine):
     import httpx
 
+    from app.auth import CurrentUser, current_user
     from app.main import app
 
+    users = {"anna": CurrentUser(id=ANNA.id, name="Anna", email="anna@zz12.local", roles=["einkauf"]),
+             "ben": CurrentUser(id=BEN.id, name="Ben", email="ben@zz12.local", roles=["mitarbeiter"])}
+    active = ["anna"]
+    app.dependency_overrides[current_user] = lambda: users[active[0]]
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://t") as client:
         tbl = new_table()
         ok = await client.post("/api/ops", json=batch(tbl).model_dump(mode="json"))
         assert ok.status_code == 200 and ok.json()["results"]["0"]["id"] == tbl["id"]
 
-        forbidden = await client.post("/api/ops", headers={"X-Demo-User": "ben"},
+        active[0] = "ben"
+        forbidden = await client.post("/api/ops",
                                       json=batch(new_table(), batch_id="zz12_rest_forbidden").model_dump(mode="json"))
         assert forbidden.status_code == 403
         body = forbidden.json()
         assert body["batch_id"] == "zz12_rest_forbidden" and body["error"]["code"] == "FORBIDDEN"
 
+        active[0] = "anna"
         conflict = await client.post("/api/ops", json=batch(
             {"op": "row.update", "table": tbl["id"], "row": "row_zz12x", "values": {}},
             base={tbl["id"]: 99}).model_dump(mode="json"))
         assert conflict.status_code == 409 and conflict.json()["error"]["details"]["versions"]
+    app.dependency_overrides.pop(current_user, None)

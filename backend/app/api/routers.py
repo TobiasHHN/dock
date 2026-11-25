@@ -4,8 +4,13 @@ from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.auth import CurrentUser, current_user
+from app.auth import ROLE_NAMES, CurrentUser, create_access_token, current_user, hash_password, verify_password
+from app.db.session import get_session
+from app.domain.ids import new_id
 from app.ops.errors import PipelineError
 from app.ops.pipeline import apply_batch
 from app.schemas import api as A
@@ -27,17 +32,71 @@ auth = APIRouter(prefix="/api", tags=["auth"])
 
 
 @auth.post("/auth/signup", response_model=A.TokenResponse)
-async def signup(body: A.SignupRequest):
-    u = A.UserOut(id="usr_new", name=body.name, email=body.email, roles=[body.role])
-    return A.TokenResponse(access_token="stub-token", user=u)
+async def signup(body: A.SignupRequest, session: AsyncSession = Depends(get_session)):
+    email = body.email.strip().lower()
+    name = body.name.strip()
+    if "@" not in email or not name:
+        raise HTTPException(status_code=422, detail="Name und gültige E-Mail-Adresse sind erforderlich")
+    if len(body.password) < 8 or len(body.password) > 1024:
+        raise HTTPException(status_code=422, detail="Das Passwort muss zwischen 8 und 1024 Zeichen lang sein")
+
+    user_id = new_id("user")
+    try:
+        async with session.begin():
+            exists = await session.execute(text("SELECT 1 FROM users WHERE email = :email"), {"email": email})
+            if exists.first() is not None:
+                raise HTTPException(status_code=409, detail="Diese E-Mail-Adresse ist bereits registriert")
+
+            role_key = body.role
+            role_id = new_id("role")
+            await session.execute(
+                text("""INSERT INTO roles (id, workspace_id, key, name)
+                        VALUES (:id, 'ws_demo', :key, :name)
+                        ON CONFLICT (workspace_id, key) DO NOTHING"""),
+                {"id": role_id, "key": role_key, "name": ROLE_NAMES[role_key]},
+            )
+            role_row = (await session.execute(
+                text("SELECT id FROM roles WHERE workspace_id = 'ws_demo' AND key = :key"),
+                {"key": role_key},
+            )).mappings().first()
+            await session.execute(
+                text("""INSERT INTO users (id, name, email, password_hash, active)
+                        VALUES (:id, :name, :email, :password_hash, true)"""),
+                {"id": user_id, "name": name, "email": email, "password_hash": hash_password(body.password)},
+            )
+            await session.execute(
+                text("""INSERT INTO member_roles (workspace_id, member_id, role_id)
+                        VALUES ('ws_demo', :user_id, :role_id)"""),
+                {"user_id": user_id, "role_id": role_row["id"]},
+            )
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="Diese E-Mail-Adresse ist bereits registriert") from None
+
+    user = A.UserOut(id=user_id, name=name, email=email, roles=[body.role])
+    return A.TokenResponse(access_token=create_access_token(user_id, [body.role]), user=user)
 
 
 @auth.post("/auth/login", response_model=A.TokenResponse)
-async def login(body: A.LoginRequest):
-    from app.auth import DEMO_USERS
-
-    u = DEMO_USERS.get(body.email.split("@")[0], DEMO_USERS["anna"])
-    return A.TokenResponse(access_token="stub-token", user=A.UserOut(**u.model_dump()))
+async def login(body: A.LoginRequest, session: AsyncSession = Depends(get_session)):
+    email = body.email.strip().lower()
+    result = await session.execute(
+        text("""SELECT id, name, email, password_hash, active FROM users WHERE email = :email"""),
+        {"email": email},
+    )
+    row = result.mappings().first()
+    if row is None or not row["active"] or not verify_password(body.password, row["password_hash"]):
+        raise HTTPException(status_code=401, detail="E-Mail-Adresse oder Passwort ist falsch",
+                            headers={"WWW-Authenticate": "Bearer"})
+    role_result = await session.execute(
+        text("""SELECT r.key FROM roles AS r
+               JOIN member_roles AS mr ON mr.role_id = r.id
+               WHERE mr.member_id = :user_id AND mr.workspace_id = 'ws_demo'
+               ORDER BY r.key"""),
+        {"user_id": row["id"]},
+    )
+    role_keys = [r["key"] for r in role_result.mappings().all()]
+    user = A.UserOut(id=row["id"], name=row["name"], email=row["email"], roles=role_keys)
+    return A.TokenResponse(access_token=create_access_token(row["id"], role_keys), user=user)
 
 
 @auth.get("/me", response_model=A.UserOut)
@@ -46,15 +105,31 @@ async def me(user: User):
 
 
 @auth.get("/roles", response_model=list[A.RoleOut])
-async def roles(user: User):
-    return D.ROLES
+async def roles(user: User, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(
+        text("""SELECT r.id, r.key, r.name, count(mr.member_id)::int AS member_count
+               FROM roles AS r
+               LEFT JOIN member_roles AS mr ON mr.role_id = r.id AND mr.workspace_id = r.workspace_id
+               WHERE r.workspace_id = 'ws_demo'
+               GROUP BY r.id, r.key, r.name
+               ORDER BY r.key""")
+    )
+    return [A.RoleOut(**dict(row)) for row in result.mappings().all()]
 
 
 @auth.get("/users", response_model=list[A.UserOut])
-async def users(user: User, role: str | None = None):
-    from app.auth import DEMO_USERS
-
-    out = [A.UserOut(**u.model_dump()) for u in DEMO_USERS.values()]
+async def users(user: User, role: str | None = None, session: AsyncSession = Depends(get_session)):
+    result = await session.execute(
+        text("""SELECT u.id, u.name, u.email,
+                      COALESCE(array_agg(r.key) FILTER (WHERE r.key IS NOT NULL), '{}') AS roles
+               FROM users AS u
+               LEFT JOIN member_roles AS mr ON mr.member_id = u.id AND mr.workspace_id = 'ws_demo'
+               LEFT JOIN roles AS r ON r.id = mr.role_id AND r.workspace_id = 'ws_demo'
+               WHERE u.active = true
+               GROUP BY u.id
+               ORDER BY u.name""")
+    )
+    out = [A.UserOut(**dict(row)) for row in result.mappings().all()]
     return [u for u in out if role is None or role in u.roles]
 
 

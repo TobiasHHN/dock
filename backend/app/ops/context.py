@@ -138,18 +138,6 @@ class OpContext:
                     WHERE mr.workspace_id = :ws AND mr.member_id = :member"""),
             {"ws": self.workspace_id, "member": member_id})
         roles = list(rows.scalars())
-        if not roles:
-            roles = _demo_roles(member_id)
         self._roles = roles
         return roles
 
-
-def _demo_roles(member_id: str) -> list[str]:
-    """Überbrückung bis Task 1.1: solange `demo_auth` an ist und der Nutzer (noch) keine Rollen in der DB hat,
-    gelten die Rollen des Demo-Nutzers aus `app.auth`."""
-    from app.auth import DEMO_USERS
-    from app.config import settings
-
-    if not settings.demo_auth:
-        return []
-    return next((list(u.roles) for u in DEMO_USERS.values() if u.id == member_id), [])

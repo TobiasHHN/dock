@@ -1,11 +1,11 @@
 """MCP-Server (L 8.1, T 2.8), als ASGI-App unter /mcp. Task 5.3 (P5).
 
 Dünne Schicht über der REST-API: Jedes Tool ruft die FastAPI-App im selben Prozess auf (httpx + ASGITransport)
-und reicht die Identität des Aufrufers weiter (`Authorization`, `X-Demo-User`). Wenn die Stubs später durch echte
+und reicht die Identität des Aufrufers weiter (`Authorization`). Wenn die Stubs später durch echte
 Implementierungen ersetzt werden, nutzt der MCP-Server sie automatisch. Schreibzugriffe laufen ausschließlich über
 `POST /api/ops` (ein `OpBatch`).
 
-Stdio-Betrieb: `python -m app.mcp.server` (Identität über die Umgebungsvariablen DOCK_TOKEN / DOCK_DEMO_USER).
+Stdio-Betrieb: `python -m app.mcp.server` (Identität über die Umgebungsvariablen DOCK_TOKEN).
 """
 from __future__ import annotations
 
@@ -49,13 +49,10 @@ def _identity_headers(ctx: Context | None) -> dict[str, str]:
         except Exception:  # außerhalb einer Anfrage
             req = None
     if req is not None and getattr(req, "headers", None) is not None:
-        for name in ("authorization", "x-demo-user"):
-            if req.headers.get(name):
-                headers[name] = req.headers[name]
+        if req.headers.get("authorization"):
+            headers["authorization"] = req.headers["authorization"]
     if "authorization" not in headers and os.environ.get("DOCK_TOKEN"):
         headers["authorization"] = f"Bearer {os.environ['DOCK_TOKEN']}"
-    if "x-demo-user" not in headers and os.environ.get("DOCK_DEMO_USER"):
-        headers["x-demo-user"] = os.environ["DOCK_DEMO_USER"]
     return headers
 
 

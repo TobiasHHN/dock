@@ -6,8 +6,12 @@ from pathlib import Path
 
 import httpx
 import pytest
+from fastapi import HTTPException, Request
 from mcp.shared.memory import create_connected_server_and_client_session
 
+from app.auth import CurrentUser, current_user
+from app.db.session import get_session
+from app.main import app
 from app.mcp.server import mcp
 
 FILES = Path(__file__).resolve().parents[2] / "spec" / "fixtures" / "files"
@@ -86,9 +90,45 @@ async def _call(name, args):
         return await client.call_tool(name, args)
 
 
+_TEST_USERS = {
+    "anna": CurrentUser(id="usr_anna", name="Anna", email="anna@example.local", roles=["einkauf"]),
+    "chef": CurrentUser(id="usr_chef", name="Chef", email="chef@example.local", roles=["chef"]),
+}
+
+
+async def _user_from_test_token(request: Request) -> CurrentUser:
+    """Ersetzt die DB-Anmeldung: der Bearer-Wert ist der Testnutzer (der MCP-Server reicht ihn aus DOCK_TOKEN weiter)."""
+    scheme, _, token = request.headers.get("authorization", "").partition(" ")
+    if scheme.lower() != "bearer" or token not in _TEST_USERS:
+        raise HTTPException(status_code=401, detail="Nicht angemeldet")
+    return _TEST_USERS[token]
+
+
+class _EmptyResult:
+    def mappings(self):
+        return self
+
+    def all(self):
+        return []
+
+
+class _EmptySession:
+    async def execute(self, *args, **kwargs):
+        return _EmptyResult()
+
+
+async def _empty_session():
+    yield _EmptySession()
+
+
 @pytest.fixture(autouse=True)
 def _demo_user(monkeypatch):
-    monkeypatch.setenv("DOCK_DEMO_USER", "chef")
+    monkeypatch.setenv("DOCK_TOKEN", "chef")
+    app.dependency_overrides[current_user] = _user_from_test_token
+    app.dependency_overrides[get_session] = _empty_session  # list_roles/list_users lesen jetzt aus der DB
+    yield
+    app.dependency_overrides.pop(current_user, None)
+    app.dependency_overrides.pop(get_session, None)
 
 
 @pytest.fixture(autouse=True)
@@ -129,7 +169,7 @@ async def test_create_document_with_blocks():
 async def test_identity_is_forwarded(monkeypatch):
     res = await _call("list_tasks", {})
     assert json.loads(res.content[0].text)["task"]["id"] == "tsk_2"  # chef sieht die Aufgabe
-    monkeypatch.delenv("DOCK_DEMO_USER")  # -> Default Anna, keine Aufgabe
+    monkeypatch.setenv("DOCK_TOKEN", "anna")  # Anna sieht keine Aufgabe
     assert (await _call("list_tasks", {})).content == []
 
 
