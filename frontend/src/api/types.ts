@@ -98,7 +98,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Apply Ops */
+        /**
+         * Apply Ops
+         * @description Fehler: HTTP-Status je ErrorCode (`ops/errors.py`), Body `BatchError`.
+         */
         post: operations["apply_ops_api_ops_post"];
         delete?: never;
         options?: never;
@@ -147,7 +150,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Document Markdown */
+        /**
+         * Get Document Markdown
+         * @description Markdown mit Block-IDs (L 8.2); Actions und Buttons nur im JSON. Der Parameter `run` folgt mit den Runs.
+         */
         get: operations["get_document_markdown_api_documents__doc__markdown_get"];
         put?: never;
         post?: never;
@@ -217,7 +223,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Query Rows */
+        /**
+         * Query Rows
+         * @description Einfache Feldfilter und Sortierung (L 3.4); Ausdrücke `{{ }}` in Filterwerten werden mit 422 abgelehnt.
+         */
         post: operations["query_rows_api_tables__table__rows_query_post"];
         delete?: never;
         options?: never;
@@ -3329,9 +3338,7 @@ export interface operations {
     me_api_me_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3346,23 +3353,12 @@ export interface operations {
                     "application/json": components["schemas"]["UserOut"];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     roles_api_roles_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3377,15 +3373,6 @@ export interface operations {
                     "application/json": components["schemas"]["RoleOut"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     users_api_users_get: {
@@ -3393,9 +3380,7 @@ export interface operations {
             query?: {
                 role?: string | null;
             };
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3424,9 +3409,7 @@ export interface operations {
     apply_ops_api_ops_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3459,9 +3442,7 @@ export interface operations {
     list_documents_api_documents_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3476,15 +3457,6 @@ export interface operations {
                     "application/json": components["schemas"]["DocumentSummary"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     get_document_json_api_documents__doc__get: {
@@ -3492,9 +3464,7 @@ export interface operations {
             query?: {
                 run?: string | null;
             };
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 doc: string;
             };
@@ -3527,9 +3497,7 @@ export interface operations {
             query?: {
                 run?: string | null;
             };
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 doc: string;
             };
@@ -3560,9 +3528,7 @@ export interface operations {
     validate_form_api_documents__doc__blocks__block__validate_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 doc: string;
                 block: string;
@@ -3594,9 +3560,7 @@ export interface operations {
     list_tables_api_tables_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3611,23 +3575,12 @@ export interface operations {
                     "application/json": components["schemas"]["TableSummary"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     get_table_api_tables__table__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 table: string;
             };
@@ -3658,9 +3611,7 @@ export interface operations {
     query_rows_api_tables__table__rows_query_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 table: string;
             };
@@ -3695,9 +3646,7 @@ export interface operations {
     list_workflows_api_workflows_get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3712,23 +3661,12 @@ export interface operations {
                     "application/json": components["schemas"]["WorkflowSummary"][];
                 };
             };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
         };
     };
     get_workflow_api_workflows__wf__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 wf: string;
             };
@@ -3759,9 +3697,7 @@ export interface operations {
     validate_workflow_api_workflows_validate_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3798,9 +3734,7 @@ export interface operations {
                 started_by?: "me" | "any";
                 status?: string | null;
             };
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3829,9 +3763,7 @@ export interface operations {
     get_run_api_runs__run__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 run: string;
             };
@@ -3866,9 +3798,7 @@ export interface operations {
                 status?: string;
                 workflow?: string | null;
             };
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3897,9 +3827,7 @@ export interface operations {
     get_task_api_tasks__task__get: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 task: string;
             };
@@ -3932,9 +3860,7 @@ export interface operations {
             query?: {
                 unread?: boolean;
             };
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -3963,9 +3889,7 @@ export interface operations {
     read_notification_api_notifications__notification__read_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path: {
                 notification: string;
             };
@@ -3996,9 +3920,7 @@ export interface operations {
     import_xlsx_api_imports_xlsx_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4031,9 +3953,7 @@ export interface operations {
     import_docx_api_imports_docx_post: {
         parameters: {
             query?: never;
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
@@ -4070,9 +3990,7 @@ export interface operations {
                 kinds?: string | null;
                 limit?: number;
             };
-            header?: {
-                "x-demo-user"?: string | null;
-            };
+            header?: never;
             path?: never;
             cookie?: never;
         };
