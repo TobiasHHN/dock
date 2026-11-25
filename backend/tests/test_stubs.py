@@ -63,10 +63,14 @@ def test_apply_ops_stub_validates_batch():
     assert bad.status_code == 422
 
 
-def test_ws_stub():
+def test_ws_requires_token():
+    """Seit 1.5 braucht /ws ein gültiges JWT; die Verteilung testet test_realtime.py."""
+    from starlette.websockets import WebSocketDisconnect
+
     with client.websocket_connect("/ws") as ws:
-        ws.send_json({"type": "subscribe", "channel": "doc:doc_s1"})
-        assert ws.receive_json()["type"] == "snapshot"
+        with pytest.raises(WebSocketDisconnect) as exc:
+            ws.receive_json()
+        assert exc.value.code == 4401
 
 
 def test_openapi_contains_contract():

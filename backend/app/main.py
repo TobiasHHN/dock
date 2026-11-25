@@ -6,6 +6,7 @@ from starlette.routing import Route
 from app.api import ws
 from app.api.routers import all_routers
 from app.mcp.server import mcp
+from app.realtime import hub
 
 
 @asynccontextmanager
@@ -14,8 +15,12 @@ async def lifespan(_app: FastAPI):
     # damit z. B. mehrere `with TestClient(app)` in Tests funktionieren.
     mcp._session_manager = None
     mcp.streamable_http_app()
-    async with mcp.session_manager.run():
-        yield
+    await hub.start_listener()
+    try:
+        async with mcp.session_manager.run():
+            yield
+    finally:
+        await hub.stop_listener()
 
 
 class _McpEndpoint:
