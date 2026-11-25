@@ -1,0 +1,67 @@
+{
+  "name": "block.move in einen eigenen Nachfahren wird abgelehnt",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "L 3: Der Baum bleibt zyklenfrei; die Meldung nennt den Parameter `parent`.",
+  "state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Doc",
+        "blocks": [
+          {
+            "id": "l1",
+            "parent_id": null,
+            "position": "a0",
+            "type": "list",
+            "version": 1,
+            "props": {
+              "ordered": false
+            }
+          },
+          {
+            "id": "li1",
+            "parent_id": "l1",
+            "position": "a0",
+            "type": "list_item",
+            "version": 1,
+            "props": {
+              "content": []
+            }
+          },
+          {
+            "id": "l2",
+            "parent_id": "li1",
+            "position": "a0",
+            "type": "list",
+            "version": 1,
+            "props": {
+              "ordered": false
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "block.move",
+      "block": "l1",
+      "parent": "li1"
+    }
+  ],
+  "expect_error": {
+    "code": "VALIDATION",
+    "message_contains": "Nachfahren"
+  },
+  "expect_block_ids": {
+    "doc_1": [
+      "l1",
+      "li1",
+      "l2"
+    ]
+  }
+}

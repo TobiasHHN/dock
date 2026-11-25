@@ -1,0 +1,88 @@
+{
+  "name": "block.move ordnet Geschwister neu",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "L 6.1: `after` fehlt = ans Ende, `\"^\"` = an den Anfang.",
+  "state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Doc",
+        "blocks": [
+          {
+            "id": "b1",
+            "parent_id": null,
+            "position": "a0",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Eins"
+                }
+              ]
+            }
+          },
+          {
+            "id": "b2",
+            "parent_id": null,
+            "position": "a1",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Zwei"
+                }
+              ]
+            }
+          },
+          {
+            "id": "b3",
+            "parent_id": null,
+            "position": "a2",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Drei"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "block.move",
+      "block": "b3",
+      "parent": null,
+      "after": "^"
+    },
+    {
+      "op": "block.move",
+      "block": "b1",
+      "parent": null
+    }
+  ],
+  "expect_order": [
+    {
+      "doc": "doc_1",
+      "parent": null,
+      "ids": [
+        "b3",
+        "b2",
+        "b1"
+      ]
+    }
+  ]
+}

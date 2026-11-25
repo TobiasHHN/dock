@@ -22,6 +22,7 @@ from app.domain import references
 from app.ops.context import OpContext
 from app.ops.errors import PipelineError
 from app.ops.handlers import register
+from app.realtime import presence
 from app.schemas.ops import BlockDelete, BlockInsert, BlockMove, BlockUpdate, DocCreate, DocDelete, DocUpdate
 
 
@@ -331,6 +332,7 @@ async def block_insert(ctx: OpContext, op: BlockInsert):
 @register("block.update")
 async def block_update(ctx: OpContext, op: BlockUpdate):
     block = await _load_block(ctx, op.block)
+    presence.check_block_free(f"doc:{block['doc_id']}", block["id"], ctx.actor)
     merged = {**block["props"], **op.props}
     try:
         props = D.normalize_props(block["type"], merged)
@@ -352,6 +354,7 @@ async def block_update(ctx: OpContext, op: BlockUpdate):
 @register("block.move")
 async def block_move(ctx: OpContext, op: BlockMove):
     block = await _load_block(ctx, op.block)
+    presence.check_block_free(f"doc:{block['doc_id']}", block["id"], ctx.actor)
     parent = await _parent(ctx, block["doc_id"], op.parent)
     if parent is not None:
         ancestors = (await ctx.session.execute(text("""
@@ -385,6 +388,8 @@ async def block_move(ctx: OpContext, op: BlockMove):
 async def block_delete(ctx: OpContext, op: BlockDelete):
     block = await _load_block(ctx, op.block)
     subtree = await _subtree(ctx, op.block)
+    for item in subtree:
+        presence.check_block_free(f"doc:{block['doc_id']}", item["id"], ctx.actor)
     siblings = [s["id"] for s in await _siblings(ctx, block["doc_id"], block["parent_id"])]
     index = siblings.index(block["id"])
     previous = siblings[index - 1] if index > 0 else "^"

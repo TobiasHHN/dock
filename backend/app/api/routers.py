@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import ROLE_NAMES, CurrentUser, create_access_token, current_user, hash_password, verify_password
 from app.db.session import get_session
+from app.domain import queries
 from app.domain.ids import new_id
 from app.ops.errors import PipelineError
 from app.ops.pipeline import apply_batch
@@ -151,25 +152,32 @@ async def apply_ops(batch: OpBatch, user: User):
 documents = APIRouter(prefix="/api", tags=["documents"])
 
 
+def _http(exc: PipelineError) -> HTTPException:
+    return HTTPException(exc.status_code, exc.error.message)
+
+
 @documents.get("/documents", response_model=list[DocumentSummary])
-async def list_documents(user: User):
-    return [DocumentSummary(**d.model_dump()) for d, _ in D.DOCS.values()]
+async def list_documents(user: User, session: AsyncSession = Depends(get_session)):
+    return await queries.list_documents(session)
 
 
 @documents.get("/documents/{doc}", response_model=DocumentOut)
-async def get_document_json(doc: str, user: User, run: str | None = None):
-    if doc not in D.DOCS:
-        raise HTTPException(404, f"Dokument {doc} nicht gefunden")
-    d, blocks = D.DOCS[doc]
-    return DocumentOut(document=d, blocks=blocks)
+async def get_document_json(doc: str, user: User, run: str | None = None,
+                            session: AsyncSession = Depends(get_session)):
+    try:
+        return await queries.fetch_document(session, doc)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 @documents.get("/documents/{doc}/markdown", response_model=DocumentMarkdown)
-async def get_document_markdown(doc: str, user: User, run: str | None = None):
-    if doc not in D.DOCS:
-        raise HTTPException(404, f"Dokument {doc} nicht gefunden")
-    d, _ = D.DOCS[doc]
-    return DocumentMarkdown(document=d, markdown=f"# {d.title} {{#blk_h1}}\n\n(Stub)")
+async def get_document_markdown(doc: str, user: User, run: str | None = None,
+                                session: AsyncSession = Depends(get_session)):
+    """Markdown mit Block-IDs (L 8.2); Actions und Buttons nur im JSON. Der Parameter `run` folgt mit den Runs."""
+    try:
+        return await queries.fetch_document_markdown(session, doc)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 @documents.post("/documents/{doc}/blocks/{block}/validate", response_model=A.FormValidateResult, tags=["forms"])
@@ -182,25 +190,26 @@ tables = APIRouter(prefix="/api", tags=["tables"])
 
 
 @tables.get("/tables", response_model=list[A.TableSummary])
-async def list_tables(user: User):
-    return [A.TableSummary(**t.model_dump()) for t in D.TABLES]
+async def list_tables(user: User, session: AsyncSession = Depends(get_session)):
+    return await queries.list_tables(session)
 
 
 @tables.get("/tables/{table}", response_model=Table)
-async def get_table(table: str, user: User):
-    for t in D.TABLES:
-        if table in (t.id, t.key):
-            return t
-    raise HTTPException(404, f"Tabelle {table} nicht gefunden")
+async def get_table(table: str, user: User, session: AsyncSession = Depends(get_session)):
+    try:
+        return await queries.fetch_table(session, table)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 @tables.post("/tables/{table}/rows/query", response_model=RowsPage)
-async def query_rows(table: str, body: A.RowsQuery, user: User):
-    t = next((t for t in D.TABLES if table in (t.id, t.key)), None)
-    if t is None:
-        raise HTTPException(404, f"Tabelle {table} nicht gefunden")
-    rows = D.ROWS.get(t.id, [])
-    return RowsPage(table=t.id, rows=rows, total=len(rows))
+async def query_rows(table: str, body: A.RowsQuery, user: User, session: AsyncSession = Depends(get_session)):
+    """Einfache Feldfilter und Sortierung (L 3.4); Ausdrücke `{{ }}` in Filterwerten werden mit 422 abgelehnt."""
+    try:
+        return await queries.query_rows(session, table, [f.model_dump() for f in body.filter],
+                                        [x.model_dump() for x in body.sort], body.limit, body.offset)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 # ── Workflows (4.1) ──────────────────────────────────────────────────────────
