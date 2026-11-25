@@ -4,8 +4,9 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-export const FIXTURE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../../../spec/fixtures");
-export const KINDS = ["ops", "expression", "import"];
+const posix = (p: string) => p.split("\\").join("/"); // Windows: Pfade mit "/" vergleichen
+export const FIXTURE_ROOT = posix(resolve(dirname(fileURLToPath(import.meta.url)), "../../../spec/fixtures"));
+export const KINDS = ["ops", "expression", "import", "text_ot"];
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type Json = any;
@@ -21,7 +22,7 @@ function walk(dir: string): string[] {
 export function loadAll(): [string, Fixture][] {
   return walk(FIXTURE_ROOT)
     .sort()
-    .map((p) => [relative(FIXTURE_ROOT, p), JSON.parse(readFileSync(p, "utf8"))]);
+    .map((p) => [posix(relative(FIXTURE_ROOT, p)), JSON.parse(readFileSync(p, "utf8"))]);
 }
 
 export function forRunner(runner = "vitest", kind?: string): [string, Fixture][] {

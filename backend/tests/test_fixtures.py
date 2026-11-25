@@ -37,6 +37,8 @@ def test_shape(name, fx):
         assert any(k in fx for k in ("expect_state", "expect_order", "expect_block_ids", "expect_error"))
     elif fx["kind"] == "expression":
         assert fx["cases"] and all("expr" in c and ("expect" in c or "expect_error" in c) for c in fx["cases"])
+    elif fx["kind"] == "text_ot":
+        assert any(fx.get(k) for k in ("transform", "sequence", "converge"))
     else:
         assert (FIXTURE_ROOT / fx["file"]).exists() and fx["expect_ops"]
 
@@ -109,3 +111,21 @@ def test_import_files_are_readable():
     xlsx = _optional("openpyxl", "load_workbook")
     wb = xlsx(FIXTURE_ROOT / "files" / "uebersicht.xlsx", data_only=True)
     assert wb.sheetnames == ["Bestellungen"]
+
+
+@pytest.mark.parametrize("name,fx", for_runner("pytest", "text_ot"), ids=lambda x: x if isinstance(x, str) else "")
+def test_text_ot_fixture(name, fx):
+    from app.domain.text_ot import apply_edit, transform, transform_one
+
+    for case in fx.get("transform", []):
+        got = transform_one(case["edit"], case["prior"], case.get("side", "after"))
+        assert not matches(case["expect"], got), case["name"]
+    for case in fx.get("sequence", []):
+        got = transform(case["edit"], case["applied"])
+        assert not matches(case["expect"], got), case["name"]
+    for case in fx.get("converge", []):
+        a, b = case["a"], case["b"]
+        server = apply_edit(apply_edit(case["content"], a), transform_one(b, a, "after"))
+        client_b = apply_edit(apply_edit(case["content"], b), transform_one(a, b, "before"))
+        assert not matches(case["expect"], server), (case["name"], "Server", server)
+        assert not matches(case["expect"], client_b), (case["name"], "Client", client_b)

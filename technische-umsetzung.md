@@ -185,6 +185,12 @@ async def apply_batch(batch: OpBatch, actor: Actor) -> BatchResult:
 - Jeder Textblock hat eine `version`. Der Client schickt `text.edit` mit der Version, die er zuletzt gesehen hat.
 - Der Server holt aus dem Op-Log alle `text.edit` dieses Blocks seit dieser Version und verschiebt `from`/`to` des neuen Edits entsprechend (`domain/text_ot.py`).
 - Weil das nur einen String pro Block betrifft, bleibt das überschaubar. Marks werden als Bereiche gespeichert und mit denselben Regeln verschoben.
+- Festlegungen (umgesetzt in `domain/text_ot.py` und `frontend/src/sync/textOt.ts`, gemeinsame Fälle in `spec/fixtures/text_ot/`):
+  - Positionen zählen Einheiten: jedes Zeichen (Code Point, nicht UTF-16) aus `text`- und `link`-Teilen zählt 1, `mention` und `value` je 1.
+  - `marks` im Edit beschreibt die Marks des eingefügten Texts, Bereiche relativ zu `insert`. Fehlt `marks`, erbt der Text die Marks des Zeichens davor.
+  - Einfügen an derselben Stelle: der am Server frühere Edit steht vorn. Liegt ein Edit ganz in einem Bereich, den ein früherer Edit ersetzt hat, entfällt er (Löschen gewinnt); bei genau gleichem Bereich gewinnt der frühere.
+  - Ins Op-Log und an die Clients geht der transformierte Edit, `version` ist dort die Block-Version vor der Änderung. Der Server sucht die zu berücksichtigenden Edits im Op-Log über diese Version.
+  - Der Browser hat pro Block höchstens einen Edit unterwegs und schickt Eingaben danach gesammelt (`frontend/src/documents/textSync.ts`).
 
 ### 2.7 WebSocket und Verteilung
 
@@ -477,8 +483,8 @@ type ChannelState<T> = {
 
 - Jeder Text-Block (`paragraph`, `heading`, `list_item`) ist eine eigene, kleine TipTap-Instanz. Das passt zum flachen Blockmodell: Ein Block ist eine Einheit für Änderungen, Präsenz und Konflikte.
 - ProseMirror-Transaktionen werden in `text.edit`-Ops übersetzt und gebündelt (z. B. alle 300 ms oder bei Pause).
-- Enter am Ende → `block.insert`, Backspace am Anfang → Blöcke zusammenführen (`block.update` + `block.delete` in einem Batch).
-- Fokus auf einen Block sendet `presence { editing: blk_x }`. Blöcke, die gerade jemand anderes bearbeitet, zeigen dessen Namen.
+- Enter → Rest des Blocks per `text.edit` entfernen und als neuen Block einfügen (`block.insert`). Backspace am Anfang → Text an den vorigen Block anhängen (`text.edit` dort) und den Block löschen (`block.delete`).
+- Fokus auf einen Block sendet `presence { editing: blk_x }`. Blöcke, die gerade jemand anderes bearbeitet, zeigen dessen Namen, bleiben für Menschen aber bearbeitbar (gleichzeitiges Tippen). Agenten bekommen dort `BLOCK_IN_USE`.
 
 ### 5.5 Formulare
 

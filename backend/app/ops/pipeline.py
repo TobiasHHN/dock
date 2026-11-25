@@ -327,7 +327,8 @@ async def _bump_versions(ctx: OpContext) -> None:
 
 
 async def _append_oplog(ctx: OpContext, batch_id: str, ops: list[Op]) -> None:
-    ops_json = json.dumps([_dump(op) for op in ops])
+    # mit API-Schreibweise (`from` statt `from_`), so geht es auch an die Clients
+    ops_json = json.dumps([op.model_dump(mode="json", exclude_unset=True, by_alias=True) for op in ops])
     inverse_json = json.dumps(list(reversed(ctx.inverse_ops)))
     actor_json = json.dumps(ctx.actor.model_dump(mode="json", exclude_none=True))
     for channel, seq in ctx.seq.items():

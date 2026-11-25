@@ -596,3 +596,40 @@ async def test_table_view_block_protects_table_and_column_from_delete(engine):
     await run({"op": "block.delete", "block": tv})
     await run({"op": "table.delete", "table": tbl["id"]})
     assert not await q(engine, "SELECT 1 FROM tables WHERE id = :i", i=tbl["id"])
+
+
+async def test_text_edit_transforms_concurrent_edits(engine):
+    """F15 (L 7.5, T 2.6): zwei Edits auf derselben Basis-Version; der zweite wird hinter den ersten verschoben.
+    Ins Op-Log geht der transformierte Edit (Schreibweise `from`) mit der Version vor der Änderung."""
+    doc, p, d = zid("doc"), zid("blk"), zid("blk")
+    await run({"op": "doc.create", "id": doc, "title": "T", "blocks": [
+        para("Hallo", id_=p), {"id": d, "type": "divider", "props": {}}]})
+    await run({"op": "text.edit", "block": p, "version": 1, "from": 5, "to": 5, "insert": " Anna"})
+    r = await run({"op": "text.edit", "block": p, "version": 1, "from": 5, "to": 5, "insert": " Ben",
+                   "marks": [{"from": 1, "to": 4, "mark": "bold"}]})
+    assert r.results["0"] == {"id": p, "from": 10, "to": 10, "version": 2}
+    row = (await q(engine, "SELECT props, version FROM blocks WHERE id = :i", i=p))[0]
+    assert row["version"] == 3
+    assert [(c["text"], c.get("marks", [])) for c in row["props"]["content"]] == [("Hallo Anna ", []), ("Ben", ["bold"])]
+    log = await q(engine, "SELECT ops, inverse FROM oplog WHERE channel = :c AND seq = :s", c=f"doc:{doc}", s=r.seq[f"doc:{doc}"])
+    assert log[0]["ops"][0]["from"] == 10 and log[0]["ops"][0]["version"] == 2 and "from_" not in log[0]["ops"][0]
+    assert log[0]["inverse"][0]["props"]["content"][0]["text"] == "Hallo Anna"
+
+    # Löschen davor, Basis veraltet: Einfügen rückt nach links
+    await run({"op": "text.edit", "block": p, "version": 3, "from": 0, "to": 6, "insert": ""})
+    await run({"op": "text.edit", "block": p, "version": 3, "from": 14, "to": 14, "insert": "!"})
+    row = (await q(engine, "SELECT props FROM blocks WHERE id = :i", i=p))[0]
+    assert "".join(c["text"] for c in row["props"]["content"]) == "Anna Ben!"
+
+    with pytest.raises(PipelineError) as exc:
+        await run({"op": "text.edit", "block": d, "version": 1, "from": 0, "to": 0, "insert": "x"})
+    assert exc.value.error.code == "VALIDATION"
+
+    await presence.update(f"doc:{doc}", BEN, PresenceState(editing=p), conn_id="zz14")
+    try:
+        with pytest.raises(PipelineError) as exc:
+            await run({"op": "text.edit", "block": p, "version": 5, "from": 0, "to": 0, "insert": "x"}, actor=AGENT)
+        assert exc.value.error.code == "BLOCK_IN_USE"
+        await run({"op": "text.edit", "block": p, "version": 5, "from": 0, "to": 0, "insert": "x"}, actor=ANNA)
+    finally:
+        await presence.remove(f"doc:{doc}", BEN, conn_id="zz14")

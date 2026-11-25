@@ -1,0 +1,286 @@
+{
+  "name": "Zwei gleichzeitige Edits ergeben auf Server und Clients denselben Text",
+  "kind": "text_ot",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "Server: a, dann transform_one(b, a, 'after'). Client von b: b, dann transform_one(a, b, 'before'). Beide Ergebnisse müssen expect entsprechen.",
+  "converge": [
+    {
+      "name": "beide tippen an derselben Stelle",
+      "content": [
+        {
+          "t": "text",
+          "text": "Hallo"
+        }
+      ],
+      "a": {
+        "from": 5,
+        "to": 5,
+        "insert": " Anna"
+      },
+      "b": {
+        "from": 5,
+        "to": 5,
+        "insert": " Ben"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "Hallo Anna Ben"
+        }
+      ]
+    },
+    {
+      "name": "einer tippt, einer löscht davor",
+      "content": [
+        {
+          "t": "text",
+          "text": "Hallo Welt"
+        }
+      ],
+      "a": {
+        "from": 0,
+        "to": 6,
+        "insert": ""
+      },
+      "b": {
+        "from": 10,
+        "to": 10,
+        "insert": "!"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "Welt!"
+        }
+      ]
+    },
+    {
+      "name": "überlappendes Ersetzen",
+      "content": [
+        {
+          "t": "text",
+          "text": "0123456789"
+        }
+      ],
+      "a": {
+        "from": 2,
+        "to": 5,
+        "insert": "x"
+      },
+      "b": {
+        "from": 3,
+        "to": 7,
+        "insert": "y"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "01xy789"
+        }
+      ]
+    },
+    {
+      "name": "Tippen im gelöschten Bereich: Löschen gewinnt",
+      "content": [
+        {
+          "t": "text",
+          "text": "abcdef"
+        }
+      ],
+      "a": {
+        "from": 1,
+        "to": 5,
+        "insert": ""
+      },
+      "b": {
+        "from": 3,
+        "to": 3,
+        "insert": "Z"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "af"
+        }
+      ]
+    },
+    {
+      "name": "gleicher Bereich gelöscht",
+      "content": [
+        {
+          "t": "text",
+          "text": "abcdef"
+        }
+      ],
+      "a": {
+        "from": 1,
+        "to": 4,
+        "insert": ""
+      },
+      "b": {
+        "from": 1,
+        "to": 4,
+        "insert": ""
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "aef"
+        }
+      ]
+    },
+    {
+      "name": "Umlaute und Emoji zählen je 1",
+      "content": [
+        {
+          "t": "text",
+          "text": "Grüße 👋 dir"
+        }
+      ],
+      "a": {
+        "from": 7,
+        "to": 7,
+        "insert": "!"
+      },
+      "b": {
+        "from": 0,
+        "to": 0,
+        "insert": "Liebe "
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "Liebe Grüße 👋! dir"
+        }
+      ]
+    },
+    {
+      "name": "Ersetzen im gelöschten Bereich: Löschen gewinnt",
+      "content": [
+        {
+          "t": "text",
+          "text": "abcdef"
+        }
+      ],
+      "a": {
+        "from": 1,
+        "to": 5,
+        "insert": ""
+      },
+      "b": {
+        "from": 2,
+        "to": 3,
+        "insert": "Q"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "af"
+        }
+      ]
+    },
+    {
+      "name": "Ersetzen umschließt fremdes Ersetzen",
+      "content": [
+        {
+          "t": "text",
+          "text": "abcdef"
+        }
+      ],
+      "a": {
+        "from": 1,
+        "to": 5,
+        "insert": "X"
+      },
+      "b": {
+        "from": 2,
+        "to": 3,
+        "insert": "Q"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "aXf"
+        }
+      ]
+    },
+    {
+      "name": "Einfügen am Anfang eines gelöschten Bereichs",
+      "content": [
+        {
+          "t": "text",
+          "text": "abcdef"
+        }
+      ],
+      "a": {
+        "from": 1,
+        "to": 5,
+        "insert": ""
+      },
+      "b": {
+        "from": 1,
+        "to": 1,
+        "insert": "Z"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "aZf"
+        }
+      ]
+    },
+    {
+      "name": "Einfügen am Ende eines gelöschten Bereichs",
+      "content": [
+        {
+          "t": "text",
+          "text": "abcdef"
+        }
+      ],
+      "a": {
+        "from": 1,
+        "to": 5,
+        "insert": ""
+      },
+      "b": {
+        "from": 5,
+        "to": 5,
+        "insert": "Z"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "aZf"
+        }
+      ]
+    },
+    {
+      "name": "beide ersetzen genau denselben Bereich: der am Server frühere gewinnt",
+      "content": [
+        {
+          "t": "text",
+          "text": "abcdef"
+        }
+      ],
+      "a": {
+        "from": 1,
+        "to": 3,
+        "insert": "X"
+      },
+      "b": {
+        "from": 1,
+        "to": 3,
+        "insert": "Y"
+      },
+      "expect": [
+        {
+          "t": "text",
+          "text": "aXdef"
+        }
+      ]
+    }
+  ]
+}

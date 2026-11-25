@@ -5,13 +5,13 @@ from pathlib import Path
 from typing import Any
 
 FIXTURE_ROOT = Path(__file__).resolve().parents[2] / "spec" / "fixtures"
-KINDS = {"ops", "expression", "import"}
+KINDS = {"ops", "expression", "import", "text_ot"}
 
 
 def load_all() -> list[tuple[str, dict[str, Any]]]:
     out = []
     for p in sorted(FIXTURE_ROOT.rglob("*.json")):
-        out.append((str(p.relative_to(FIXTURE_ROOT)), json.loads(p.read_text())))
+        out.append((p.relative_to(FIXTURE_ROOT).as_posix(), json.loads(p.read_text(encoding="utf-8"))))
     return out
 
 

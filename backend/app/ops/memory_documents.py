@@ -9,7 +9,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.domain import documents as D
-from app.domain import positions
+from app.domain import positions, text_ot
 from app.domain.tables import DomainError
 from app.ops.memory import Mem, memory_op
 
@@ -207,3 +207,19 @@ def block_delete(mem: Mem, op: dict[str, Any]) -> None:
     for i in doomed:
         mem.touch("block", i, deleted=True)
     _bump(mem, doc)
+
+
+@memory_op("text.edit")
+def text_edit(mem: Mem, op: dict[str, Any]) -> None:
+    """Wendet den (vom Server bereits transformierten) Edit an; die Transformation braucht das Op-Log und
+    ist eigens getestet (`spec/fixtures/text_ot/`)."""
+    doc, block = _block(mem, op["block"])
+    if block["type"] not in D.TEXT_TYPES:
+        raise _invalid("block", f"'{block['type']}' hat keinen Text, text.edit gilt nur für "
+                                f"{', '.join(sorted(D.TEXT_TYPES))}")
+    content = text_ot.apply_edit(block["props"].get("content") or [], op)
+    props = D.normalize_props(block["type"], {**block["props"], "content": content})
+    if props != block["props"]:
+        block["props"] = props
+        mem.touch("block", block["id"])
+        _bump(mem, doc, block)

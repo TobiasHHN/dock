@@ -187,7 +187,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 **Für alle:**
 
 - **Handler:** Neue Ops kommen als Modul in `backend/app/ops/handlers/` mit `@register("<op>")`. Die Schnittstelle (`touch`, `changed`, `set_references`, `add_inverse`, `resolve`, `lock_channel`) steht in `backend/app/ops/context.py`. Versionen erhöht die Pipeline, nicht der Handler.
-- **Fehlende Handler (Stand jetzt):** Alle Ops außer `table.*`, `column.*`, `row.*`, `doc.*`, `block.*`, `role.*` und `user/agent.set_roles` liefern `VALIDATION` („nicht verfügbar“). Das gilt für `draft.*`, `form.submit`, `workflow.*`, `run.*`, `task.*`, `text.edit` und `import.include`-Inhalte ohne Handler.
+- **Fehlende Handler (Stand jetzt):** Alle Ops außer `table.*`, `column.*`, `row.*`, `doc.*`, `block.*`, `role.*` und `user/agent.set_roles` liefern `VALIDATION` („nicht verfügbar“). Das gilt für `draft.*`, `form.submit`, `workflow.*`, `run.*`, `task.*` und `import.include`-Inhalte ohne Handler. `text.edit` hat seit F15 einen Handler (`ops/handlers/documents.py`).
 - **Rechte in der Pipeline:** Nur strukturelle Ops verlangen `einkauf` (`table.*`, `column.*`, `doc.*`, `block.*`, `workflow.*`, `role.*`, `text.edit`, `user/agent.set_roles`). `row.*`, `draft.*`, `form.submit`, `run.*` und `task.*` sind auf Pipeline-Ebene offen. Die fachliche Prüfung (Startberechtigung, `can_act`, Sichtbarkeit) muss der jeweilige Handler machen.
 - **Fixtures:** Die In-Memory-Fassung ist `backend/app/ops/memory.py` (Tabellen) plus `memory_documents.py` (Dokumente). Neue Op-Arten registrieren sich mit `@memory_op("<op>")` in einer eigenen Datei. Nicht registrierte Ops werden in `test_fixtures` übersprungen.
 - **Positionen:** Fractional Index in Basis 62, `backend/app/domain/positions.py` (Port von `fractional-indexing`). Das Frontend muss dasselbe Verfahren nutzen.
@@ -285,7 +285,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 | 3.F3 | Kennzeichnung in Verlauf, Tabellenzeilen und Blöcken: „von Agent im Auftrag von X“, „von Workflow“ | P1 + P2 |
 | 3.F4 | Live-Effekte: Toast bei neuer Aufgabe, Zähler an der Navigation, Graph-Knoten färben sich, neue Zeilen werden hervorgehoben | P2 + P4 |
 | 3.F5 | Fehler-Blocker aus 2.I3 | jeweilige Owner |
-| 3.F6 | **Stretch**, nur wenn alles läuft, in dieser Reihenfolge: F15 gleichzeitiges Tippen (L 7.5), Fristen mit `overdue` (L 5.9), Umverteilen, F17 Unter-Workflows (L 5.6), Workflow-Editor im React-Flow-Canvas, Agent mit eigener Identität als Zuständiger, F16 Undo | P1 / P4 / P2 |
+| 3.F6 | **Stretch**, nur wenn alles läuft, in dieser Reihenfolge: F15 gleichzeitiges Tippen (L 7.5) ✅ (vorgezogen mit 2.5, Branch `task/2-frontend-shell`), Fristen mit `overdue` (L 5.9), Umverteilen, F17 Unter-Workflows (L 5.6), Workflow-Editor im React-Flow-Canvas, Agent mit eigener Identität als Zuständiger, F16 Undo | P1 / P4 / P2 |
 
 ---
 
