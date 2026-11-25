@@ -132,6 +132,53 @@ def _demo_user(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _stub_reads(monkeypatch):
+    """Dokument- und Tabellen-Lesezugriffe sind seit 1.4 echt (DB); dieser Test prüft nur die MCP-Werkzeuge,
+    deshalb liefern die Abfragen hier die Beispieldaten aus `stub_data`."""
+    from app.api import stub_data as D
+    from app.domain import queries
+    from app.ops.errors import PipelineError
+
+    def table(ref):
+        found = next((t for t in D.TABLES if ref in (t.id, t.key)), None)
+        if found is None:
+            raise PipelineError("NOT_FOUND", f"Tabelle '{ref}' wurde nicht gefunden")
+        return found
+
+    def doc(ref):
+        if ref not in D.DOCS:
+            raise PipelineError("NOT_FOUND", f"Dokument '{ref}' wurde nicht gefunden")
+        return D.DOCS[ref]
+
+    async def list_tables(s):
+        return [t.model_dump() for t in D.TABLES]
+
+    async def fetch_table(s, ref):
+        return table(ref).model_dump()
+
+    async def query_rows(s, ref, filters, sorts, limit=100, offset=0):
+        t = table(ref)
+        rows = D.ROWS.get(t.id, [])
+        return {"table": t.id, "rows": [r.model_dump() for r in rows], "total": len(rows)}
+
+    async def fetch_document(s, ref):
+        d, blocks = doc(ref)
+        return {"document": d.model_dump(), "blocks": [b.model_dump() for b in blocks]}
+
+    async def fetch_document_markdown(s, ref):
+        d, _ = doc(ref)
+        return {"document": d.model_dump(), "markdown": f"# {d.title} {{#blk_h1}}\n"}
+
+    async def list_documents(s):
+        return [d.model_dump() for d, _ in D.DOCS.values()]
+
+    for name, fn in [("list_tables", list_tables), ("fetch_table", fetch_table), ("query_rows", query_rows),
+                     ("fetch_document", fetch_document), ("fetch_document_markdown", fetch_document_markdown),
+                     ("list_documents", list_documents)]:
+        monkeypatch.setattr(queries, name, fn)
+
+
+@pytest.fixture(autouse=True)
 def _stub_pipeline(monkeypatch):
     """POST /api/ops läuft seit 1.2 durch die echte Pipeline (Handler kommen mit 1.3/1.4). Diese Tests prüfen
     nur den Vertrag der Stubs und die Werkzeuge, nicht die Persistenz."""

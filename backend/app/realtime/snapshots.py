@@ -3,9 +3,7 @@
 `build(channel, user)` ist der einzige Einstieg. Es liest Stand und `seq` in EINER Transaktion mit
 Snapshot-Isolation, damit nach dem Snapshot lückenlos ab `seq + 1` weiterverteilt werden kann.
 
-Hook für Task 1.4: `_doc`, `_table` lesen vorerst direkt aus den Tabellen (flache Blöcke, Spalten, Zeilen).
-Sobald `domain/documents.py` bzw. `domain/tables.py` echte Lesefunktionen haben, ersetzen sie hier nur
-den Inhalt dieser Funktionen. Rückgabe bleibt `dict` in der Form der Snapshot-Schemas.
+`_doc` und `_table` nutzen die Leselogik aus `domain/queries.py` (Task 1.4).
 """
 from __future__ import annotations
 
@@ -18,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import CurrentUser
 from app.db import session as db
+from app.domain import queries
 from app.ops.context import DEFAULT_WORKSPACE
 from app.ops.errors import PipelineError
 from app.realtime.access import load_roles, parse_channel
@@ -49,25 +48,11 @@ async def build(channel: str, user: CurrentUser) -> tuple[int, dict[str, Any]]:
 
 
 async def _doc(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
-    docs = await _all(s, "SELECT id, title, owner_workflow, owner_step, version, updated_at FROM documents "
-                         "WHERE id = :id AND workspace_id = :ws", id=id_, ws=DEFAULT_WORKSPACE)
-    if not docs:
-        raise PipelineError("NOT_FOUND", f"doc:{id_} wurde nicht gefunden")
-    blocks = await _all(s, 'SELECT id, doc_id, parent_id, position, type, props, version FROM blocks '
-                           'WHERE doc_id = :id ORDER BY position', id=id_)
-    return {"document": docs[0], "blocks": blocks}
+    return await queries.fetch_document(s, id_)
 
 
 async def _table(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
-    tables = await _all(s, "SELECT id, key, name, display_column, version FROM tables "
-                           "WHERE id = :id AND workspace_id = :ws", id=id_, ws=DEFAULT_WORKSPACE)
-    if not tables:
-        raise PipelineError("NOT_FOUND", f"table:{id_} wurde nicht gefunden")
-    columns = await _all(s, 'SELECT id, key, name, type, required, "unique", "default", position FROM columns '
-                            'WHERE table_id = :id ORDER BY position', id=id_)
-    rows = await _all(s, 'SELECT id, table_id, position, "values", version, created_at, created_by, updated_at, '
-                         'updated_by FROM rows WHERE table_id = :id ORDER BY position', id=id_)
-    return {"table": {**tables[0], "columns": columns}, "rows": rows}
+    return await queries.fetch_table_snapshot(s, id_)
 
 
 async def _run(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:

@@ -1,0 +1,107 @@
+{
+  "name": "block.insert legt ein Formular samt Feldern an",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "L 6.1: `block` darf Kinder enthalten; `field` steht in `form`.",
+  "state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Doc",
+        "blocks": [
+          {
+            "id": "b1",
+            "parent_id": null,
+            "position": "a0",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Eins"
+                }
+              ]
+            }
+          },
+          {
+            "id": "b2",
+            "parent_id": null,
+            "position": "a1",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Zwei"
+                }
+              ]
+            }
+          },
+          {
+            "id": "b3",
+            "parent_id": null,
+            "position": "a2",
+            "type": "paragraph",
+            "version": 1,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Drei"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "block.insert",
+      "doc": "doc_1",
+      "parent": null,
+      "after": "b3",
+      "block": {
+        "id": "f1",
+        "type": "form",
+        "props": {},
+        "children": [
+          {
+            "id": "fld",
+            "type": "field",
+            "props": {
+              "key": "name",
+              "label": "Name",
+              "input": "text"
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "expect_order": [
+    {
+      "doc": "doc_1",
+      "parent": null,
+      "ids": [
+        "b1",
+        "b2",
+        "b3",
+        "f1"
+      ]
+    },
+    {
+      "doc": "doc_1",
+      "parent": "f1",
+      "ids": [
+        "fld"
+      ]
+    }
+  ]
+}
