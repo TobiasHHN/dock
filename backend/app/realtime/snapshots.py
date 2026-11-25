@@ -1,0 +1,110 @@
+"""Snapshots je Kanaltyp (L 7.3, Datenform: `SnapshotDoc` … `SnapshotWorkspace` in `schemas/ws.py`).
+
+`build(channel, user)` ist der einzige Einstieg. Es liest Stand und `seq` in EINER Transaktion mit
+Snapshot-Isolation, damit nach dem Snapshot lückenlos ab `seq + 1` weiterverteilt werden kann.
+
+Hook für Task 1.4: `_doc`, `_table` lesen vorerst direkt aus den Tabellen (flache Blöcke, Spalten, Zeilen).
+Sobald `domain/documents.py` bzw. `domain/tables.py` echte Lesefunktionen haben, ersetzen sie hier nur
+den Inhalt dieser Funktionen. Rückgabe bleibt `dict` in der Form der Snapshot-Schemas.
+"""
+from __future__ import annotations
+
+import json
+from typing import Any
+
+from fastapi.encoders import jsonable_encoder
+from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.auth import CurrentUser
+from app.db import session as db
+from app.ops.context import DEFAULT_WORKSPACE
+from app.ops.errors import PipelineError
+from app.realtime.access import load_roles, parse_channel
+
+_JSON_COLUMNS = {"props", "values", "type", "default", "result", "input", "steps", "started_by", "claimed_by",
+                 "completed_by", "actor", "payload", "draft", "created_by", "updated_by"}
+
+
+def _row(mapping: Any) -> dict[str, Any]:
+    out = dict(mapping)
+    for key in _JSON_COLUMNS & out.keys():
+        if isinstance(out[key], str):
+            out[key] = json.loads(out[key])
+    return out
+
+
+async def _all(s: AsyncSession, sql: str, **params: Any) -> list[dict[str, Any]]:
+    return [_row(r) for r in (await s.execute(text(sql), params)).mappings().all()]
+
+
+async def build(channel: str, user: CurrentUser) -> tuple[int, dict[str, Any]]:
+    """Liefert `(seq, data)`. Wirft `PipelineError(NOT_FOUND)`, wenn das Objekt nicht mehr existiert."""
+    kind, id_ = parse_channel(channel)
+    async with db.SessionLocal() as s:
+        await s.connection(execution_options={"isolation_level": "REPEATABLE READ"})
+        seq = (await s.execute(text("SELECT seq FROM channels WHERE id = :c"), {"c": channel})).scalar_one_or_none()
+        data = await _READERS[kind](s, id_, user)
+        return int(seq or 0), jsonable_encoder(data)
+
+
+async def _doc(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
+    docs = await _all(s, "SELECT id, title, owner_workflow, owner_step, version, updated_at FROM documents "
+                         "WHERE id = :id AND workspace_id = :ws", id=id_, ws=DEFAULT_WORKSPACE)
+    if not docs:
+        raise PipelineError("NOT_FOUND", f"doc:{id_} wurde nicht gefunden")
+    blocks = await _all(s, 'SELECT id, doc_id, parent_id, position, type, props, version FROM blocks '
+                           'WHERE doc_id = :id ORDER BY position', id=id_)
+    return {"document": docs[0], "blocks": blocks}
+
+
+async def _table(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
+    tables = await _all(s, "SELECT id, key, name, display_column, version FROM tables "
+                           "WHERE id = :id AND workspace_id = :ws", id=id_, ws=DEFAULT_WORKSPACE)
+    if not tables:
+        raise PipelineError("NOT_FOUND", f"table:{id_} wurde nicht gefunden")
+    columns = await _all(s, 'SELECT id, key, name, type, required, "unique", "default", position FROM columns '
+                            'WHERE table_id = :id ORDER BY position', id=id_)
+    rows = await _all(s, 'SELECT id, table_id, position, "values", version, created_at, created_by, updated_at, '
+                         'updated_by FROM rows WHERE table_id = :id ORDER BY position', id=id_)
+    return {"table": {**tables[0], "columns": columns}, "rows": rows}
+
+
+async def _run(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
+    runs = await _all(s, "SELECT * FROM runs WHERE id = :id", id=id_)
+    if not runs:
+        raise PipelineError("NOT_FOUND", f"run:{id_} wurde nicht gefunden")
+    tasks = await _all(s, "SELECT * FROM tasks WHERE run_id = :id AND status = 'open' ORDER BY created_at LIMIT 1",
+                       id=id_)
+    events = await _all(s, "SELECT * FROM run_events WHERE run_id = :id ORDER BY at, id", id=id_)
+    drafts = await _all(s, 'SELECT form_block, scope, "values", version, updated_at FROM form_drafts '
+                           "WHERE scope = :scope", scope=f"run:{id_}")
+    return {"run": runs[0], "task": tasks[0] if tasks else None, "events": events, "drafts": drafts}
+
+
+async def _user(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
+    keys, ids = await load_roles(s, id_)
+    tasks = await _all(
+        s, """SELECT * FROM tasks WHERE status = 'open' AND (
+                  :u = ANY(candidate_users) OR candidate_roles && CAST(:roles AS text[]) OR claimed_by_id = :u)
+              ORDER BY created_at""", u=id_, roles=keys + ids)
+    runs = await _all(s, "SELECT * FROM runs WHERE started_by_id = :u ORDER BY started_at DESC", u=id_)
+    notes = await _all(s, "SELECT * FROM notifications WHERE recipient_id = :u ORDER BY created_at DESC LIMIT 100",
+                       u=id_)
+    return {"tasks": tasks, "runs": runs, "notifications": notes}
+
+
+async def _workspace(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
+    ws = {"ws": DEFAULT_WORKSPACE}
+    return {
+        "documents": await _all(s, "SELECT id, title, version, updated_at FROM documents WHERE workspace_id = :ws "
+                                   "ORDER BY title, id", **ws),
+        "tables": await _all(s, "SELECT id, key, name, version FROM tables WHERE workspace_id = :ws "
+                                "ORDER BY name, id", **ws),
+        "workflows": await _all(s, "SELECT id, key, name, latest_version FROM workflows WHERE workspace_id = :ws "
+                                   "ORDER BY name, id", **ws),
+        "roles": await _all(s, "SELECT id, key, name FROM roles WHERE workspace_id = :ws ORDER BY name, id", **ws),
+    }
+
+
+_READERS = {"doc": _doc, "table": _table, "run": _run, "user": _user, "workspace": _workspace}
