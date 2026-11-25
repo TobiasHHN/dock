@@ -1,0 +1,124 @@
+{
+  "name": "table.create legt Tabelle mit Referenzspalte auf eine andere Tabelle an",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "Referenz-Tabellen im Typ dürfen per Key angegeben werden, gespeichert wird die ID. Anzeigespalte ist standardmäßig die erste Spalte.",
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": []
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "table.create",
+      "id": "tbl_art",
+      "key": "artikel",
+      "name": "Artikel",
+      "columns": [
+        {
+          "id": "col_aname",
+          "key": "name",
+          "name": "Name",
+          "type": {
+            "kind": "text"
+          }
+        },
+        {
+          "id": "col_best",
+          "key": "bestellung",
+          "name": "Bestellung",
+          "type": {
+            "kind": "reference",
+            "table": "bestellungen",
+            "on_delete": "cascade"
+          }
+        }
+      ]
+    }
+  ],
+  "expect_state": {
+    "tables": [
+      {
+        "id": "tbl_best"
+      },
+      {
+        "id": "tbl_art",
+        "key": "artikel",
+        "version": 1,
+        "display_column": "col_aname",
+        "columns": [
+          {
+            "id": "col_aname"
+          },
+          {
+            "id": "col_best",
+            "type": {
+              "kind": "reference",
+              "table": "tbl_best",
+              "on_delete": "cascade"
+            }
+          }
+        ],
+        "rows": []
+      }
+    ]
+  }
+}

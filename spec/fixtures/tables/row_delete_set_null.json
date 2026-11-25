@@ -1,0 +1,150 @@
+{
+  "name": "Zeile löschen: on_delete set_null leert den Verweis",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": [
+          {
+            "id": "row_b1",
+            "position": "a0",
+            "version": 1,
+            "values": {
+              "col_name": "Monitor"
+            }
+          }
+        ]
+      },
+      {
+        "id": "tbl_art",
+        "key": "artikel",
+        "name": "Artikel",
+        "display_column": "col_aname",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_aname",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_best",
+            "key": "bestellung",
+            "name": "Bestellung",
+            "type": {
+              "kind": "reference",
+              "table": "tbl_best",
+              "on_delete": "set_null"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          }
+        ],
+        "rows": [
+          {
+            "id": "row_a1",
+            "position": "a0",
+            "version": 1,
+            "values": {
+              "col_aname": "Kabel",
+              "col_best": "row_b1"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "row.delete",
+      "table": "tbl_best",
+      "rows": [
+        "row_b1"
+      ]
+    }
+  ],
+  "expect_state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "rows": []
+      },
+      {
+        "id": "tbl_art",
+        "rows": [
+          {
+            "id": "row_a1",
+            "version": 2,
+            "values": {
+              "col_aname": "Kabel"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}
