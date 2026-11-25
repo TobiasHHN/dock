@@ -88,13 +88,6 @@ ServerMessage = Annotated[
 ]
 
 
-class WsMessages(BaseModel):
-    """Nur dafür da, die WebSocket-Nachrichten ins OpenAPI-Schema zu bringen (-> TS-Typen, T 5.1)."""
-
-    client: list[ClientMessage] = []
-    server: list[ServerMessage] = []
-
-
 # ── Snapshot-Inhalte je Kanaltyp ─────────────────────────────────────────────
 
 
@@ -136,3 +129,14 @@ class SnapshotWorkspace(BaseModel):
     tables: list[dict[str, Any]] = []
     workflows: list[dict[str, Any]] = []
     roles: list[dict[str, Any]] = []
+
+
+SnapshotData = Union[SnapshotDoc, SnapshotTable, SnapshotRun, SnapshotUser, SnapshotWorkspace]
+
+
+class WsMessages(BaseModel):
+    """Nur dafür da, die WebSocket-Nachrichten ins OpenAPI-Schema zu bringen (-> TS-Typen, T 5.1)."""
+
+    client: list[ClientMessage] = []
+    server: list[ServerMessage] = []
+    snapshots: list[SnapshotData] = []  # Inhalt von SnapshotMsg.data je Kanaltyp

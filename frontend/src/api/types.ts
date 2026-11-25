@@ -2399,6 +2399,20 @@ export interface components {
              */
             role: "einkauf" | "mitarbeiter" | "chef";
         };
+        /**
+         * SnapshotDoc
+         * @description data von `doc:<id>`.
+         */
+        SnapshotDoc: {
+            /** Document */
+            document: {
+                [key: string]: unknown;
+            };
+            /** Blocks */
+            blocks: {
+                [key: string]: unknown;
+            }[];
+        };
         /** SnapshotMsg */
         SnapshotMsg: {
             /**
@@ -2414,6 +2428,109 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
+        };
+        /**
+         * SnapshotRun
+         * @description data von `run:<id>`.
+         */
+        SnapshotRun: {
+            /** Run */
+            run: {
+                [key: string]: unknown;
+            };
+            /** Task */
+            task?: {
+                [key: string]: unknown;
+            } | null;
+            /**
+             * Events
+             * @default []
+             */
+            events: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Drafts
+             * @default []
+             */
+            drafts: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * SnapshotTable
+         * @description data von `table:<id>`.
+         */
+        SnapshotTable: {
+            /** Table */
+            table: {
+                [key: string]: unknown;
+            };
+            /** Rows */
+            rows: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * SnapshotUser
+         * @description data von `user:<id>`.
+         */
+        SnapshotUser: {
+            /**
+             * Tasks
+             * @default []
+             */
+            tasks: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Runs
+             * @default []
+             */
+            runs: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Notifications
+             * @default []
+             */
+            notifications: {
+                [key: string]: unknown;
+            }[];
+        };
+        /**
+         * SnapshotWorkspace
+         * @description data von `workspace`.
+         */
+        SnapshotWorkspace: {
+            /**
+             * Documents
+             * @default []
+             */
+            documents: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Tables
+             * @default []
+             */
+            tables: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Workflows
+             * @default []
+             */
+            workflows: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Roles
+             * @default []
+             */
+            roles: {
+                [key: string]: unknown;
+            }[];
         };
         /** SortSpec */
         SortSpec: {
@@ -3128,6 +3245,11 @@ export interface components {
              * @default []
              */
             server: (components["schemas"]["SnapshotMsg"] | components["schemas"]["OpsEventMsg"] | components["schemas"]["AckMsg"] | components["schemas"]["RejectMsg"] | components["schemas"]["PresenceBroadcastMsg"])[];
+            /**
+             * Snapshots
+             * @default []
+             */
+            snapshots: (components["schemas"]["SnapshotDoc"] | components["schemas"]["SnapshotTable"] | components["schemas"]["SnapshotRun"] | components["schemas"]["SnapshotUser"] | components["schemas"]["SnapshotWorkspace"])[];
         };
     };
     responses: never;
