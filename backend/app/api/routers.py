@@ -3,11 +3,14 @@ Phase 1: Jeder Owner ersetzt die Stubs seines Bereichs durch echte Implementieru
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi.responses import JSONResponse
 
 from app.auth import CurrentUser, current_user
+from app.ops.errors import PipelineError
+from app.ops.pipeline import apply_batch
 from app.schemas import api as A
 from app.schemas.blocks import DocumentMarkdown, DocumentOut, DocumentSummary
-from app.schemas.ops import BatchResult, OpBatch
+from app.schemas.ops import BatchError, BatchResult, OpBatch
 from app.schemas.tables import RowsPage, Table
 from app.schemas.workflows import (
     ButtonInfo, Notification, RunListItem, RunStatusView, TaskDetail, TaskListItem,
@@ -61,7 +64,12 @@ ops = APIRouter(prefix="/api", tags=["ops"])
 
 @ops.post("/ops", response_model=BatchResult)
 async def apply_ops(batch: OpBatch, user: User):
-    return BatchResult(batch_id=batch.batch_id, seq={"workspace": 1}, results={})
+    """Fehler: HTTP-Status je ErrorCode (`ops/errors.py`), Body `BatchError`."""
+    try:
+        return await apply_batch(batch, user.actor)
+    except PipelineError as exc:
+        return JSONResponse(status_code=exc.status_code,
+                            content=BatchError(batch_id=batch.batch_id, error=exc.error).model_dump(mode="json"))
 
 
 # ── Dokumente (1.4) ──────────────────────────────────────────────────────────
