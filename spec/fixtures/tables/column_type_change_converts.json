@@ -1,0 +1,141 @@
+{
+  "name": "Spaltentyp ändern konvertiert Werte, Nicht-Konvertierbares wird leer",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "L 2.2: \"4711\" -> 4711, \"abc\" -> leer (die Zelle verschwindet aus values).",
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": [
+          {
+            "id": "row_1",
+            "position": "a0",
+            "version": 1,
+            "values": {
+              "col_name": "Monitor",
+              "col_ks": "4711",
+              "col_preis": 249.5,
+              "col_anz": 2
+            }
+          },
+          {
+            "id": "row_2",
+            "position": "a1",
+            "version": 1,
+            "values": {
+              "col_name": "Kabel",
+              "col_ks": "abc"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "column.update",
+      "table": "tbl_best",
+      "column": "kostenstelle",
+      "patch": {
+        "type": {
+          "kind": "integer"
+        }
+      }
+    }
+  ],
+  "expect_state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "version": 2,
+        "columns": [
+          {
+            "id": "col_name"
+          },
+          {
+            "id": "col_ks",
+            "type": {
+              "kind": "integer"
+            }
+          },
+          {
+            "id": "col_preis"
+          },
+          {
+            "id": "col_anz"
+          }
+        ],
+        "rows": [
+          {
+            "id": "row_1",
+            "values": {
+              "col_ks": 4711
+            }
+          },
+          {
+            "id": "row_2",
+            "values": {
+              "col_name": "Kabel"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

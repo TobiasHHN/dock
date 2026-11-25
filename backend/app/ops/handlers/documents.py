@@ -12,13 +12,12 @@ from __future__ import annotations
 import json
 from typing import Any
 
-from fractional_indexing import generate_key_between, generate_n_keys_between
 from pydantic import ValidationError
 from sqlalchemy import text
 
 from app.domain import documents as D
 from app.domain import markdown as M
-from app.domain import references
+from app.domain import positions, references
 from app.ops.context import OpContext
 from app.ops.errors import PipelineError
 from app.ops.handlers import register
@@ -86,17 +85,25 @@ async def _siblings(ctx: OpContext, doc_id: str, parent_id: str | None,
     return [dict(r) for r in rows.mappings() if r["id"] != exclude]
 
 
+def _keys(n: int) -> list[str]:
+    """n aufsteigende Positionen für neue Geschwister."""
+    keys: list[str] = []
+    for _ in range(n):
+        keys.append(positions.between(keys[-1] if keys else None, None))
+    return keys
+
+
 def _position(siblings: list[dict[str, Any]], after: str | None, path: str = "after") -> str:
     ids = [s["id"] for s in siblings]
     if after is None:
-        return generate_key_between(siblings[-1]["position"] if siblings else None, None)
+        return positions.between(siblings[-1]["position"] if siblings else None, None)
     if after == "^":
-        return generate_key_between(None, siblings[0]["position"] if siblings else None)
+        return positions.between(None, siblings[0]["position"] if siblings else None)
     if after not in ids:
         raise _invalid(path, f"'{after}' ist kein Geschwisterblock an dieser Stelle")
     index = ids.index(after)
     upper = siblings[index + 1]["position"] if index + 1 < len(siblings) else None
-    return generate_key_between(siblings[index]["position"], upper)
+    return positions.between(siblings[index]["position"], upper)
 
 
 async def _parent(ctx: OpContext, doc_id: str, parent: str | None, path: str = "parent") -> dict[str, Any] | None:
@@ -219,7 +226,7 @@ async def _insert_nodes(ctx: OpContext, doc_id: str, parent_id: str | None, node
         ctx.set_references("block", node["id"], D.block_edges(node["type"], props))
         children = node.get("children") or []
         if children:
-            await _insert_nodes(ctx, doc_id, node["id"], children, generate_n_keys_between(None, None, len(children)))
+            await _insert_nodes(ctx, doc_id, node["id"], children, _keys(len(children)))
 
 
 def _check_tree(nodes: list[dict[str, Any]], parent_type: str | None, path: str) -> list[str]:
@@ -273,7 +280,7 @@ async def doc_create(ctx: OpContext, op: DocCreate):
                 VALUES (:id, :ws, :title, :wf, :step)"""),
         {"id": op.id, "ws": ctx.workspace_id, "title": op.title, "wf": owner_workflow, "step": owner_step})
     await ctx.touch("document", op.id, f"doc:{op.id}", created=True)
-    await _insert_nodes(ctx, op.id, None, nodes, generate_n_keys_between(None, None, len(nodes)))
+    await _insert_nodes(ctx, op.id, None, nodes, _keys(len(nodes)))
     ctx.add_inverse({"op": "doc.delete", "doc": op.id})
     return {"id": op.id, "block_ids": ids}
 

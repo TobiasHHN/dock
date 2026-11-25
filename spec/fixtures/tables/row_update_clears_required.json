@@ -1,0 +1,113 @@
+{
+  "name": "Pflichtfeld per row.update leeren -> VALIDATION",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "key": "bestellungen",
+        "name": "Bestellungen",
+        "display_column": "col_name",
+        "version": 1,
+        "columns": [
+          {
+            "id": "col_name",
+            "key": "name",
+            "name": "Name",
+            "type": {
+              "kind": "text"
+            },
+            "required": true,
+            "unique": false,
+            "position": "a0"
+          },
+          {
+            "id": "col_ks",
+            "key": "kostenstelle",
+            "name": "Kostenstelle",
+            "type": {
+              "kind": "text"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a1"
+          },
+          {
+            "id": "col_preis",
+            "key": "preis",
+            "name": "Preis",
+            "type": {
+              "kind": "currency",
+              "currency": "EUR"
+            },
+            "required": false,
+            "unique": false,
+            "position": "a2"
+          },
+          {
+            "id": "col_anz",
+            "key": "anzahl",
+            "name": "Anzahl",
+            "type": {
+              "kind": "integer",
+              "min": 1
+            },
+            "required": false,
+            "unique": false,
+            "position": "a3"
+          }
+        ],
+        "rows": [
+          {
+            "id": "row_1",
+            "position": "a0",
+            "version": 1,
+            "values": {
+              "col_name": "Monitor",
+              "col_ks": "4711",
+              "col_preis": 249.5,
+              "col_anz": 2
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "row.update",
+      "table": "tbl_best",
+      "row": "row_1",
+      "values": {
+        "col_name": null
+      }
+    }
+  ],
+  "expect_error": {
+    "code": "VALIDATION",
+    "fields": [
+      "name"
+    ],
+    "message_contains": "Pflichtfeld"
+  },
+  "expect_state": {
+    "tables": [
+      {
+        "id": "tbl_best",
+        "rows": [
+          {
+            "id": "row_1",
+            "version": 1,
+            "values": {
+              "col_name": "Monitor"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -45,18 +45,22 @@ def test_shape(name, fx):
 def test_ops_fixture(name, fx):
     apply_ops = _optional("app.ops.memory", "apply_ops")
     op_error = _optional("app.ops.memory", "OpError")
+    unsupported = _optional("app.ops.memory", "UnsupportedOp")
     if apply_ops is None:
         pytest.skip("app.ops.memory.apply_ops noch nicht implementiert (Task 1.2–1.4)")
     import copy
 
     state = copy.deepcopy(fx["state"])
-    if "expect_error" in fx:
-        with pytest.raises(op_error) as exc:
-            apply_ops(copy.deepcopy(state), fx["ops"])
-        assert not check_error(fx, exc.value.code, str(exc.value), getattr(exc.value, "fields", {}))
-        after = state  # unverändert (Atomarität)
-    else:
-        after = apply_ops(state, fx["ops"])
+    try:
+        if "expect_error" in fx:
+            with pytest.raises(op_error) as exc:
+                apply_ops(copy.deepcopy(state), fx["ops"])
+            assert not check_error(fx, exc.value.code, str(exc.value), getattr(exc.value, "fields", {}))
+            after = state  # unverändert (Atomarität)
+        else:
+            after = apply_ops(state, fx["ops"])
+    except unsupported as exc:  # Dokument-/Block-Ops: In-Memory-Fassung kommt mit Task 1.4
+        pytest.skip(str(exc))
     assert not check_ops_result(fx, after)
 
 
