@@ -9,7 +9,7 @@ Gilt für **ChatGPT Codex** (OpenAI) und **Antigravity** (Google). Modellnamen �
 | Stufe | Einsatz | Codex (OpenAI) | Antigravity (Google) |
 |---|---|---|---|
 | **S1 – Orchestrator** | Planung, Aufteilung, Dependency-Check, Review, Merge | stärkstes GPT-/Codex-Modell, hohes Reasoning | stärkstes Gemini-Pro-Modell (Deep Think/High, falls verfügbar) |
-| **S2 – Anspruchsvoll** | WebSocket-Hub 1.4/1.5, Engine 4.3, Parser 3.4, Architekturentscheidungen | nächst kleineres GPT-/Codex-Modell, mittleres bis hohes Reasoning | nächst kleineres Gemini-Pro-Modell bzw. Pro mit mittlerem Thinking |
+| **S2 – Anspruchsvoll** | Ausführung von Operationen 1.2, Echtzeit-Hub 1.5, Sync-Store 2.3, Import 3.7, Engine 4.2/4.3, Architekturentscheidungen | nächst kleineres GPT-/Codex-Modell, mittleres bis hohes Reasoning | nächst kleineres Gemini-Pro-Modell bzw. Pro mit mittlerem Thinking |
 | **S3 – Standard** | Endpunkte, Komponenten, Tests | Standard-Codex-Modell, mittleres Reasoning | Gemini Pro/Flash, Standard-Thinking |
 | **S4 – Trivial** | Boilerplate, Umbenennungen, Doku, Formatierung, Code-Suche | kleinstes „mini“-Modell, niedriges Reasoning | Gemini Flash / Flash-Lite |
 
@@ -49,9 +49,10 @@ Sobald ein Task abgeschlossen ist, aktualisiert der ausführende Agent `hackatho
 
 ## 5. Arbeitsweise
 
-- **Vor jeder Änderung die Fachdokumente lesen:** `anwendungslogik.md` (Fachlogik: Objekte, Regeln, Operationen, Echtzeit-Abgleich) und `technische-umsetzung.md` (Umsetzung auf den Stack, Abschnittsnummern verweisen auf die Logik). Immer Abschnitt 0 „Kernentscheidungen“, sonst die für den Task relevanten Abschnitte. Bei Widersprüchen gelten diese beiden vor `dokument-plattform-architektur.md` (teilweise überholt).
+- **Vor jeder Änderung die Fachdokumente lesen:** `anwendungslogik.md` (Fachlogik: Objekte, Regeln, Operationen, Echtzeit-Abgleich) und `technische-umsetzung.md` (Umsetzung auf den Stack, Abschnittsnummern verweisen auf die Logik). Immer Abschnitt 0 „Kernentscheidungen“, sonst die für den Task relevanten Abschnitte. Der Plan enthält keine Logik, nur Features und Aufgaben mit Verweisen. Widerspricht der Plan den beiden Dokumenten, gelten sie.
 - Prompt/Auftrag nennt die Task-ID und die betroffenen Dateien. Nur diese Dateien anfassen.
-- `api/app/schemas.py` ist der Vertrag. Änderungen daran nur nach Absprache mit dem Orchestrator.
+- Der API-Vertrag (Schemas laut `technische-umsetzung.md` 2.2/2.3) ist verbindlich. Änderungen daran nur nach Absprache mit dem Orchestrator.
+- `anwendungslogik.md` und `technische-umsetzung.md` haben Vorrang vor `CLAUDE.md` und dem Plan.
 - Keine neuen Dependencies ohne Absprache.
 - Keine Logs, `node_modules` oder `.venv` einlesen.
 - Am Ende kurz berichten: Task-ID, Branch, was erledigt ist, was offen ist, ob der Plan aktualisiert wurde.

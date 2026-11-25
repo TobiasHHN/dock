@@ -11,6 +11,7 @@ Dieses Dokument beschreibt **nur die Logik** der Anwendung: Datenstrukturen, Reg
 5. **Ein Workflow ist eine Folge von Dokumenten.** Jeder Schritt ist ein Dokument, die Buttons der Formulare bestimmen den nächsten Schritt.
 6. **Jeder Schritt hat Zuständige** (Personen und/oder Rollen). Beim Betreten eines Schritts entsteht eine **Aufgabe** (`Task`), die in der Aufgabenliste der Zuständigen erscheint. Der Antragsteller verfolgt den Status seines Runs live.
 7. **Ein einziger Schreibweg:** Browser, Agent (MCP) und Workflow-Engine schicken dieselben **Operationen** an den Server. Der Server prüft, speichert, protokolliert und verteilt sie per WebSocket an alle.
+8. **Bestehende Dateien lassen sich importieren.** Excel (`.xlsx`) wird zu Tabellen, Word (`.docx`) zu Dokumenten mit Formular (8.3). Der Import erzeugt nur Operationen, es gibt keinen zweiten Schreibweg.
 
 ---
 
@@ -789,6 +790,12 @@ Der Akteur (`Actor`, 5.8) wird **nicht** mitgeschickt, sondern vom Server aus de
 | `task.release` | `task` |
 | `task.reassign` | `task, assignees[]` |
 
+**Import** (Details in 8.3)
+
+| Op | Parameter |
+|---|---|
+| `import.include` | `import_id` (Verweis auf einen vorbereiteten Import, wird vom Server durch dessen Ops ersetzt) |
+
 **Nutzer und Rollen** (Recht „Workspace verwalten“)
 
 | Op | Parameter |
@@ -806,7 +813,7 @@ Runs, Aufgaben und Events werden **nur** über diese Ops und `form.submit` verä
 ```
 1. Akteur aus der Anmeldung bestimmen
 2. Rechte prüfen (pro Op)
-3. Keys in IDs auflösen
+3. `import.include` durch die gespeicherten Ops ersetzen, dann Keys in IDs auflösen
 4. base-Versionen prüfen, falls angegeben → sonst CONFLICT mit aktuellem Stand
 5. Ops validieren und anwenden (eine DB-Transaktion), inkl. Folge-Änderungen der Engine
 6. Versionen der betroffenen Objekte erhöhen
@@ -911,6 +918,7 @@ Der MCP-Server ist eine dünne Schicht über den Operationen aus Abschnitt 6. Al
 | Dokumente | `get_document(doc, format = "md" \| "json", run?)` | Markdown mit Block-IDs oder Blockliste, optional im Kontext eines Runs ausgewertet |
 | | `create_document(title, markdown \| blocks)` | `doc.create` |
 | | `edit_document(doc, ops[], base_version?)` | `block.*`, `text.edit` |
+| Import | `import_xlsx(file, sheet?, apply?)`, `import_docx(file, title?, owner?, bind_table?, apply?)` | 8.3 |
 | Formulare | `validate_form(doc, block)` | Prüfung aus 5.7 |
 | Workflows | `list_workflows`, `get_workflow`, `create_workflow`, `update_workflow` | Definition |
 | | `validate_workflow(workflow)` | 5.7 |
@@ -947,6 +955,60 @@ Bitte Name, Kostenstelle und die benötigten Artikel angeben. {#blk_p1}
 ```
 
 Actions und Buttons eines Formulars stehen nicht im Markdown, sondern in der JSON-Darstellung (`get_document(format = "json")`) bzw. werden mit `block.update` gesetzt. Markdown bleibt so lesbar.
+
+### 8.3 Import von Excel und Word
+
+Anna hat meist schon eine Excel-Übersicht und ein Word-Formular. Statt alles neu zu beschreiben, übergibt sie die Dateien, der Server macht daraus Operationen, und der Agent ergänzt, was in den Dateien nicht stehen kann (Aktionen, Buttons, Workflow).
+
+**Ablauf (für Browser und Agent gleich):**
+
+```
+1. Datei hochladen (import_xlsx / import_docx)
+2. Server liest die Datei und bereitet einen Import vor:
+   → erzeugt die Ops (table.create + row.insert bzw. doc.create mit Blöcken),
+     vergibt dafür IDs und speichert sie unter import_id (1 Stunde gültig)
+   → schreibt noch nichts in den Workspace
+3. Antwort: { import_id, created, warnings }
+   created = IDs und Keys dessen, was angelegt würde (Tabellen, Spalten, Dokument, Formular, Felder)
+4. Der Aufrufer nimmt den Import in einen Batch auf:
+   { "op": "import.include", "import_id": "imp_…" }
+   und ergänzt in demselben Batch Ops, die auf die IDs aus created verweisen
+   (Aktionen, Buttons, Workflow, Spaltentypen). Mit apply = true wird der Import ohne Ergänzung sofort ausgeführt.
+```
+
+Der Import ist so Teil **eines** atomaren Batches. Entweder entsteht alles (Tabelle, Dokument, Workflow) oder nichts. Ausnahme zur Regel „Client erzeugt IDs“ (1): Hier vergibt der Server die IDs, weil der Client die Dateistruktur vorher nicht kennt. Sie stehen im Ergebnis.
+
+**Excel (`.xlsx`) → Tabelle**
+
+- Jedes Blatt wird eine Tabelle. Mit `sheet` lässt sich ein Blatt auswählen. Blattname → `key` und `name`.
+- Erste Zeile = Spaltennamen. Leere Spaltenköpfe und komplett leere Zeilen werden übersprungen (Warnung).
+- Der **Spaltentyp wird aus den Werten abgeleitet**: nur ganze Zahlen → `integer`, Zahlen mit Nachkommastellen → `number`, Währungsformat → `currency`, Datum → `date`/`datetime`, Wahrheitswerte → `boolean`, sonst `text` (lange Texte → `long_text`). Gemischte Spalten werden `text` (Warnung). Spalten mit nur wenigen verschiedenen Werten bleiben `text`, der Aufrufer kann sie zu `select` machen.
+- Formeln werden durch ihren zuletzt berechneten Wert ersetzt (Warnung: „Formel verloren“). Es gibt keine Formeln in Tabellen (11).
+- Jede Zeile wird eine Zeile in der Tabelle, in der Reihenfolge der Datei. Die erste Spalte wird `display_column`.
+- Fehlen Spalten, die der Prozess braucht (z. B. `Status`), legt der Aufrufer sie im selben Batch mit `column.add` an. Der Import erfindet keine.
+
+**Word (`.docx`) → Dokument mit Formular**
+
+| Inhalt in Word | Ergebnis |
+|---|---|
+| Überschrift 1–3 | `heading` |
+| Absatz (mit fett, kursiv, Links) | `paragraph` mit `Inline`-Marks |
+| Aufzählung, Nummerierung | `list` und `list_item` |
+| Zeile der Form „Bezeichnung: ____“, „Bezeichnung: …….“ oder „Bezeichnung: [ ]“ | `field` mit `label` = Bezeichnung und `key` aus dem Label |
+| Kontrollkästchen „☐ Text“ | `field` vom Typ `boolean` |
+| Tabelle, deren Zeilen unter dem Kopf leer sind | `line_items` mit den Kopfzeilen als Spalten |
+| Tabelle mit ausgefüllten Zeilen | eigene Tabelle (wie bei Excel) und ein `table_view` darauf |
+| Bilder, Kopf-/Fußzeilen, Kommentare | werden ausgelassen (Warnung) |
+
+- Alle erkannten Felder und Zeilenlisten kommen in **einen** `form`-Block, an der Stelle des ersten Feldes. Text davor und danach bleibt als normale Blöcke erhalten.
+- **Feldtypen** werden aus dem Label abgeleitet: „Datum“, „am“ → `date`; „Menge“, „Anzahl“ → `integer`; „Preis“, „Betrag“, „Summe“ → `currency`; sonst `text`. Pflichtfelder erkennt der Import an einem Stern im Label (`Name*`).
+- `title` überschreibt den Dokumenttitel (sonst Dateiname oder erste Überschrift). `owner` macht das Dokument gleich zum Schritt-Dokument eines Workflows (`{ workflow, step }`).
+- Das Formular hat **keine Actions und keine Buttons**. Damit nichts unbemerkt verloren geht, warnt der Import: „Formular schreibt nirgends hin“ (siehe 4.3).
+- **Abkürzung `bind_table`:** Wird eine Tabelle genannt (auch eine aus demselben Import), bindet der Import Felder, deren Label zu einem Spaltennamen passt (Groß-/Kleinschreibung egal), über `column` und erzeugt eine Action `create_row` mit einem Button „Speichern“. Nicht zuordenbare Felder stehen in den Warnungen.
+
+**Warnungen** sind Texte, die ein Agent lesen und beheben kann, z. B. „Blatt ‚Tabelle2‘ ist leer“, „Spalte C: gemischte Werte, als text angelegt“, „Feld ‚Datum‘ ohne Typ erkannt, als text angelegt“. Dateien, die sich nicht lesen lassen (kein gültiges xlsx/docx, passwortgeschützt, zu groß), werden mit einem Fehler abgelehnt. Das Limit steht in `technische-umsetzung.md`.
+
+**Rechte:** Wer den Import in einen Batch aufnimmt, braucht die Rechte für alle enthaltenen Ops (Tabellen anlegen, Dokumente anlegen). Der Import selbst prüft nichts außer dem Dateiinhalt.
 
 ---
 
@@ -1205,6 +1267,7 @@ Hinweise:
 
 - Die Button-Labels („Eingereicht“, „Genehmigt“, „Abgelehnt“, „Bestellt“) sind bewusst als Ergebnis formuliert. Sie erscheinen im Verlauf und als `run.result` beim Antragsteller.
 - Soll statt einer Rolle eine **bestimmte Person** genehmigen, ersetzt man den Assignee durch `{ "kind": "user", "user": "usr_tom" }`. Soll der **Verantwortliche der Kostenstelle** genehmigen, gibt es eine Tabelle `kostenstellen` mit einer Spalte `verantwortlich` (Typ `user`) und den Assignee `{ "kind": "expr", "expr": "{{lookup(\"kostenstellen\", \"nummer\", run.steps.erfassen.values.kostenstelle, \"verantwortlich\")}}" }`.
+- Statt Tabelle `bestellungen` und Schritt-Dokument 1 von Hand zu beschreiben, kann der Agent sie aus der bestehenden Excel-Übersicht und dem Word-Formular importieren (8.3). Er nimmt beide Importe mit `import.include` in denselben Batch auf und ergänzt Actions, Buttons, Workflow und die übrigen Schritt-Dokumente.
 - Das Formular in Schritt 2 hat ein optionales Kommentarfeld, das nur beim Ablehnen Pflicht ist (`require`).
 
 ### 10.2 Was zur Laufzeit passiert

@@ -8,8 +8,6 @@ Dieses Dokument setzt die Logik aus `anwendungslogik.md` auf den festgelegten St
 
 Die Abschnittsnummern in Klammern, z. B. (6.2), verweisen auf `anwendungslogik.md`.
 
-> `dokument-plattform-architektur.md` empfiehlt noch „TypeScript durchgängig“, Yjs und eine Formel-Engine. Das ist damit überholt.
-
 ---
 
 ## 1. Überblick
@@ -54,6 +52,7 @@ Die Abschnittsnummern in Klammern, z. B. (6.2), verweisen auf `anwendungslogik.m
 | Vektoren | `pgvector` (Python-Paket, SQLAlchemy-Typ `Vector`) |
 | Hintergrund-Jobs | `procrastinate` (Job-Queue auf Postgres, async) |
 | MCP | offizielles `mcp` SDK (`FastMCP`), als ASGI-App unter `/mcp` eingehängt (Streamable HTTP) |
+| Import | `openpyxl` (xlsx, nur lesen, Werte statt Formeln), `python-docx` (docx), `python-multipart` (Upload) |
 | IDs | `python-ulid` |
 | Sortierpositionen | `fractional-indexing` (Python-Port; im Frontend das gleichnamige npm-Paket, gleicher Algorithmus) |
 | Markdown mit Direktiven | `markdown-it-py` mit `mdit-py-plugins` (`container`, `attrs`) |
@@ -100,6 +99,10 @@ backend/
     api/                     # REST-Router
     mcp/
       server.py              # MCP-Tools (8.1), rufen ops.pipeline / Lese-Services
+    imports/                 # Dateien → Ops (8.3 der Logik)
+      xlsx.py                # Blatt → table.create + row.insert, Typableitung
+      docx.py                # Absätze, Listen, Felder, Tabellen → doc.create
+      store.py               # vorbereitete Imports (import_id → Ops, Warnungen)
     search/
       embeddings.py
       search.py              # hybride Suche
@@ -232,6 +235,19 @@ app.mount("/mcp", mcp.streamable_http_app())
 - Agenten bekommen einen eigenen Actor-Typ `agent`. Im Browser erscheinen ihre Änderungen mit eigenem Namen und eigener Farbe.
 - **Akteur bestimmen** (5.8 der Logik): Meldet sich der Agent mit einem delegierten Token einer Person an (OAuth Authorization Code, Scope z. B. `dock:act_on_behalf`), wird `Actor { type: "agent", id, on_behalf_of: usr_… }`, und Rechte sowie Rollen kommen von der Person. Mit Client Credentials handelt er als eigener Akteur mit seinen eigenen Rollen.
 
+### 2.9 Import von Excel und Word
+
+Umsetzung von 8.3 der Logik.
+
+- **REST:** `POST /api/imports/xlsx` und `POST /api/imports/docx` (multipart, Feld `file`, dazu die Parameter aus 8.3 als Formularfelder). Antwort: `{ import_id, created, warnings }`. Mit `apply=true` führt der Endpunkt den Batch sofort über die Op-Pipeline aus und liefert zusätzlich das `BatchResult`.
+- **Parser** in `imports/` sind reine Funktionen `bytes → ImportPlan(ops, created, warnings)` ohne FastAPI und ohne Datenbank. So lassen sie sich mit Beispieldateien aus `spec/fixtures/` testen. Die Typableitung (Excel) und die Felderkennung (Word) stehen dort als Fixtures „Datei → erwartete Ops“.
+- **Excel:** `openpyxl.load_workbook(read_only=True, data_only=True)`, damit Formeln durch ihren gespeicherten Wert ersetzt werden und große Dateien nicht komplett im Speicher liegen. Limits: 10 MB Datei, 10 000 Zeilen und 100 Spalten je Blatt, mehr wird mit Fehler abgelehnt.
+- **Word:** `python-docx`. Absätze werden über Stil (`Heading 1–3`, `List Bullet`, `List Number`) und `runs` (fett, kursiv, Hyperlinks) in `heading`, `paragraph`, `list` und Inline-Marks übersetzt. Felderkennung per regulärem Ausdruck auf `^(?P<label>[^:]{1,60}):\s*(_{3,}|\.{3,}|\[\s*\])\s*$`. Tabellen werden über „alle Zeilen unter dem Kopf leer?“ entschieden.
+- **IDs:** Der Parser erzeugt die IDs (`python-ulid`) und die `position`-Werte (`fractional-indexing`) selbst, damit `created` sie vor der Ausführung nennen kann.
+- **`import.include`:** Handler in der Pipeline (vor dem Auflösen der Keys). Er lädt die Ops aus `imports` (Tabelle), prüft, dass der Import vom selben Akteur stammt und noch gültig ist, und hängt sie an die Stelle des Ops in `batch.ops`. Danach läuft alles wie ein normaler Batch, atomar und mit Op-Log. Ein zweiter `import.include` desselben Imports in einem anderen Batch wird abgelehnt, bereits ausgeführte Imports sind „verbraucht“.
+- **MCP:** Die Tools `import_xlsx` und `import_docx` (8.1 der Logik) lesen die lokale Datei (`file_path`, bei stdio-Betrieb) oder nehmen `content_base64` (bei HTTP-Betrieb) und rufen die REST-Endpunkte auf.
+- **Rechte:** Der Endpunkt verlangt nur Anmeldung. Die Rechte der enthaltenen Ops prüft die Pipeline beim `import.include`.
+
 ---
 
 ## 3. Suche mit pgvector
@@ -352,6 +368,9 @@ oplog        (channel text, seq bigint, batch_id text, actor jsonb,
               ops jsonb, inverse jsonb, created_at,
               primary key (channel, seq))
 batches      (batch_id text pk, result jsonb, created_at)          -- Idempotenz, nach 24 h aufräumen
+imports      (id text pk, workspace_id text, actor jsonb, source text,   -- "xlsx" | "docx"
+              ops jsonb, created jsonb, warnings jsonb,
+              used_at timestamptz null, created_at)                -- nach 1 h bzw. nach Verbrauch aufräumen
 references   (source_kind text, source_id text, target_kind text, target_id text, via text)
 embeddings   (id bigserial pk, workspace_id text, source_kind text, source_id text,
               block_ids text[], chunk_hash text, content text,
@@ -496,7 +515,7 @@ type ChannelState<T> = {
 - **Auth:** Nutzer per OAuth/OIDC, Agenten per OAuth 2.1 Client Credentials mit Scopes pro Workspace (passt zur MCP-Spezifikation). Der WebSocket authentifiziert sich beim Verbindungsaufbau mit einem kurzlebigen Token.
 - **Undo:** Das Op-Log speichert inverse Ops. Undo ist ein neuer Batch mit den inversen Ops und `base`-Versionen. Hat sich der Block seither geändert, wird Undo abgelehnt statt fremde Änderungen zu überschreiben.
 - **Fristen** (procrastinate, periodisch jede Minute): offene Aufgaben mit `due_at < now()` ohne `overdue`-Event bekommen das Event und Benachrichtigungen. Optional E-Mail-Versand als eigener Job pro Benachrichtigung.
-- **Aufräumen** (procrastinate, periodisch): abgelaufene Präsenz, `batches` älter als 24 h, Drafts abgeschlossener Runs, Op-Log komprimieren (Snapshots), sobald das Log für einen Kanal sehr lang wird.
+- **Aufräumen** (procrastinate, periodisch): abgelaufene Präsenz, `batches` älter als 24 h, `imports` älter als 1 h, Drafts abgeschlossener Runs, Op-Log komprimieren (Snapshots), sobald das Log für einen Kanal sehr lang wird.
 - **Lokale Entwicklung:** `docker compose` mit dem Image `pgvector/pgvector`, Backend mit `uvicorn --reload`, Frontend mit `vite`, Vite-Proxy für `/api`, `/ws`, `/mcp`.
 
 ---
@@ -507,7 +526,7 @@ type ChannelState<T> = {
 2. **MCP-Server** mit Tabellen-Tools. Ab hier können Agenten das System testen.
 3. **Dokumente:** Blöcke, Markdown-Import und -Export, REST und MCP.
 4. **Echtzeit:** WebSocket-Hub, LISTEN/NOTIFY, Sync-Store im Frontend, Dokument- und Tabellen-Ansicht.
-5. **Formulare:** Drafts, Ausdrücke, Submit mit Actions.
+5. **Formulare:** Drafts, Ausdrücke, Submit mit Actions. Danach **Import** von Excel und Word (2.9), weil er Tabellen, Dokumente und Formulare erzeugt.
 6. **Nutzer und Rollen:** Anmeldung, Rollen, Agenten-Identitäten inkl. `on_behalf_of`.
 7. **Workflows:** Definition, Veröffentlichen, Runs, Aufgaben, Events, Aufgabenliste und „Meine Anträge“, React-Flow-Editor und Run-Ansicht. Danach ist das Bestellbeispiel (10) komplett lauffähig, im Browser und per MCP.
 8. **Suche:** Embeddings-Worker und hybride Suche.
