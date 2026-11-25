@@ -258,7 +258,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Workflow */
+        /**
+         * Get Workflow
+         * @description Workflow per ID oder Key, mit Entwurf (`draft`) und `latest_version`.
+         */
         get: operations["get_workflow_api_workflows__wf__get"];
         put?: never;
         post?: never;
@@ -277,7 +280,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Validate Workflow */
+        /**
+         * Validate Workflow
+         * @description Prüfung nach L 5.7: genau eines von `workflow` (Entwurf) oder `definition`. Fehler blockieren
+         *     `workflow.publish`, Warnungen nicht.
+         */
         post: operations["validate_workflow_api_workflows_validate_post"];
         delete?: never;
         options?: never;

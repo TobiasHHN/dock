@@ -163,7 +163,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 ### P4: Workflow
 | ID | Task | Done wenn | Abhängig von |
 |---|---|---|---|
-| 4.1 | **F8** Workflow-Definition und Prüfung: anlegen, ändern, löschen, `validate_workflow` mit allen Fehlern und Warnungen aus L 5.7 in agentenlesbarer Form, Veröffentlichen mit Version und eingefrorenen Schritt-Dokumenten (L 5.3) | Eine fehlerhafte Definition liefert konkrete Meldungen, eine korrekte wird als Version v1 gespeichert | 1.2, 0.5 |
+| 4.1 ✅ | **F8** Workflow-Definition und Prüfung: anlegen, ändern, löschen, `validate_workflow` mit allen Fehlern und Warnungen aus L 5.7 in agentenlesbarer Form, Veröffentlichen mit Version und eingefrorenen Schritt-Dokumenten (L 5.3) | Eine fehlerhafte Definition liefert konkrete Meldungen, eine korrekte wird als Version v1 gespeichert (Branch `task/4.1-workflow-definition`. Prüfung in `domain/workflows.py` `check_definition`, Codes in `ValidationIssue.code`; `publish` liefert `{version, warnings}`; `workflow.delete` löscht abgeschlossene Runs mit) | 1.2, 0.5 |
 | 4.2 | **F9** Engine für Runs und Aufgaben: Run starten (mit Startberechtigung), Schritt betreten, Zuständige auflösen, Ausschlüsse (Vier-Augen), `can_act`, Übergang nach Outcome, Ende, Abbrechen, Übernehmen/Freigeben, Events (L 5.4, L 5.9, T 2.2 `domain/tasks.py`, `domain/workflows.py`) | Der komplette Bestellprozess läuft in einem Backend-Test durch (inklusive Ablehnung) | 4.1, 3.2 |
 | 4.3 | Verbindung Formular ↔ Run: Absenden schließt die Aufgabe, speichert das Schritt-Ergebnis und löst den Übergang aus. Ausdrücke im Run-Kontext (`run.steps…`), Formulare in abgeschlossenen Schritten schreibgeschützt (L 4.6, L 5.3) | Absenden im Schritt „erfassen“ erzeugt die Aufgabe für `chef`, Ben darf „genehmigung“ nicht absenden | 4.2, 3.3 |
 | 4.4 | **F10** Status und Benachrichtigungen: Statusansicht, Run-Liste („Meine Anträge“), Aufgabenliste, Kommentare, Benachrichtigungen nach der Tabelle in L 5.10 (T 4 `notifications`) | `get_run` liefert die Struktur aus L 5.10, Benachrichtigung erreicht alle Mitglieder der Rolle live | 4.2, 1.5 |
@@ -238,6 +238,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 
 - **Prüfungen im Handler:** `run.*` und `task.*` prüfen Startberechtigung und `can_act` im Handler.
 - **Löschen und Verweise:** `doc.delete` liefert `IN_USE`, wenn ein Workflow das Dokument nutzt. Die Workflow-Handler müssen dafür ihre Kanten melden (`set_references`).
+- **Offen, noch keinem Task zugeordnet (L 9):** `role.delete` und `column.delete` sind nur durch den Entwurf geschützt, nicht durch ältere Workflow-Versionen mit aktiven Runs (gefunden im Review von 4.1).
 - **Run-Kontext:** `GET /api/documents/{doc}?run=` ignoriert `run` noch (gehört zu 4.3).
 - **Sichtbarkeit:** Wer `run:<id>` abonnieren darf, steht in `backend/app/realtime/access.py`: Antragsteller, Beteiligte an Aufgaben (Person oder Rolle) und `einkauf`. Dass `einkauf` alle Runs sieht, ist eine Festlegung von P1.
 - **Rollenänderung bei offener Verbindung:** Abos werden nicht beendet und es kommt kein neuer `user:`-Snapshot (L 7.2/7.3). Das muss mit `user.set_roles` bzw. der Engine kommen.

@@ -261,3 +261,53 @@ async def fetch_table_snapshot(s: AsyncSession, table_id: str) -> dict[str, Any]
 
 __all__ = ["list_documents", "fetch_document", "fetch_document_markdown", "fetch_table", "list_tables",
            "query_rows", "fetch_table_snapshot", "humanize_props"]
+
+
+# ── Workflows (Task 4.1) ─────────────────────────────────────────────────────
+
+
+def _workflow(row: dict[str, Any]) -> dict[str, Any]:
+    draft = row["draft"]
+    return {"id": row["id"], "key": row["key"], "name": row["name"],
+            "draft": json.loads(draft) if isinstance(draft, str) else draft,
+            "latest_version": row["latest_version"]}
+
+
+async def list_workflows(s: AsyncSession) -> list[dict[str, Any]]:
+    return await _all(s, """SELECT id, key, name, latest_version FROM workflows
+                            WHERE workspace_id = :ws ORDER BY name, id""", ws=DEFAULT_WORKSPACE)
+
+
+async def fetch_workflow(s: AsyncSession, ref: str) -> dict[str, Any]:
+    """Workflow per ID oder Key, mit Entwurf (`Workflow`)."""
+    rows = await _all(s, """SELECT id, key, name, draft, latest_version FROM workflows
+                            WHERE workspace_id = :ws AND (id = :ref OR key = :ref)""", ws=DEFAULT_WORKSPACE, ref=ref)
+    if not rows:
+        raise PipelineError("NOT_FOUND", f"Workflow '{ref}' wurde nicht gefunden")
+    return _workflow(rows[0])
+
+
+async def validate_workflow(s: AsyncSession, actor: Any, workflow: str | None,
+                            definition: dict[str, Any] | None) -> dict[str, Any]:
+    """`POST /api/workflows/validate`: Entwurf eines bestehenden Workflows oder eine freie Definition prüfen (L 5.7).
+    Eine Definition, die schon am Schema scheitert, liefert `ok = false` mit Code `SCHEMA` pro Feld."""
+    from pydantic import ValidationError
+
+    from app.domain import workflows as W
+    from app.ops.context import OpContext
+    from app.ops.handlers.workflows import resolve_definition
+    from app.schemas.workflows import WorkflowDefinition
+
+    ctx = OpContext(session=s, actor=actor)
+    workflow_id = None
+    if workflow is not None:
+        found = await fetch_workflow(s, workflow)
+        workflow_id, definition = found["id"], found["draft"]
+    try:
+        parsed = WorkflowDefinition.model_validate(definition)
+    except ValidationError as exc:
+        return {"ok": False, "issues": [
+            {"severity": "error", "code": "SCHEMA", "field": ".".join(map(str, e["loc"])),
+             "message": f"{'.'.join(map(str, e['loc']))}: {e['msg']}"} for e in exc.errors()]}
+    parsed = await resolve_definition(ctx, parsed)
+    return (await W.check_workflow(ctx, parsed, workflow_id)).model_dump(exclude_none=True)

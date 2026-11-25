@@ -32,8 +32,7 @@ def _stub_pipeline(monkeypatch):
     monkeypatch.setattr(routers, "apply_batch", fake)
 
 GET_PATHS = [
-    "/api/health", "/api/me", "/api/workflows",
-    "/api/workflows/bestellprozess", "/api/runs", "/api/runs/run_42", "/api/tasks", "/api/notifications",
+    "/api/health", "/api/me", "/api/runs", "/api/runs/run_42", "/api/tasks", "/api/notifications",
     "/api/schema/ws-messages",
 ]
 
