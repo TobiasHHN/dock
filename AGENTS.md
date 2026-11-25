@@ -56,3 +56,29 @@ Sobald ein Task abgeschlossen ist, aktualisiert der ausführende Agent `hackatho
 - Keine neuen Dependencies ohne Absprache.
 - Keine Logs, `node_modules` oder `.venv` einlesen.
 - Am Ende kurz berichten: Task-ID, Branch, was erledigt ist, was offen ist, ob der Plan aktualisiert wurde.
+
+## 6. Stack, Befehle und Besonderheiten
+
+Stack und Struktur stehen in `technische-umsetzung.md`. Zusätzlich gilt:
+
+- Demo-Rollen: `einkauf`, `mitarbeiter`, `chef`. Demo-Nutzer: Anna (`einkauf`), Ben (`mitarbeiter`), Chef (`chef`), siehe `demo/prompts.md`.
+- Bis Task 1.1 fertig ist, wählt der Header `X-Demo-User: anna|ben|chef` den Nutzer (`backend/app/auth.py`, Default Anna).
+- Alle REST-Endpunkte sind Stubs mit Beispieldaten (`backend/app/api/routers.py`, `stub_data.py`), bis der jeweilige Task sie ersetzt. Die Stub-Schnittstellen in `domain/`, `ops/`, `realtime/`, `imports/`, `search/` und `mcp/` haben leere Rümpfe mit Task-Verweis im Docstring.
+- Gemeinsame Testfälle für Backend und Frontend liegen in `spec/fixtures/` (Format: `spec/fixtures/README.md`). Neue Fälle immer dort ergänzen.
+- `mcp` ist auf `<2` gepinnt, weil `technische-umsetzung.md` die `FastMCP`-API voraussetzt. Embedding-Dimension 384 (`db/init.sql`, `backend/app/config.py`).
+
+```
+docker compose up -d --build        # db (:5433 auf dem Host), backend (:8000, /docs), worker, frontend (:5173)
+docker compose down -v && docker compose up -d   # frische Datenbank (Schema aus db/init.sql)
+python demo/seed.py                 # Demo-Nutzer und Templates, entsteht mit Task 5.5
+
+# Backend-Tests (lokale venv: python3 -m venv backend/.venv && backend/.venv/bin/pip install -e "backend[dev]")
+backend/.venv/bin/pytest backend
+
+# Frontend (einmalig: cd frontend && npm install)
+cd frontend && npm test             # vitest, lädt spec/fixtures
+cd frontend && npx tsc --noEmit     # Typecheck
+cd frontend && npm run gen:types    # TS-Typen aus http://localhost:8000/openapi.json nach src/api/types.ts
+```
+
+Nach jeder Änderung an `backend/app/schemas/` oder an Endpunkten: `npm run gen:types` ausführen und `src/api/types.ts` mit committen.
