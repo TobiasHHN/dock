@@ -264,3 +264,9 @@ async def test_real_model_finds_order_form(db, monkeypatch, capsys):
         print("\nTop-Treffer:", [(h.id, round(h.score, 4)) for h in res.hits])
     assert res.hits[0].id == "zz52_order"
     assert res.hits[0].block_ids
+
+
+def test_fts_query_or_combines_words():
+    assert search_mod._fts_query("Formular für Bestellungen") == "Formular or für or Bestellungen"
+    assert search_mod._fts_query('"Kostenstelle 4711"') == '"Kostenstelle 4711"'
+    assert search_mod._fts_query("DELL-U2723 or Maus") == "DELL or U2723 or Maus"

@@ -33,13 +33,13 @@ WITH vec AS (
   ORDER BY ts_rank_cd(e.tsv, q) DESC
   LIMIT :n
 ), fused AS (
-  SELECT id, sum(1.0 / (:k + r)) AS score
-  FROM (SELECT * FROM vec UNION ALL SELECT * FROM fts) x
+  SELECT id, sum(1.0 / (:k + r)) AS score, min(r) FILTER (WHERE src = 'fts') AS fts_r
+  FROM (SELECT id, r, 'vec' AS src FROM vec UNION ALL SELECT id, r, 'fts' AS src FROM fts) x
   GROUP BY id
 )
 SELECT e.source_kind, e.source_id, e.block_ids, e.content, f.score
 FROM fused f JOIN embeddings e ON e.id = f.id
-ORDER BY f.score DESC, e.id
+ORDER BY f.score DESC, f.fts_r NULLS LAST, e.id
 LIMIT :pool
 """)
 
@@ -49,6 +49,16 @@ _TITLE_SQL = {
     "workflow": "SELECT name FROM workflows WHERE id = :i AND workspace_id = :ws",
 }
 _CHANNEL = {"document": "doc:{}", "table": "table:{}"}  # Workflows haben keinen Kanal: Workspace-Mitgliedschaft
+
+
+def _fts_query(q: str) -> str:
+    """Stichwörter ODER-verknüpfen (websearch-Syntax), damit Sätze wie „Formular für Bestellungen“ auch
+    Abschnitte finden, die nur einen Teil der Wörter enthalten. ts_rank_cd belohnt mehr Treffer.
+    Phrasen in Anführungszeichen bleiben erhalten."""
+    if '"' in q:
+        return q
+    words = [w for w in q.replace("-", " ").split() if w.lower() not in {"or", "and"}]
+    return " or ".join(words)
 
 
 def _snippet(content: str) -> str:
@@ -84,7 +94,7 @@ async def hybrid_search(query: str, actor: Actor, kinds: list[str] | None = None
 
     async with SessionLocal() as session:
         rows = (await session.execute(_FUSED_SQL, {
-            "qv": _vec(qvec), "qt": q, "ws": DEFAULT_WORKSPACE,
+            "qv": _vec(qvec), "qt": _fts_query(q), "ws": DEFAULT_WORKSPACE,
             "model": getattr(embedder, "model_name", None) or settings.embedding_model,
             "kinds": kinds, "n": CANDIDATES, "k": RRF_K, "pool": 2 * CANDIDATES,
         })).mappings().all()
