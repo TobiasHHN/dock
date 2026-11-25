@@ -576,3 +576,23 @@ async def test_table_and_row_endpoints_filters(engine, api):
     expr = await api.post(f"/api/tables/{tbl['key']}/rows/query",
                           json={"filter": [{"column": "name", "op": "eq", "value": "{{run.id}}"}]})
     assert expr.status_code == 422
+
+
+async def test_table_view_block_protects_table_and_column_from_delete(engine):
+    """Zusammenspiel 1.3/1.4: Kanten der Block-Handler lösen den Löschschutz der Tabellen-Handler aus (L 9)."""
+    tbl = await make_table(engine, key=zid("art"))
+    doc, tv = zid("doc"), zid("blk")
+    await run({"op": "doc.create", "id": doc, "title": "Ansicht", "blocks": [
+        {"id": tv, "type": "table_view", "props": {"table": tbl["key"], "columns": ["name"]}}]})
+
+    for op in ({"op": "table.delete", "table": tbl["id"]},
+               {"op": "column.delete", "table": tbl["id"], "column": tbl["cols"]["name"]}):
+        with pytest.raises(PipelineError) as exc:
+            await run(op)
+        assert exc.value.error.code == "IN_USE"
+        assert tv in json.dumps(exc.value.error.details)
+
+    # Block weg, dann ist die Tabelle wieder löschbar
+    await run({"op": "block.delete", "block": tv})
+    await run({"op": "table.delete", "table": tbl["id"]})
+    assert not await q(engine, "SELECT 1 FROM tables WHERE id = :i", i=tbl["id"])
