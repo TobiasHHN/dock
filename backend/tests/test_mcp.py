@@ -193,3 +193,14 @@ async def test_http_mount_reachable():
                 r = await c.post(path, json=init, headers=headers)
                 assert r.status_code == 200, (path, r.status_code, r.text)
                 assert "dock" in r.text
+
+
+def test_lifespan_restartable():
+    """Mehrere Lifespans im selben Prozess (z. B. mehrere `with TestClient(app)`) dürfen nicht scheitern."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    for _ in range(2):
+        with TestClient(app) as c:
+            assert c.get("/api/health").status_code == 200
