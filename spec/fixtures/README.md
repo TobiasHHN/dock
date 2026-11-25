@@ -11,6 +11,7 @@ Neue Fälle immer hier ergänzen, nie nur auf einer Seite testen.
 tables/       kind: ops          Tabellen-Ops (L 2)
 documents/    kind: ops          Dokument-/Block-Ops (L 3)
 expressions/  kind: expression   Ausdrücke {{ }} (L 4.5)
+text_ot/      kind: text_ot      Transformation von text.edit (T 2.6)
 imports/      kind: import       Datei -> erwartete Ops (L 8.3), nur pytest
 files/        Beispieldateien für die Import-Fälle (erzeugt von spec/make_sample_files.py)
 ```
@@ -43,6 +44,18 @@ Schnittstellen, die die Runner aufrufen, sobald sie existieren (bis dahin werden
 | Import docx | `app.imports.docx.parse_docx(bytes, title, owner, bind_table) -> ImportResult` | – |
 
 `apply_ops` ist die reine In-Memory-Fassung der Handler (ohne DB), geschrieben in Task 1.2/1.3/1.4. Das Frontend-Gegenstück in Task 2.3.
+
+## kind: `text_ot`
+
+```jsonc
+{ "transform": [ { "edit": {from,to,insert}, "prior": {…}, "side": "after|before", "expect": {from,to,insert?} } ],
+  "sequence":  [ { "edit": {…}, "applied": [ {…}, … ], "expect": {…} } ],        // Server: nacheinander, side "after"
+  "converge":  [ { "content": Inline[], "a": {…}, "b": {…}, "expect": Inline[] } ] }
+```
+
+`converge`: Server wendet `a` an, dann `transform_one(b, a, "after")`; der Client von `b` wendet `b` an, dann
+`transform_one(a, b, "before")`. Beide Ergebnisse müssen `expect` entsprechen. Python: `app.domain.text_ot`,
+TypeScript: `sync/textOt.ts`. Festlegungen in `technische-umsetzung.md` 2.6.
 
 ## kind: `expression`
 

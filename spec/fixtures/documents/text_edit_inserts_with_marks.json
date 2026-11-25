@@ -1,0 +1,86 @@
+{
+  "name": "text.edit fügt Text ein, Marks relativ zum eingefügten Text",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "L 7.5 / T 2.6: text.edit ersetzt [from, to) durch insert. marks gilt relativ zu insert. Die Block-Version steigt um 1.",
+  "state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Doc",
+        "version": 1,
+        "blocks": [
+          {
+            "id": "p1",
+            "parent_id": null,
+            "position": "a0",
+            "type": "paragraph",
+            "version": 2,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Hallo Welt"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "text.edit",
+      "block": "p1",
+      "version": 2,
+      "from": 6,
+      "to": 6,
+      "insert": "schöne ",
+      "marks": [
+        {
+          "from": 0,
+          "to": 6,
+          "mark": "bold"
+        }
+      ]
+    }
+  ],
+  "expect_state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "blocks": [
+          {
+            "id": "p1",
+            "version": 3,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "Hallo ",
+                  "marks": []
+                },
+                {
+                  "t": "text",
+                  "text": "schöne",
+                  "marks": [
+                    "bold"
+                  ]
+                },
+                {
+                  "t": "text",
+                  "text": " Welt",
+                  "marks": []
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

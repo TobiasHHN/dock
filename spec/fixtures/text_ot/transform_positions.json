@@ -1,0 +1,294 @@
+{
+  "name": "Positionen gegen einen früheren Edit verschieben",
+  "kind": "text_ot",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "T 2.6: transform_one(edit, prior, side). side=after: bei Einfügen an derselben Stelle steht prior vorn (Server-Reihenfolge).",
+  "transform": [
+    {
+      "name": "Einfügen davor verschiebt nach rechts",
+      "edit": {
+        "from": 5,
+        "to": 5,
+        "insert": "x"
+      },
+      "prior": {
+        "from": 2,
+        "to": 2,
+        "insert": "abc"
+      },
+      "side": "after",
+      "expect": {
+        "from": 8,
+        "to": 8
+      }
+    },
+    {
+      "name": "Einfügen dahinter bleibt",
+      "edit": {
+        "from": 1,
+        "to": 1,
+        "insert": "x"
+      },
+      "prior": {
+        "from": 4,
+        "to": 4,
+        "insert": "abc"
+      },
+      "side": "after",
+      "expect": {
+        "from": 1,
+        "to": 1
+      }
+    },
+    {
+      "name": "gleiche Stelle, side=after",
+      "edit": {
+        "from": 3,
+        "to": 3,
+        "insert": "x"
+      },
+      "prior": {
+        "from": 3,
+        "to": 3,
+        "insert": "ab"
+      },
+      "side": "after",
+      "expect": {
+        "from": 5,
+        "to": 5
+      }
+    },
+    {
+      "name": "gleiche Stelle, side=before",
+      "edit": {
+        "from": 3,
+        "to": 3,
+        "insert": "x"
+      },
+      "prior": {
+        "from": 3,
+        "to": 3,
+        "insert": "ab"
+      },
+      "side": "before",
+      "expect": {
+        "from": 3,
+        "to": 3
+      }
+    },
+    {
+      "name": "Löschen davor verschiebt nach links",
+      "edit": {
+        "from": 8,
+        "to": 9,
+        "insert": ""
+      },
+      "prior": {
+        "from": 2,
+        "to": 5,
+        "insert": ""
+      },
+      "side": "after",
+      "expect": {
+        "from": 5,
+        "to": 6
+      }
+    },
+    {
+      "name": "Einfügen im fremd gelöschten Bereich entfällt",
+      "edit": {
+        "from": 4,
+        "to": 4,
+        "insert": "x"
+      },
+      "prior": {
+        "from": 2,
+        "to": 6,
+        "insert": "Y"
+      },
+      "side": "after",
+      "expect": {
+        "from": 3,
+        "to": 3,
+        "insert": ""
+      }
+    },
+    {
+      "name": "Bereich endet im ersetzten Bereich: fremder Text bleibt",
+      "edit": {
+        "from": 1,
+        "to": 4,
+        "insert": ""
+      },
+      "prior": {
+        "from": 3,
+        "to": 7,
+        "insert": "y"
+      },
+      "side": "after",
+      "expect": {
+        "from": 1,
+        "to": 3
+      }
+    },
+    {
+      "name": "Bereich beginnt an fremder Einfügung: diese bleibt",
+      "edit": {
+        "from": 3,
+        "to": 5,
+        "insert": ""
+      },
+      "prior": {
+        "from": 3,
+        "to": 3,
+        "insert": "ab"
+      },
+      "side": "after",
+      "expect": {
+        "from": 5,
+        "to": 7
+      }
+    },
+    {
+      "name": "Bereich endet an fremder Einfügung: diese bleibt",
+      "edit": {
+        "from": 1,
+        "to": 3,
+        "insert": ""
+      },
+      "prior": {
+        "from": 3,
+        "to": 3,
+        "insert": "ab"
+      },
+      "side": "after",
+      "expect": {
+        "from": 1,
+        "to": 3
+      }
+    },
+    {
+      "name": "Bereich umschließt fremden Bereich",
+      "edit": {
+        "from": 1,
+        "to": 9,
+        "insert": ""
+      },
+      "prior": {
+        "from": 3,
+        "to": 5,
+        "insert": "xyz"
+      },
+      "side": "after",
+      "expect": {
+        "from": 1,
+        "to": 10
+      }
+    },
+    {
+      "name": "Ersetzen im fremd gelöschten Bereich entfällt",
+      "edit": {
+        "from": 1,
+        "to": 3,
+        "insert": "Q"
+      },
+      "prior": {
+        "from": 1,
+        "to": 5,
+        "insert": ""
+      },
+      "side": "after",
+      "expect": {
+        "from": 1,
+        "to": 1,
+        "insert": ""
+      }
+    },
+    {
+      "name": "Einfügen am Rand eines gelöschten Bereichs bleibt",
+      "edit": {
+        "from": 5,
+        "to": 5,
+        "insert": "Z"
+      },
+      "prior": {
+        "from": 1,
+        "to": 5,
+        "insert": ""
+      },
+      "side": "after",
+      "expect": {
+        "from": 1,
+        "to": 1,
+        "insert": "Z"
+      }
+    },
+    {
+      "name": "gleicher Bereich, side=after: entfällt",
+      "edit": {
+        "from": 1,
+        "to": 3,
+        "insert": "Y"
+      },
+      "prior": {
+        "from": 1,
+        "to": 3,
+        "insert": "X"
+      },
+      "side": "after",
+      "expect": {
+        "from": 1,
+        "to": 1,
+        "insert": ""
+      }
+    },
+    {
+      "name": "gleicher Bereich, side=before: ersetzt den fremden Text",
+      "edit": {
+        "from": 1,
+        "to": 3,
+        "insert": "X"
+      },
+      "prior": {
+        "from": 1,
+        "to": 3,
+        "insert": "Y"
+      },
+      "side": "before",
+      "expect": {
+        "from": 1,
+        "to": 2,
+        "insert": "X"
+      }
+    }
+  ],
+  "sequence": [
+    {
+      "name": "mehrere Edits nacheinander (Server)",
+      "edit": {
+        "from": 4,
+        "to": 4,
+        "insert": "!"
+      },
+      "applied": [
+        {
+          "from": 0,
+          "to": 0,
+          "insert": "ab"
+        },
+        {
+          "from": 1,
+          "to": 3,
+          "insert": ""
+        }
+      ],
+      "expect": {
+        "from": 4,
+        "to": 4
+      }
+    }
+  ]
+}

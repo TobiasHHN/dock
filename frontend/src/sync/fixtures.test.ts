@@ -2,6 +2,7 @@
 // `expressions.ts` existieren (Task 2.3 / 3.2) und werden dann automatisch aktiv (siehe spec/fixtures/README.md).
 import { describe, expect, it } from "vitest";
 import { FIXTURE_ROOT, KINDS, checkError, checkOpsResult, forRunner, loadAll, matches } from "./fixtureSupport";
+import { applyEdit, transform, transformOne } from "./textOt";
 
 const applyMods = import.meta.glob("./apply.ts");
 const exprMods = import.meta.glob("./expressions.ts");
@@ -21,6 +22,8 @@ describe("fixtures: Form", () => {
       expect(fx.ops.every((o: { op?: string }) => typeof o.op === "string")).toBe(true);
     } else if (fx.kind === "expression") {
       expect(fx.cases.length).toBeGreaterThan(0);
+    } else if (fx.kind === "text_ot") {
+      expect(["transform", "sequence", "converge"].some((k) => fx[k]?.length)).toBe(true);
     } else {
       expect(fx.expect_ops.length).toBeGreaterThan(0);
     }
@@ -78,5 +81,18 @@ describe("fixtures: Vergleich", () => {
 
   it("Fixture-Ordner ist erreichbar", () => {
     expect(FIXTURE_ROOT.endsWith("spec/fixtures")).toBe(true);
+  });
+});
+
+describe("fixtures: Ausführung (text_ot)", () => {
+  it.each(forRunner("vitest", "text_ot"))("%s", (_name, fx) => {
+    for (const c of fx.transform ?? []) expect(matches(c.expect, transformOne(c.edit, c.prior, c.side ?? "after")), c.name).toEqual([]);
+    for (const c of fx.sequence ?? []) expect(matches(c.expect, transform(c.edit, c.applied)), c.name).toEqual([]);
+    for (const c of fx.converge ?? []) {
+      const server = applyEdit(applyEdit(c.content, c.a), transformOne(c.b, c.a, "after"));
+      const clientB = applyEdit(applyEdit(c.content, c.b), transformOne(c.a, c.b, "before"));
+      expect(matches(c.expect, server), `${c.name} (Server)`).toEqual([]);
+      expect(matches(c.expect, clientB), `${c.name} (Client)`).toEqual([]);
+    }
   });
 });

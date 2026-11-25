@@ -1,0 +1,97 @@
+{
+  "name": "text.edit ohne marks erbt vom Zeichen davor, Erwähnungen zählen als eine Einheit",
+  "kind": "ops",
+  "runners": [
+    "pytest",
+    "vitest"
+  ],
+  "description": "T 2.6: mention und value zählen als je 1 Position. Ohne marks erbt der eingefügte Text die Marks des Zeichens davor. Ersetzen über eine Erwähnung hinweg löscht sie.",
+  "state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "title": "Doc",
+        "version": 1,
+        "blocks": [
+          {
+            "id": "p1",
+            "parent_id": null,
+            "position": "a0",
+            "type": "paragraph",
+            "version": 2,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "ab",
+                  "marks": [
+                    "italic"
+                  ]
+                },
+                {
+                  "t": "mention",
+                  "target": "usr_anna"
+                },
+                {
+                  "t": "text",
+                  "text": "cd"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "ops": [
+    {
+      "op": "text.edit",
+      "block": "p1",
+      "version": 2,
+      "from": 2,
+      "to": 2,
+      "insert": "X"
+    },
+    {
+      "op": "text.edit",
+      "block": "p1",
+      "version": 2,
+      "from": 4,
+      "to": 6,
+      "insert": "!"
+    }
+  ],
+  "expect_state": {
+    "documents": [
+      {
+        "id": "doc_1",
+        "blocks": [
+          {
+            "id": "p1",
+            "version": 3,
+            "props": {
+              "content": [
+                {
+                  "t": "text",
+                  "text": "abX",
+                  "marks": [
+                    "italic"
+                  ]
+                },
+                {
+                  "t": "mention",
+                  "target": "usr_anna"
+                },
+                {
+                  "t": "text",
+                  "text": "!",
+                  "marks": []
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

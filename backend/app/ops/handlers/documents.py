@@ -1,4 +1,4 @@
-"""Handler für `doc.*` und `block.*` (L 3, L 6.1; ohne `text.edit`). Task 1.4.
+"""Handler für `doc.*`, `block.*` (L 3, L 6.1; Task 1.4) und `text.edit` (L 7.5, T 2.6; Stretch F15).
 
 Regeln:
 - Blöcke liegen flach in `blocks` (parent_id + position als Fractional Index). `after` nennt den Geschwisterblock,
@@ -18,11 +18,12 @@ from sqlalchemy import text
 from app.domain import documents as D
 from app.domain import markdown as M
 from app.domain import positions, references
+from app.domain import text_ot
 from app.ops.context import OpContext
 from app.ops.errors import PipelineError
 from app.ops.handlers import register
 from app.realtime import presence
-from app.schemas.ops import BlockDelete, BlockInsert, BlockMove, BlockUpdate, DocCreate, DocDelete, DocUpdate
+from app.schemas.ops import BlockDelete, BlockInsert, BlockMove, BlockUpdate, DocCreate, DocDelete, DocUpdate, TextEdit
 
 
 def _j(value: Any) -> Any:
@@ -410,3 +411,54 @@ async def block_delete(ctx: OpContext, op: BlockDelete):
     ctx.add_inverse({"op": "block.insert", "doc": block["doc_id"], "parent": block["parent_id"],
                      "after": previous, "block": tree[0]})
     return {"deleted": [b["id"] for b in subtree]}
+
+
+@register("text.edit")
+async def text_edit(ctx: OpContext, op: TextEdit):
+    """Textänderung innerhalb eines Blocks. `version` ist die Block-Version, die der Client zuletzt gesehen hat;
+    der Edit wird gegen alle seitdem angewendeten `text.edit` desselben Blocks verschoben (T 2.6). Ins Op-Log
+    (und damit an alle Clients) geht der transformierte Edit mit `version` = Block-Version vor dieser Änderung."""
+    block = await _load_block(ctx, op.block)
+    presence.check_block_free(f"doc:{block['doc_id']}", block["id"], ctx.actor)
+    if block["type"] not in D.TEXT_TYPES:
+        raise _invalid("block", f"'{block['type']}' hat keinen Text, text.edit gilt nur für "
+                                f"{', '.join(sorted(D.TEXT_TYPES))}")
+    current = block["version"]
+    edit: dict[str, Any] = {
+        "from": op.from_, "to": op.to, "insert": op.insert,
+        "marks": None if op.marks is None else [m.model_dump(by_alias=True) for m in op.marks],
+    }
+    if op.version < current:
+        edit = text_ot.transform(edit, await _text_edits_since(ctx, block["doc_id"], block["id"], op.version))
+    old_content = block["props"].get("content") or []
+    length = text_ot.text_length(old_content)
+    edit["from"] = min(max(edit["from"], 0), length)
+    edit["to"] = min(max(edit["to"], edit["from"]), length)
+    try:
+        props = D.normalize_props(block["type"], {**block["props"],
+                                                  "content": text_ot.apply_edit(old_content, edit)})
+    except ValidationError as exc:
+        raise _from_pydantic(exc, "props") from exc
+    op.from_, op.to, op.version = edit["from"], edit["to"], current
+    if props == block["props"]:
+        return {"id": op.block, "from": edit["from"], "to": edit["to"], "version": current}
+    await ctx.session.execute(text("UPDATE blocks SET props = CAST(:p AS jsonb) WHERE id = :id"),
+                              {"p": json.dumps(props), "id": op.block})
+    await ctx.touch("block", op.block)
+    ctx.set_references("block", op.block, D.block_edges(block["type"], props))
+    await _touch_doc(ctx, block["doc_id"])
+    ctx.add_inverse({"op": "block.update", "block": op.block, "props": {"content": old_content}})
+    return {"id": op.block, "from": edit["from"], "to": edit["to"], "version": current}
+
+
+async def _text_edits_since(ctx: OpContext, doc_id: str, block_id: str, version: int) -> list[dict[str, Any]]:
+    """`text.edit` dieses Blocks aus dem Op-Log, die auf Version >= `version` angewendet wurden (in seq-Reihenfolge)."""
+    rows = await ctx.session.execute(
+        text("""SELECT ops FROM oplog WHERE channel = :ch AND ops @> CAST(:probe AS jsonb) ORDER BY seq"""),
+        {"ch": f"doc:{doc_id}", "probe": json.dumps([{"op": "text.edit", "block": block_id}])})
+    found: list[dict[str, Any]] = []
+    for ops in rows.scalars():
+        for o in _j(ops):
+            if o.get("op") == "text.edit" and o.get("block") == block_id and o.get("version", 0) >= version:
+                found.append(o)
+    return found
