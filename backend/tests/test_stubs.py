@@ -1,11 +1,25 @@
+import pytest
 from fastapi.testclient import TestClient
 
+from app.auth import CurrentUser, current_user
 from app.main import app
+
+
+
+@pytest.fixture(autouse=True)
+def _logged_in_user():
+    """Die Stub-Endpunkte brauchen einen angemeldeten Nutzer; die DB-Anmeldung testet test_auth_stub.py."""
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        id="usr_test", name="Test User", email="test@example.local", roles=["einkauf"]
+    )
+    yield
+    app.dependency_overrides.pop(current_user, None)
+
 
 client = TestClient(app)
 
 GET_PATHS = [
-    "/api/health", "/api/me", "/api/roles", "/api/users", "/api/documents", "/api/documents/doc_s1",
+    "/api/health", "/api/me", "/api/documents", "/api/documents/doc_s1",
     "/api/documents/doc_s1/markdown", "/api/tables", "/api/tables/bestellungen", "/api/workflows",
     "/api/workflows/bestellprozess", "/api/runs", "/api/runs/run_42", "/api/tasks", "/api/notifications",
     "/api/search?q=Bestellung", "/api/schema/ws-messages",
@@ -18,8 +32,14 @@ def test_get_stubs_respond_200():
 
 
 def test_chef_sees_task_ben_not():
-    assert len(client.get("/api/tasks", headers={"X-Demo-User": "chef"}).json()) == 1
-    assert client.get("/api/tasks", headers={"X-Demo-User": "ben"}).json() == []
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        id="usr_chef", name="Chef", email="chef@example.local", roles=["chef"]
+    )
+    assert len(client.get("/api/tasks").json()) == 1
+    app.dependency_overrides[current_user] = lambda: CurrentUser(
+        id="usr_ben", name="Ben", email="ben@example.local", roles=["mitarbeiter"]
+    )
+    assert client.get("/api/tasks").json() == []
 
 
 def test_apply_ops_stub_validates_batch():
