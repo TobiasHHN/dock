@@ -1,5 +1,7 @@
 FROM python:3.12-slim
 WORKDIR /srv
+# libpq für den psycopg-Connector von procrastinate
+RUN apt-get update && apt-get install -y --no-install-recommends libpq5 && rm -rf /var/lib/apt/lists/*
 COPY . .
 RUN pip install --no-cache-dir -e ".[dev]"
 EXPOSE 8000

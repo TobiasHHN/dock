@@ -23,8 +23,10 @@ services:
       DATABASE_URL: postgresql+asyncpg://dock:dock@db:5432/dock
       JWT_SECRET: dev-secret-change-me
       DEMO_AUTH: "1"
+      FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - ./backend:/srv
+      - model_cache:/cache
     ports:
       - "8000:8000"
     depends_on:
@@ -36,8 +38,10 @@ services:
     command: python -m app.worker
     environment:
       DATABASE_URL: postgresql+asyncpg://dock:dock@db:5432/dock
+      FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - ./backend:/srv
+      - model_cache:/cache
     depends_on:
       db:
         condition: service_healthy
@@ -59,3 +63,4 @@ services:
 volumes:
   dbdata:
   frontend_node_modules:
+  model_cache:
