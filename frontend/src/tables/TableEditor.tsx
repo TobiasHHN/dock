@@ -69,7 +69,7 @@ export function TableEditor({ tableId }: { tableId: string }) {
     } catch (err) {
       // z. B. IN_USE: Die Meldung nennt, wo die Tabelle noch verwendet wird
       const msg = (err as { error?: { message: string } })?.error?.message ?? (err as Error).message;
-      toast(`Löschen nicht möglich: ${msg}`);
+      toast(`Löschen nicht möglich: ${msg}`, "error");
     }
   };
 
