@@ -2,6 +2,8 @@
 import type { Actor, RunStatusView, Workflow } from "../api";
 import type { UserOut } from "../api/client";
 import type { FlatBlock } from "../documents/blockOps";
+import { canAct } from "../forms/formModel";
+import type { Json } from "../sync/tableRules";
 import { actorLabel } from "../ui/actors";
 import { resultLabel } from "../inbox/inboxModel";
 
@@ -190,6 +192,21 @@ export function canStartWorkflow(
   if (!me) return false;
   if (!starters || starters.length === 0) return true;
   return matchesAssignees(starters, me, workspaceRoles);
+}
+
+/** Ist `me` für den Schritt zuständig (Rolle, Person, Starter, beim aktiven Schritt auch per Aufgabe, z. B. `expr`)?
+ *  Nur dann zeigt der Ablauf das Schritt-Dokument. */
+export function isStepResponsible(
+  step: WorkflowDefinition["steps"][number],
+  run: RunStatusView,
+  me: UserOut | null,
+  openTask: Json | undefined,
+  workspaceRoles?: { id: string; key: string }[],
+): boolean {
+  if (!me) return false;
+  if (run.current?.step === step.key && openTask && canAct(openTask, me, workspaceRoles)) return true;
+  if (step.assignees.some((a) => a.kind === "starter") && run.started_by.id === me.id) return true;
+  return matchesAssignees(step.assignees as WorkflowDefinition["starters"], me, workspaceRoles);
 }
 
 /** Darf `me` den aktiven Run abbrechen? (L 5.4: Starter wenn `starter_can_cancel`, Manager oder `einkauf`). */
