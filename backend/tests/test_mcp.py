@@ -203,6 +203,12 @@ def _stub_reads(monkeypatch):
                      ("list_documents", list_documents)]:
         monkeypatch.setattr(queries, name, fn)
 
+    async def validate_form_in_db(s, doc_id, block):
+        return {"ok": True, "warnings": []}
+
+    from app.domain import forms
+    monkeypatch.setattr(forms, "validate_form_in_db", validate_form_in_db)
+
 
 @pytest.fixture(autouse=True)
 def _stub_pipeline(monkeypatch):

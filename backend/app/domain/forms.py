@@ -423,7 +423,211 @@ async def _run_action(ctx: Any, handlers: dict[str, Any], action: dict[str, Any]
     return {"id": row_id}
 
 
+# ── Prüfung (L 5.7 Daten, Task 3.5) ──────────────────────────────────────────
+
+ROOTS = expressions.ROOTS
+CREATE_ACTIONS = {"create_row", "create_rows"}
+
+
+def _strings(value: Any, path: str) -> list[tuple[str, str]]:
+    """Alle Texte mit `{{` in einer verschachtelten Struktur, mit Pfad (`actions[0].values.col_x`)."""
+    if isinstance(value, str):
+        return [(path, value)] if "{{" in value else []
+    if isinstance(value, dict):
+        return [hit for k, v in value.items() for hit in _strings(v, f"{path}.{k}" if path else str(k))]
+    if isinstance(value, list):
+        return [hit for i, v in enumerate(value) for hit in _strings(v, f"{path}[{i}]")]
+    return []
+
+
+def _suggest(name: str, known: Any) -> str:
+    import difflib
+
+    names = sorted(map(str, known))
+    close = difflib.get_close_matches(name, names, n=1)
+    if close:
+        return f" Meinten Sie „{close[0]}“?"
+    return f" Bekannt: {', '.join(names)}." if names else ""
+
+
+def _table_index(tables: dict[str, dict[str, Any]] | None) -> dict[str, dict[str, Any]]:
+    index: dict[str, dict[str, Any]] = {}
+    for key, t in (tables or {}).items():
+        index[key] = t
+        for alias in (t.get("id"), t.get("key")):
+            if alias:
+                index[alias] = t
+    return index
+
+
+def _loop_columns(action: dict[str, Any] | None, form: Form) -> set[str] | None:
+    """Spalten-Keys der Zeilenliste, über die `create_rows` läuft; `None` außerhalb einer solchen Action."""
+    if action is None or action.get("type") != "create_rows":
+        return None
+    paths = expressions.find_paths(action.get("for_each") or "")
+    if len(paths) == 1 and paths[0].startswith("fields.") and paths[0].split(".")[1] in form.items:
+        return set(form.items[paths[0].split(".")[1]]["columns"])
+    return set() if paths else None
+
+
+def _check_action_tables(action: dict[str, Any], ap: str, form_block: str, index: dict[str, dict[str, Any]],
+                         warn: Any) -> None:
+    table = index.get(action.get("table"))
+    if table is None:
+        warn(form_block, f"{ap}.table", f"Action „{action.get('key')}“ schreibt in die unbekannte Tabelle "
+             f"„{action.get('table')}“.")
+        return
+    cols = table["columns"]
+    by_key = {c["key"]: cid for cid, c in cols.items()}
+    given: set[str] = set()
+    for col in action.get("values") or {}:
+        cid = col if col in cols else by_key.get(col)
+        if cid is None:
+            warn(form_block, f"{ap}.values.{col}", f"Action „{action.get('key')}“ schreibt in die Spalte „{col}“, die es "
+                 f"in „{table['key']}“ nicht gibt." + _suggest(col, by_key))
+        else:
+            given.add(cid)
+    if action.get("type") in CREATE_ACTIONS:
+        for cid, c in cols.items():
+            if c.get("required") and c.get("default") is None and cid not in given:
+                warn(form_block, f"{ap}.values", f"Die Pflichtspalte „{table['key']}.{c['key']}“ wird von Action "
+                     f"„{action.get('key')}“ nicht befüllt.")
+
+
+def check_form(blocks: list[dict[str, Any]], form_block: str,
+               tables: dict[str, dict[str, Any]] | None = None) -> list[dict[str, Any]]:
+    """Prüft ein Formular und liefert Warnungen `{block, field, message}`.
+
+    Ohne `tables` nur, was aus den Blöcken folgt (Ausdrücke, Buttons, Actions). Mit `tables`
+    (`{tabelle: {id, key, columns: {spalten-id: {key, name, required, default}}}}`, Schlüssel ID oder Key)
+    zusätzlich Tabellen und Spalten der Actions."""
+    block = next((b for b in blocks if b["id"] == form_block), None)
+    if block is None or block["type"] != "form":
+        return []
+    form = Form(block, blocks, {})
+    index = _table_index(tables)
+    out: list[dict[str, Any]] = []
+
+    def warn(block_id: str, field: str, message: str) -> None:
+        out.append({"block": block_id, "field": field, "message": message})
+
+    actions = form.props.get("actions") or []
+    keys = [a.get("key") for a in actions]
+    for key in sorted({k for k in keys if keys.count(k) > 1}):
+        warn(form_block, "actions", f"Die Action „{key}“ kommt mehrfach vor, die Keys müssen eindeutig sein.")
+    inner = descendants(blocks, form_block)
+    seen: set[str] = set()
+    for b in inner:
+        if b["type"] in ("field", "line_items") and b["props"].get("key"):
+            key = b["props"]["key"]
+            if key in seen:
+                warn(b["id"], "key", f"Der Feld-Key „{key}“ ist im Formular doppelt vergeben.")
+            seen.add(key)
+    fields = set(form.fields) | set(form.items)
+
+    def check_value(value: str, block_id: str, path: str, action: dict[str, Any] | None) -> None:
+        for message in expressions.syntax_errors(value):
+            warn(block_id, path, f"Ausdruck in {path}: {message}")
+        for p in expressions.find_paths(value):
+            parts = p.split(".")
+            root = parts[0]
+            shown = "{{" + p + "}}"
+            if root not in ROOTS:
+                warn(block_id, path, f"Ausdruck „{shown}“ ({path}) beginnt mit „{root}“. Erlaubt sind "
+                     f"{', '.join(sorted(ROOTS))}." + _suggest(root, ROOTS))
+            elif root == "fields" and len(parts) > 1 and parts[1] not in fields:
+                warn(block_id, path, f"Ausdruck „{shown}“ ({path}) verweist auf das unbekannte Feld „{parts[1]}“."
+                     + _suggest(parts[1], fields))
+            elif root == "results" and len(parts) > 1 and parts[1] not in keys:
+                warn(block_id, path, f"Ausdruck „{shown}“ ({path}) verweist auf die unbekannte Action „{parts[1]}“."
+                     + _suggest(parts[1], {k for k in keys if k}))
+            elif root == "item":
+                loop = _loop_columns(action, form)
+                if loop is None:
+                    warn(block_id, path, f"„{shown}“ ({path}): `item` gibt es nur in den values einer "
+                         "create_rows-Action, deren for_each eine Zeilenliste ist.")
+                elif len(parts) > 1 and parts[1] not in loop and parts[1] != "id":
+                    warn(block_id, path, f"„{shown}“ ({path}): Die Zeilenliste hat keine Spalte „{parts[1]}“."
+                         + _suggest(parts[1], loop))
+
+    for j, action in enumerate(actions):
+        ap = f"actions[{j}]"
+        for path, value in _strings({k: v for k, v in action.items() if k != "for_each"}, ap):
+            check_value(value, form_block, path, action)
+        if isinstance(action.get("for_each"), str):
+            check_value(action["for_each"], form_block, f"{ap}.for_each", None)
+            paths = expressions.find_paths(action["for_each"])
+            if len(paths) == 1 and paths[0].startswith("fields.") and paths[0].split(".")[1] in form.fields:
+                warn(form_block, f"{ap}.for_each", f"for_each „{action['for_each']}“ zeigt auf ein einzelnes Feld, "
+                     "nötig ist eine Zeilenliste (line_items).")
+        if tables is not None:
+            _check_action_tables(action, ap, form_block, index, warn)
+    for b in inner:
+        for path, value in _strings(b["props"], "props"):
+            check_value(value, b["id"], path, None)
+    for path, value in _strings({k: v for k, v in form.props.items() if k != "actions"}, "props"):
+        check_value(value, form_block, path, None)
+
+    used: set[str] = set()
+    for j, button in enumerate(form.buttons):
+        bp = f"buttons[{j}]"
+        listed = button.get("actions") or []
+        for k, key in enumerate(listed):
+            used.add(key)
+            if key not in keys:
+                warn(form_block, f"{bp}.actions[{k}]", f"Button „{button.get('id')}“ nennt die unbekannte Action „{key}“."
+                     + _suggest(key, {x for x in keys if x}))
+        for k, key in enumerate(button.get("require") or []):
+            if key not in fields:
+                warn(form_block, f"{bp}.require[{k}]", f"Button „{button.get('id')}“ verlangt das unbekannte Feld „{key}“."
+                     + _suggest(key, fields))
+        for k, key in enumerate(listed):  # `results.x` nur von Actions, die vorher laufen
+            action = next((a for a in actions if a.get("key") == key), None)
+            if action is None:
+                continue
+            for _, value in _strings(action, ""):
+                for p in expressions.find_paths(value):
+                    parts = p.split(".")
+                    if parts[0] == "results" and len(parts) > 1 and parts[1] in keys and parts[1] not in listed[:k]:
+                        warn(form_block, f"{bp}.actions[{k}]", f"Action „{key}“ nutzt „{p}“, aber „{parts[1]}“ läuft "
+                             f"im Button „{button.get('id')}“ nicht davor.")
+    if form.props.get("buttons") is not None and not form.buttons and fields:
+        warn(form_block, "buttons", "Das Formular hat Felder, aber keinen Button: Es lässt sich nicht absenden.")
+    for j, key in enumerate(keys):
+        if key and key not in used and form.buttons:
+            warn(form_block, f"actions[{j}]", f"Die Action „{key}“ wird von keinem Button ausgeführt.")
+    return out
+
+
 def validate_form(blocks: list[dict[str, Any]], form_block: str) -> list[dict[str, Any]]:
-    """Warnungen für Formulare (L 5.7 Daten, Task 3.5): Tippfehler in Ausdrücken, nicht befüllte Pflichtspalten,
-    unbekannte Spalten. Eintrag: `{block, field, message}`."""
-    ...
+    """Warnungen für Formulare (L 5.7 Daten, Task 3.5): Tippfehler in Ausdrücken, unbekannte Felder, Actions und
+    Buttons. Eintrag: `{block, field, message}`. Die Prüfung gegen Tabellen (unbekannte Spalten, nicht befüllte
+    Pflichtspalten) braucht deren Schema: `check_form(blocks, form_block, tables)` bzw. `validate_form_in_db`."""
+    return check_form(blocks, form_block)
+
+
+async def validate_form_in_db(s: AsyncSession, doc: str, block: str, workspace: str = DEFAULT_WORKSPACE
+                              ) -> dict[str, Any]:
+    """`POST /api/documents/{doc}/blocks/{block}/validate`: lädt Dokument und Tabellen und prüft vollständig.
+    Rückgabe `{ok, warnings}` (`ok` = keine Warnungen)."""
+    rows = (await s.execute(text("""SELECT b.id, b.parent_id, b.position, b.type, b.props FROM blocks b
+                                    JOIN documents d ON d.id = b.doc_id WHERE d.id = :d AND d.workspace_id = :ws"""),
+                            {"d": doc, "ws": workspace})).mappings().all()
+    blocks = [{**dict(r), "props": _j(r["props"])} for r in rows]
+    found = next((b for b in blocks if b["id"] == block), None)
+    if found is None:
+        raise PipelineError("NOT_FOUND", f"Block '{block}' im Dokument '{doc}' wurde nicht gefunden")
+    if found["type"] != "form":
+        raise PipelineError("VALIDATION", f"Block '{block}' ist kein Formular",
+                            {"errors": {"block": f"Block '{block}' ist kein Formular"}})
+    refs = sorted({a["table"] for a in found["props"].get("actions") or [] if a.get("table")})
+    tables: dict[str, dict[str, Any]] = {}
+    for t in (await s.execute(
+            text("SELECT id, key FROM tables WHERE workspace_id = :ws AND (id = ANY(CAST(:r AS text[])) "
+                 "OR key = ANY(CAST(:r AS text[])))"), {"ws": workspace, "r": refs})).mappings():
+        cols = {c["id"]: {"key": c["key"], "name": c["name"], "required": c["required"], "default": c["default"]}
+                for c in (await s.execute(text('SELECT id, key, name, required, "default" FROM columns '
+                                               "WHERE table_id = :t"), {"t": t["id"]})).mappings()}
+        tables[t["id"]] = {"id": t["id"], "key": t["key"], "columns": cols}
+    warnings = check_form(blocks, block, tables)
+    return {"ok": not warnings, "warnings": warnings}
