@@ -1,13 +1,7 @@
-// Blatt-Leiste am unteren Rand der Dokument-Ansicht (Task 3.F5, B8) und „In Dokument einbetten …“ für
-// Tabellen und Workflows, die direkt über ihre eigene Adresse geöffnet wurden.
+// Blatt-Leiste am unteren Rand der Dokument-Ansicht (Task 3.F5, B8).
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { canEditStructure, useAuth } from "../api/client";
-import { newId, useChannel } from "../sync/store";
 import { Icon } from "../ui/icons";
-import { toast } from "../ui/toasts";
-import { type FlatBlock, type NewBlock, childrenOf, insertBlock } from "./blockOps";
-import { EMBED_TYPES, type EmbedKind, buildTableViewProps, tableViewBlock, workflowBlock } from "./embedModel";
+import { EMBED_TYPES, type EmbedKind } from "./embedModel";
 import type { Sheet } from "./workbookModel";
 
 export type SheetLabel = { sheet: Sheet; label: string };
@@ -70,82 +64,3 @@ export function SheetBar({ docLabel, sheets, active, onSelect, onEmbed }: {
     </nav>
   );
 }
-
-/** Block ohne weitere Einstellungen für „In Dokument einbetten“: alle Spalten, kein Filter, nur lesen. */
-export function plainEmbedBlock(kind: Sheet["kind"], id: string): NewBlock {
-  return kind === "table"
-    ? tableViewBlock(newId("blk"), buildTableViewProps({
-        table: id, allColumns: [], selected: [], filterRows: [], sort: [], editable: false, allowAdd: false, allowDelete: false,
-      }))
-    : workflowBlock(newId("blk"), id);
-}
-
-/** Wartet, bis das Dokument geladen ist, hängt den Block am Ende an und öffnet das neue Blatt. */
-function AppendToDocument({ docId, sheet, onFailed }: { docId: string; sheet: Sheet; onFailed: () => void }) {
-  const navigate = useNavigate();
-  const ch = useChannel(`doc:${docId}`);
-  const done = useRef(false);
-  const doc = ch?.view?.documents?.[0];
-  useEffect(() => {
-    if (done.current || !doc) return;
-    done.current = true;
-    const blocks = (doc.blocks ?? []) as FlatBlock[];
-    const top = childrenOf(blocks, null);
-    insertBlock(docId, null, top[top.length - 1]?.id, plainEmbedBlock(sheet.kind, sheet.id))
-      .then(() => {
-        toast(`In „${doc.title || "Ohne Titel"}“ eingebettet`);
-        navigate(`/documents/${docId}?sheet=${encodeURIComponent(sheet.id)}`);
-      })
-      .catch((e: Error) => {
-        toast(`Nicht eingebettet: ${e.message}`, "error");
-        onFailed();
-      });
-  }, [doc]); // eslint-disable-line react-hooks/exhaustive-deps
-  return <p className="muted" role="status">Wird eingebettet …</p>;
-}
-
-/** Aktion „In Dokument einbetten …“ mit Dokumentauswahl (für `/tables/:id` und `/workflows/:id`). */
-export function EmbedInDocumentButton({ sheet }: { sheet: Sheet }) {
-  const me = useAuth((s) => s.user);
-  const ws = useChannel("workspace");
-  const [open, setOpen] = useState(false);
-  const [target, setTarget] = useState<string | null>(null);
-  const docs = ((ws?.view?.documents ?? []) as { id: string; title?: string }[]);
-  useEffect(() => {
-    if (!open) return;
-    const esc = (e: KeyboardEvent) => e.key === "Escape" && !target && setOpen(false);
-    window.addEventListener("keydown", esc);
-    return () => window.removeEventListener("keydown", esc);
-  }, [open, target]);
-  if (!canEditStructure(me)) return null;
-  const close = () => { setOpen(false); setTarget(null); };
-  return (
-    <>
-      <button onClick={() => setOpen(true)}><Icon name="file" size={14} />In Dokument einbetten …</button>
-      {open && (
-        <div className="modal-backdrop" onMouseDown={(e) => e.target === e.currentTarget && !target && close()}>
-          <div className="modal embed-dialog" role="dialog" aria-modal="true" aria-labelledby="embed-doc-title">
-            <div className="modal-head">
-              <h2 id="embed-doc-title">In Dokument einbetten</h2>
-              <button className="ghost" onClick={close} aria-label="Schließen"><Icon name="close" size={16} /></button>
-            </div>
-            {target ? (
-              <AppendToDocument docId={target} sheet={sheet} onFailed={close} />
-            ) : docs.length === 0 ? (
-              <p className="muted">Es gibt noch keine Dokumente.</p>
-            ) : (
-              <ul className="embed-list">
-                {docs.map((d) => (
-                  <li key={d.id}>
-                    <button className="ghost" onClick={() => setTarget(d.id)}><Icon name="file" size={14} />{d.title || "Ohne Titel"}</button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
-
