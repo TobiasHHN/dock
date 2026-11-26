@@ -943,3 +943,8 @@ a.btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--a
 @media (max-width: 900px) {
   .run-layout { grid-template-columns: 1fr; }
 }
+
+/* B9: Löschen unauffällig, rot erst beim Hover/Fokus */
+button.ghost.quiet-danger { color: var(--subtle); font-weight: 400; }
+button.ghost.quiet-danger:hover:not(:disabled),
+button.ghost.quiet-danger:focus-visible { background: var(--danger-soft); color: var(--danger); }

@@ -173,7 +173,7 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
         <span className="spacer" />
         {mayEdit && <SaveState />}
         {mayEdit && (
-          <button className="danger" onClick={deleteDocument}>
+          <button className="ghost quiet-danger" onClick={deleteDocument}>
             <Icon name="trash" size={14} />Dokument löschen
           </button>
         )}

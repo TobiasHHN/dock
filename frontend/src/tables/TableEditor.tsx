@@ -108,7 +108,7 @@ export function TableEditor({ tableId }: { tableId: string }) {
             </button>
           )}
           {mayStructure && (
-            <button className="danger" onClick={deleteTable}>
+            <button className="ghost quiet-danger" onClick={deleteTable}>
               <Icon name="trash" size={14} />Tabelle löschen
             </button>
           )}
