@@ -278,7 +278,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 |---|---|---|
 | 2.I1 ✅ | Alle Stubs durch echte Implementierungen ersetzt, `main` gemergt, frische Umgebung (Befehl siehe `CLAUDE.md`) | P1 leitet |
 | 2.I2 🚧 | Story **ohne Agent** durchspielen: Demo-Dateien im Browser hochladen (Import) und Fallback-Skript aus 5.6 ausführen → Ben startet den Run im Browser und reicht das Formular ein → Chef-Browser bekommt die Aufgabe live, übernimmt und genehmigt → Annas Browser bekommt die nächste Aufgabe, trägt Bestellnummer ein → Run abgeschlossen, Tabelle zeigt den Status live | alle, P5 protokolliert Bugs (🚧 Branch `task/2.I-integration`: Story per REST + WebSocket-Beobachter komplett grün, beide Durchläufe (Ablehnung mit/ohne Kommentar, Übernehmen + Genehmigung durch Chef-Agent, Bestellung), 403 für Ben, Vier-Augen, Live-Events auf `user:`, `run:`, `table:`, Verlauf mit „im Auftrag“. Wiederholbar mit `python demo/e2e_story.py` nach Seed + Fallback. **Offen: Klick-Durchlauf in drei Browsern**, schließt auch 3.1/3.4/3.8) |
-| 2.I3 🚧 | Bugliste priorisieren und verteilen (nur Blocker für die Story) | alle (Bugliste bisher: **B1 behoben** – Snapshot von `user:` und `run:` scheiterte, sobald Benachrichtigungen oder Run-Events existierten (`snapshots._JSON_COLUMNS` parste Text-Spalte `type` als JSON) → Inbox, Glocke und Run-Ansicht ohne Live-Daten; Fix + Regressionstest in `test_realtime.py`. Ergänzen nach dem Browser-Durchlauf) |
+| 2.I3 🚧 | Bugliste priorisieren und verteilen (nur Blocker für die Story) | alle (Bugliste in `demo/bugs.md`, bisher B1 behoben. Ergänzen nach dem Browser-Durchlauf) |
 
 ---
 
