@@ -934,7 +934,9 @@ Der MCP-Server ist eine dünne Schicht über den Operationen aus Abschnitt 6. Al
 | | `complete_task(task, button, values)` | `form.submit` für das Formular des Schritts |
 | Rollen | `list_roles`, `list_users(role?)` | Lesen |
 | | `create_role`, `set_user_roles`, `set_agent_roles` | `role.*`, `user.set_roles` |
-| Allgemein | `apply_ops(batch)` | beliebiger Batch, für zusammenhängende Änderungen |
+| Allgemein | `generate_ids(requests)` | benannte Dock-ULIDs für neue Objekte in atomaren Batches |
+| | `get_workflow_playbook()` | Anleitung für Prozesse ohne Repository-Zugriff |
+| | `apply_ops(batch)` | beliebiger Batch, für zusammenhängende Änderungen |
 
 - `apply_ops` ist wichtig: Ein Agent legt damit Rollen, Tabellen, Dokumente und Workflow **in einem atomaren Batch** an. Entweder klappt alles oder nichts.
 - `get_task` liefert alles, was ein Agent zum Erledigen braucht: welche Buttons es gibt, welche Felder Pflicht sind (inkl. `require` pro Button) und welche Daten im Schritt-Dokument stehen. `complete_task` schickt dann Button und Werte in einem Aufruf.
@@ -969,8 +971,10 @@ Anna hat meist schon eine Excel-Übersicht und ein Word-Formular. Statt alles ne
    → erzeugt die Ops (table.create + row.insert bzw. doc.create mit Blöcken),
      vergibt dafür IDs und speichert sie unter import_id (1 Stunde gültig)
    → schreibt noch nichts in den Workspace
-3. Antwort: { import_id, created, warnings }
+3. Antwort: { import_id, created, warnings, preview }
    created = IDs und Keys dessen, was angelegt würde (Tabellen, Spalten, Dokument, Formular, Felder)
+   preview = Tabellenschemas und verschachtelte Dokument-/Formularblöcke inklusive Typen und IDs; Excel-Zeilenwerte
+             werden nicht wiederholt
 4. Der Aufrufer nimmt den Import in einen Batch auf:
    { "op": "import.include", "import_id": "imp_…" }
    und ergänzt in demselben Batch Ops, die auf die IDs aus created verweisen

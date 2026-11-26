@@ -9,6 +9,7 @@ from typing import Any
 from sqlalchemy import text
 
 from app.domain.ids import new_id
+from app.imports.preview import summarize_ops
 from app.ops.errors import PipelineError
 from app.schemas.api import ImportPlan
 
@@ -21,7 +22,7 @@ def _workspace(ctx: Any) -> str:
 
 async def save_plan(ctx: Any, source: str, ops: list[dict[str, Any]], created: dict[str, Any],
                     warnings: list[str]) -> ImportPlan:
-    """Speichert die Ops unter einer neuen `import_id` (1 h gültig) und gibt `{import_id, created, warnings}` zurück.
+    """Speichert die Ops unter einer neuen `import_id` (1 h gültig) und gibt Plan, Warnungen und Vorschau zurück.
     Schreibt nur in `imports`, nie in den Workspace. Die Transaktion des Aufrufers committet."""
     session, workspace = ctx.session, _workspace(ctx)
     await session.execute(
@@ -36,7 +37,7 @@ async def save_plan(ctx: Any, source: str, ops: list[dict[str, Any]], created: d
         {"id": import_id, "ws": workspace, "actor": json.dumps(ctx.actor.model_dump(mode="json", exclude_none=True)),
          "source": source, "ops": json.dumps(ops, default=str), "created": json.dumps(created, default=str),
          "warnings": json.dumps(warnings)})
-    return ImportPlan(import_id=import_id, created=created, warnings=warnings)
+    return ImportPlan(import_id=import_id, created=created, warnings=warnings, preview=summarize_ops(ops))
 
 
 async def take_ops(ctx: Any, import_id: str, actor: Any = None) -> list[dict[str, Any]]:

@@ -61,6 +61,7 @@ class ImportPlan(BaseModel):
     import_id: str
     created: dict[str, Any]  # IDs/Keys dessen, was angelegt würde (Tabellen, Spalten, Dokument, Formular, Felder)
     warnings: list[str] = []
+    preview: dict[str, Any] = {}  # erkannte Tabellen-Schemas und Dokument-Blöcke, ohne importierte Zeilenwerte
     result: BatchResult | None = None  # nur bei apply=true
 
 

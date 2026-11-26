@@ -1588,6 +1588,13 @@ export interface components {
              * @default []
              */
             warnings: string[];
+            /**
+             * Preview
+             * @default {}
+             */
+            preview: {
+                [key: string]: unknown;
+            };
             result?: components["schemas"]["BatchResult"] | null;
         };
         /** InlineLink */

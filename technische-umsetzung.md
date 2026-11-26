@@ -239,13 +239,14 @@ app.mount("/mcp", mcp.streamable_http_app())
 - Die Tool-Schemas kommen direkt aus den Pydantic-Modellen. Ein Agent sieht also exakt dieselbe Struktur wie die REST-API.
 - Fehler der Pipeline (`CONFLICT`, `IN_USE`, `BLOCK_IN_USE`, Validierungsfehler mit Pfad) werden als lesbare Tool-Fehler zurückgegeben, damit der Agent selbst korrigieren kann.
 - Agenten bekommen einen eigenen Actor-Typ `agent`. Im Browser erscheinen ihre Änderungen mit eigenem Namen und eigener Farbe.
+- Die MCP-Instructions verweisen auf `get_workflow_playbook`; `generate_ids` erzeugt benannte IDs für atomare Batches. `create_document` ergänzt fehlende IDs rekursiv für Blöcke.
 - **Akteur bestimmen** (5.8 der Logik): Meldet sich der Agent mit einem delegierten Token einer Person an (OAuth Authorization Code, Scope z. B. `dock:act_on_behalf`), wird `Actor { type: "agent", id, on_behalf_of: usr_… }`, und Rechte sowie Rollen kommen von der Person. Mit Client Credentials handelt er als eigener Akteur mit seinen eigenen Rollen.
 
 ### 2.9 Import von Excel und Word
 
 Umsetzung von 8.3 der Logik.
 
-- **REST:** `POST /api/imports/xlsx` und `POST /api/imports/docx` (multipart, Feld `file`, dazu die Parameter aus 8.3 als Formularfelder). Antwort: `{ import_id, created, warnings }`. Mit `apply=true` führt der Endpunkt den Batch sofort über die Op-Pipeline aus und liefert zusätzlich das `BatchResult`.
+- **REST:** `POST /api/imports/xlsx` und `POST /api/imports/docx` (multipart, Feld `file`, dazu die Parameter aus 8.3 als Formularfelder). Antwort: `{ import_id, created, warnings, preview }`. `preview` enthält Tabellenschemas und Dokumentblöcke samt Feldtypen und IDs, aber keine Excel-Zeilenwerte. Mit `apply=true` führt der Endpunkt den Batch sofort über die Op-Pipeline aus und liefert zusätzlich das `BatchResult`.
 - **Parser** in `imports/` sind reine Funktionen `bytes → ImportPlan(ops, created, warnings)` ohne FastAPI und ohne Datenbank. So lassen sie sich mit Beispieldateien aus `spec/fixtures/` testen. Die Typableitung (Excel) und die Felderkennung (Word) stehen dort als Fixtures „Datei → erwartete Ops“.
 - **Excel:** `openpyxl.load_workbook(read_only=True, data_only=True)`, damit Formeln durch ihren gespeicherten Wert ersetzt werden und große Dateien nicht komplett im Speicher liegen. Limits: 10 MB Datei, 10 000 Zeilen und 100 Spalten je Blatt, mehr wird mit Fehler abgelehnt.
 - **Word:** `python-docx`. Absätze werden über Stil (`Heading 1–3`, `List Bullet`, `List Number`) und `runs` (fett, kursiv, Hyperlinks) in `heading`, `paragraph`, `list` und Inline-Marks übersetzt. Felderkennung per regulärem Ausdruck auf `^(?P<label>[^:]{1,60}):\s*(_{3,}|\.{3,}|\[\s*\])\s*$`. Tabellen werden über „alle Zeilen unter dem Kopf leer?“ entschieden.

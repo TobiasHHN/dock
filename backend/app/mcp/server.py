@@ -15,7 +15,7 @@ from pathlib import Path, PureWindowsPath
 from typing import Annotated, Any, Literal, get_args
 
 import httpx
-from pydantic import Field
+from pydantic import BaseModel, Field
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from ulid import ULID
@@ -31,13 +31,21 @@ TITLE_HINT = ("Der Dokumenttitel (`title`) wird in der Oberfläche automatisch a
               "Den Titel deshalb NICHT als erste Überschrift oder ersten Absatz in Inhalt/Markdown wiederholen: "
               "der Inhalt beginnt direkt mit dem eigentlichen Text.")
 
-mcp = FastMCP("dock", instructions=TITLE_HINT, host="0.0.0.0", streamable_http_path="/")
+MCP_WORKFLOW_HINT = (
+    "Bei neuen Prozessen zuerst get_workflow_playbook lesen. Für einen atomaren Aufbau: Rollen und vorhandene "
+    "Ressourcen prüfen, Dateien ohne apply importieren, Import-Vorschau und Warnungen lesen, fehlende IDs mit "
+    "generate_ids erzeugen, anschließend Importe, Tabellen, Formulare, Workflow und Dokumente in einem apply_ops-Batch "
+    "anlegen. Formulare und Workflow validieren; erst danach veröffentlichen."
+)
+
+mcp = FastMCP("dock", instructions=f"{TITLE_HINT}\n\n{MCP_WORKFLOW_HINT}",
+              host="0.0.0.0", streamable_http_path="/")
 
 
 # Schlanke Beschreibungen statt des kompletten Op-/Block-Schemas im Tool-Schema (B12); Details: describe_schema.
 OPS_HINT = ("Liste von Ops, je ein Objekt mit Feld `op` (z. B. {\"op\":\"block.update\",\"block\":\"blk_…\",\"props\":{…}}). "
             "Felder je Op-Typ: Tool `describe_schema`. Der Server validiert strikt.")
-BLOCKS_HINT = ("Liste von Blöcken {\"id\":\"blk_…\",\"type\":\"paragraph\",\"props\":{…},\"children\":[…]}. "
+BLOCKS_HINT = ("Liste von Blöcken {\"type\":\"paragraph\",\"props\":{…},\"children\":[…]}; `id` ist optional. "
                "Blocktypen und Props: Tool `describe_schema` (topic=\"blocks\"). Der Server validiert strikt.")
 BATCH_HINT = ("{\"batch_id\":\"bat_…\",\"base\":{block_id: version}?,\"ops\":[{\"op\":\"<typ>\",…}]}. "
               "Op-Typen und Felder: Tool `describe_schema` (topic=\"ops\" oder ein Op-Name). Der Server validiert strikt.")
@@ -47,6 +55,11 @@ class ColumnSpec(ColumnIn):
     """Spalte beim Anlegen. `id` ist optional, der MCP-Server erzeugt sie dann selbst."""
 
     id: str | None = None  # type: ignore[assignment]
+
+
+class IdRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=64)
+    kind: Literal["batch", "workflow", "table", "column", "row", "document", "block"]
 
 
 # ── Hilfen ───────────────────────────────────────────────────────────────────
@@ -148,6 +161,18 @@ def _column(c: ColumnSpec | ColumnIn) -> dict[str, Any]:
     return d
 
 
+def _add_missing_block_ids(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    result = []
+    for block in blocks:
+        node = dict(block)
+        if node.get("id") is None:
+            node["id"] = new_id("blk")
+        if isinstance(node.get("children"), list):
+            node["children"] = _add_missing_block_ids(node["children"])
+        result.append(node)
+    return result
+
+
 # ── Finden ───────────────────────────────────────────────────────────────────
 
 @mcp.tool()
@@ -156,6 +181,29 @@ async def search(query: str, kinds: list[Literal["document", "table", "workflow"
     """Volltext- und Vektorsuche über Dokumente, Tabellen und Workflows. Liefert Treffer mit IDs und Snippets."""
     return await _request(ctx, "GET", "/api/search",
                           params={"q": query, "kinds": ",".join(kinds) if kinds else None, "limit": limit})
+
+
+@mcp.tool()
+async def generate_ids(requests: list[IdRequest]) -> Any:
+    """Erzeugt Dock-ULIDs für neue Objekte. Namen müssen innerhalb der Anfrage eindeutig sein.
+    Die IDs werden erst durch eine erfolgreiche Schreiboperation verwendet."""
+    prefixes = {
+        "batch": "bat",
+        "workflow": "wf",
+        "table": "tbl",
+        "column": "col",
+        "row": "row",
+        "document": "doc",
+        "block": "blk",
+    }
+    if not requests:
+        raise ToolError("VALIDATION at requests: mindestens eine ID anfordern")
+    if len(requests) > 100:
+        raise ToolError("VALIDATION at requests: höchstens 100 IDs pro Aufruf")
+    names = [request.name for request in requests]
+    if len(set(names)) != len(names):
+        raise ToolError("VALIDATION at requests: name muss eindeutig sein")
+    return {"ids": {request.name: new_id(prefixes[request.kind]) for request in requests}}
 
 
 # ── Tabellen ─────────────────────────────────────────────────────────────────
@@ -261,8 +309,8 @@ async def get_document(doc: str, format: Literal["md", "json"] = "md", run: str 
 async def create_document(title: str, markdown: str | None = None,
                           blocks: Annotated[list[dict[str, Any]], Field(description=BLOCKS_HINT)] | None = None,
                           owner: dict[str, str] | None = None, ctx: Context | None = None) -> Any:
-    """Legt ein Dokument an (op `doc.create`) aus Markdown (Syntax wie `get_document`, Server parst in Blöcke) ODER
-    aus `blocks` (Blockbaum, Aufbau: `describe_schema`). Bevorzugt Markdown. Der Titel wird
+    """Legt ein Dokument an (op `doc.create`) aus Markdown (Syntax wie `get_document`) oder Blöcken
+    (`describe_schema`). Fehlende Block-IDs werden erzeugt. Bevorzugt Markdown. Der Titel wird
     automatisch über dem Dokument angezeigt: NICHT noch einmal als erste Überschrift oder erster Absatz in `markdown`/`blocks`
     schreiben, der Inhalt beginnt direkt mit dem Text. Actions und Buttons von Formularen stehen nicht im Markdown, sondern werden mit `block.update`
     (edit_document / apply_ops) gesetzt. `owner` = {"workflow": …, "step": …} macht es zum Schritt-Dokument."""
@@ -273,7 +321,7 @@ async def create_document(title: str, markdown: str | None = None,
     if markdown is not None:
         op["markdown"] = markdown
     else:
-        op["blocks"] = blocks or []
+        op["blocks"] = _add_missing_block_ids(blocks or [])
     if owner:
         op["owner"] = owner
     return {"id": doc_id, "result": await _ops(ctx, [op])}
@@ -328,7 +376,7 @@ async def import_xlsx(file_path: str | None = None, content_base64: str | None =
                       sheet: str | None = None, apply: bool = False, ctx: Context | None = None) -> Any:
     """Importiert eine Excel-Datei (.xlsx) als Tabelle(n). ZUERST Dateien importieren, dann den Rest planen.
     ÜBER HTTP (Normalfall) die Datei selbst lesen und `content_base64` + `filename` senden; `file_path` geht nur bei
-    stdio (Server läuft lokal) oder für Pfade, die der Server sieht (z. B. `demo/Bestelluebersicht.xlsx`). Antwort: {import_id, created, warnings}; es wird
+    stdio (Server läuft lokal) oder für Pfade, die der Server sieht (z. B. `demo/Bestelluebersicht.xlsx`). Antwort: {import_id, created, warnings, preview}; es wird
     noch nichts geschrieben. Danach EIN `apply_ops`-Batch mit {"op":"import.include","import_id":…} plus Ergänzungen
     (Spalten, Rollen via list_roles, Aktionen, Buttons, Workflow, publish). `apply=true` führt den Import sofort aus.
     Warnungen lesen und selbst beheben."""
@@ -344,7 +392,7 @@ async def import_docx(file_path: str | None = None, content_base64: str | None =
     """Importiert ein Word-Dokument (.docx) als Dokument mit Formular. ZUERST Dateien importieren (auch Excel, damit
     `bind_table` auf die importierte Tabelle zeigen kann). ÜBER HTTP (Normalfall) die Datei selbst lesen und
     `content_base64` + `filename` senden; `file_path` nur bei stdio oder für vom Server sichtbare Pfade. Antwort:
-    {import_id, created, warnings}. Das Formular hat keine Actions/Buttons (Warnung beachten): diese in EINEM
+    {import_id, created, warnings, preview}. Das Formular hat keine Actions/Buttons (Warnung beachten): diese in EINEM
     `apply_ops`-Batch zusammen mit {"op":"import.include","import_id":…}, Workflow und publish ergänzen.
     `bind_table` erzeugt Action create_row + Button „Speichern“."""
     name, content = _read_upload(file_path, content_base64, filename)
@@ -354,6 +402,34 @@ async def import_docx(file_path: str | None = None, content_base64: str | None =
 
 
 # ── Formulare, Workflows ─────────────────────────────────────────────────────
+
+@mcp.tool()
+async def get_workflow_playbook() -> str:
+    """MCP-seitige Anleitung zum Erstellen und Veröffentlichen von Prozessen ohne Repository-Zugriff."""
+    return """## Prozess mit importierten Dateien anlegen
+
+1. `list_roles`, `list_tables` und `list_workflows` aufrufen, damit keine Rollen oder Ressourcen doppelt angelegt werden.
+2. `import_xlsx` und `import_docx` mit `apply=false` aufrufen. Bei HTTP `content_base64` und `filename` senden;
+   `file_path` nur verwenden, wenn der MCP-Server den Pfad tatsächlich sieht.
+3. Beide Import-Vorschauen und alle Warnungen lesen. IDs, Keys, Spalten, Feld-Keys und verschachtelte Block-IDs daraus
+   übernehmen; Zeilenwerte der Excel-Datei werden in der Vorschau nicht wiederholt.
+4. Bei einem Workflow mit Schritt-Dokumenten zuerst alle benötigten `workflow`, `document` und `block` IDs über
+   `generate_ids` beziehen. Für den DOCX-Import ist `owner` der Text `workflow-id:schritt-key`, z. B.
+   `wf_…:erfassen`.
+5. In einem `apply_ops`-Batch die `import.include`-Ops mit allen Ergänzungen kombinieren: fehlende Spalten und
+   Artikeltabellen anlegen, Felder/Zeilenlisten an Spalten binden, Formular-Actions und Buttons setzen,
+   Schritt-Dokumente anlegen und den Workflow erstellen. Importierte Formulare haben zunächst keine Actions oder
+   Buttons. IDs aus den Import-Vorschauen referenzieren, nicht neue IDs für importierte Blöcke erfinden.
+6. Einen Prozess als Zustandsübergänge modellieren. Für Bestellungen: Antragsteller reicht ein → Rolle `chef`
+   genehmigt oder lehnt ab → Rolle `einkauf` bestellt. Bei der Chef-Aufgabe `exclude_starter: true` setzen;
+   den Ablehnen-Button mit `require: ["kommentar"]` absichern. Statusänderungen müssen in denselben Formular-Actions
+   stehen wie die jeweiligen Workflow-Übergänge.
+7. Alle Formular-Blöcke mit `validate_form` und den Workflow mit `validate_workflow` prüfen. Fehler korrigieren,
+   Validierung wiederholen und erst dann mit `publish_workflow` veröffentlichen.
+
+Für Operations- und Blockfelder `describe_schema` verwenden. `apply_ops` führt den Batch atomar aus: Bei einem Fehler
+wird nichts übernommen; den konkreten Fehlerpfad lesen und den Batch korrigieren."""
+
 
 @mcp.tool()
 async def validate_form(doc: str, block: str, ctx: Context | None = None) -> Any:

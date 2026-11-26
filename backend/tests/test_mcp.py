@@ -23,7 +23,7 @@ EXPECTED_TOOLS = {
     "get_workflow", "create_workflow", "update_workflow", "validate_workflow", "publish_workflow", "delete_workflow", "start_run",
     "list_runs", "get_run", "cancel_run", "comment_run", "list_tasks", "get_task", "claim_task", "release_task",
     "reassign_task", "complete_task", "list_roles", "list_users", "create_role", "set_user_roles",
-    "set_agent_roles", "apply_ops", "describe_schema",
+    "set_agent_roles", "apply_ops", "describe_schema", "generate_ids", "get_workflow_playbook",
 }
 
 COL = {"key": "name", "name": "Name", "type": {"kind": "text"}}
@@ -73,6 +73,8 @@ CALLS = [
     ("reassign_task", {"task": "tsk_2", "assignees": [{"kind": "role", "role": "chef"}]}),
     ("complete_task", {"task": "tsk_2", "button": "approve", "values": {"kommentar": "Passt."}}),
     ("describe_schema", {"topic": "ops"}),
+    ("generate_ids", {"requests": [{"name": "workflow", "kind": "workflow"}]}),
+    ("get_workflow_playbook", {}),
     ("list_roles", {}),
     ("list_users", {"role": "chef"}),
     ("create_role", {"key": "r", "name": "R"}),
@@ -308,6 +310,52 @@ async def test_create_document_with_blocks():
     res = await _call("create_document", {"title": "Neu", "blocks": [
         {"id": "blk_a", "type": "paragraph", "props": {"content": [{"t": "text", "text": "Hallo"}]}}]})
     assert not res.isError, _text(res)
+
+
+async def test_create_document_generates_nested_block_ids(monkeypatch):
+    from app.mcp import server
+
+    captured = []
+
+    async def fake_ops(ctx, ops, base=None):
+        captured.extend(ops)
+        return {"ok": True}
+
+    monkeypatch.setattr(server, "_ops", fake_ops)
+    res = await _call("create_document", {"title": "Neu", "blocks": [
+        {"type": "paragraph", "props": {"content": []}, "children": [
+            {"type": "paragraph", "props": {"content": []}},
+        ]},
+    ]})
+    assert not res.isError, _text(res)
+    blocks = captured[0]["blocks"]
+    assert blocks[0]["id"].startswith("blk_")
+    assert blocks[0]["children"][0]["id"].startswith("blk_")
+    assert blocks[0]["id"] != blocks[0]["children"][0]["id"]
+
+
+async def test_generate_ids_and_workflow_playbook():
+    res = await _call("generate_ids", {"requests": [
+        {"name": "wf", "kind": "workflow"},
+        {"name": "form", "kind": "block"},
+    ]})
+    assert not res.isError, _text(res)
+    ids = json.loads(_text(res))["ids"]
+    assert ids["wf"].startswith("wf_")
+    assert ids["form"].startswith("blk_")
+    assert ids["wf"] != ids["form"]
+
+    duplicate = await _call("generate_ids", {"requests": [
+        {"name": "same", "kind": "document"},
+        {"name": "same", "kind": "block"},
+    ]})
+    assert duplicate.isError and "eindeutig" in _text(duplicate)
+
+    guide = await _call("get_workflow_playbook", {})
+    assert not guide.isError
+    assert "exclude_starter: true" in _text(guide)
+    assert 'require: ["kommentar"]' in _text(guide)
+    assert "publish_workflow" in _text(guide)
 
 
 async def test_identity_is_forwarded(monkeypatch):
