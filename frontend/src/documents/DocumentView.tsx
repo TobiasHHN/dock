@@ -19,6 +19,8 @@ import {
 import "./blocks"; // trägt die Blocktypen aus P3/P4 in BLOCK_COMPONENTS ein
 import { BLOCK_COMPONENTS } from "./blocks/registry";
 import { DocContext, type DocContextValue, requestFocus, useDoc } from "./docContext";
+import { EmbedDialog } from "./EmbedDialog";
+import { EMBED_TYPES, type EmbedKind } from "./embedModel";
 import { TextBlock } from "./TextBlock";
 
 const fail = (what: string) => (e: Error) => toast(`${what}: ${e.message}`, "error");
@@ -279,9 +281,21 @@ function pickAndInsert(docId: string, parent: string | null, after: string | und
 function AddBlockButton() {
   const { docId, blocks } = useDoc();
   const [open, setOpen] = useState(false);
+  const [embed, setEmbed] = useState<EmbedKind | null>(null);
   const top = childrenOf(blocks, null);
+  const after = top[top.length - 1]?.id;
   return (
     <div className="add-block" style={{ position: "relative" }}>
+      {embed && (
+        <EmbedDialog
+          kind={embed}
+          onClose={() => setEmbed(null)}
+          onInsert={(nb) => {
+            setEmbed(null);
+            pickAndInsert(docId, null, after, nb);
+          }}
+        />
+      )}
       <button className="ghost" onClick={() => setOpen(!open)} aria-expanded={open}>
         <Icon name="plus" size={14} />Block hinzufügen
       </button>
@@ -290,9 +304,13 @@ function AddBlockButton() {
           parentType={null}
           style={{ left: 0 }}
           onClose={() => setOpen(false)}
+          onEmbed={(k) => {
+            setOpen(false);
+            setEmbed(k);
+          }}
           onPick={(nb) => {
             setOpen(false);
-            pickAndInsert(docId, null, top[top.length - 1]?.id, nb);
+            pickAndInsert(docId, null, after, nb);
           }}
         />
       )}
@@ -300,8 +318,9 @@ function AddBlockButton() {
   );
 }
 
-function InsertMenu({ parentType, onPick, onClose, style }: {
-  parentType: string | null; onPick: (b: NewBlock) => void; onClose: () => void; style?: React.CSSProperties;
+/** Einfüge-Menü: Abschnitt „Text“ (Vorlagen aus blockOps) und, auf oberster Ebene, „Einbetten“ (EMBED_TYPES). */
+function InsertMenu({ parentType, onPick, onEmbed, onClose, style }: {
+  parentType: string | null; onPick: (b: NewBlock) => void; onEmbed?: (k: EmbedKind) => void; onClose: () => void; style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -313,9 +332,18 @@ function InsertMenu({ parentType, onPick, onClose, style }: {
   }, [onClose]);
   return (
     <div className="insert-menu" ref={ref} style={style}>
+      <div className="insert-section">Text</div>
       {templatesFor(parentType).map((t) => (
         <button key={t.key} onClick={() => onPick(t.make())}>{t.label}</button>
       ))}
+      {parentType === null && onEmbed && (
+        <>
+          <div className="insert-section">Einbetten</div>
+          {EMBED_TYPES.map((t) => (
+            <button key={t.kind} onClick={() => onEmbed(t.kind)}><Icon name={t.icon} size={14} />{t.label}</button>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -343,6 +371,7 @@ function useFlashOnForeignChange(block: FlatBlock): boolean {
 function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode }) {
   const ctx = useDoc();
   const [menu, setMenu] = useState(false);
+  const [embed, setEmbed] = useState<EmbedKind | null>(null);
   const flash = useFlashOnForeignChange(block);
   const locked = ctx.lockedBy(block.id);
   const author = ctx.authors[block.id];
@@ -370,8 +399,22 @@ function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode
         <InsertMenu
           parentType={parentType}
           onClose={() => setMenu(false)}
+          onEmbed={(k) => {
+            setMenu(false);
+            setEmbed(k);
+          }}
           onPick={(nb) => {
             setMenu(false);
+            pickAndInsert(ctx.docId, block.parent_id ?? null, block.id, nb);
+          }}
+        />
+      )}
+      {embed && (
+        <EmbedDialog
+          kind={embed}
+          onClose={() => setEmbed(null)}
+          onInsert={(nb) => {
+            setEmbed(null);
             pickAndInsert(ctx.docId, block.parent_id ?? null, block.id, nb);
           }}
         />
