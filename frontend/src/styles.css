@@ -427,6 +427,14 @@ main.page:focus { outline: none; } /* nur Sprungziel des Skip-Links, nicht inter
 }
 .page-head > div:first-child { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .page-head p { margin: 0; font-size: 0.95rem; }
+.resume { display: inline-flex; align-items: center; gap: 8px; align-self: flex-start; max-width: 100%; margin-top: 2px; font-size: 0.9rem; color: var(--muted); }
+.resume-label { flex: none; }
+.resume-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; color: var(--text); }
+.resume-time { flex: none; font-size: 0.8rem; }
+.resume .icon { flex: none; transition: transform 0.15s; }
+.resume:hover .icon { transform: translateX(3px); color: var(--orange); }
+.greeting { font-family: "Space Grotesk", "Inter", system-ui, sans-serif; font-weight: 700; font-size: 2.4rem; letter-spacing: -0.03em; line-height: 1.1; }
+.greeting::after { content: ""; display: inline-block; width: 0.2em; height: 0.2em; margin-left: 0.07em; border-radius: 50%; background: var(--orange); }
 .actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .actions button { min-height: 40px; padding: 0 16px; }
 

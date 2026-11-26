@@ -181,11 +181,13 @@ export function Home() {
   const user = useAuth((s) => s.user);
   const ws = useChannel("workspace");
   const data = ws?.view as WorkspaceData | undefined;
-  const { openTasks, unread } = useInbox();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState<{ file: File | null } | null>(null);
   const [dragOver, setDragOver] = useState(false);
+  const lastDoc = ((data?.documents ?? []) as HomeDoc[])
+    .filter((d) => d.updated_at)
+    .sort((a, b) => b.updated_at!.localeCompare(a.updated_at!))[0];
   const mayEdit = canEditStructure(user);
   const mayCreateDoc = canEditDocument(user);
 
@@ -224,12 +226,15 @@ export function Home() {
     >
       <div className="page-head">
         <div>
-          <h1>Hallo {user?.name?.split(" ")[0]}</h1>
-          <p className="muted">
-            <Link to="/inbox/tasks">{openTasks.length} offene {openTasks.length === 1 ? "Aufgabe" : "Aufgaben"}</Link>
-            {" · "}
-            {unread} ungelesene {unread === 1 ? "Benachrichtigung" : "Benachrichtigungen"}
-          </p>
+          <h1 className="greeting">Hallo {user?.name?.split(" ")[0]}</h1>
+          {lastDoc && (
+            <Link to={`/documents/${lastDoc.id}`} className="resume">
+              <span className="resume-label">Weiter mit</span>
+              <span className="resume-title">{lastDoc.title || "Ohne Titel"}</span>
+              <span className="resume-time">{relativeTime(lastDoc.updated_at!)}</span>
+              <Icon name="chevronRight" />
+            </Link>
+          )}
         </div>
         {mayCreateDoc && (
           <div className="actions">
