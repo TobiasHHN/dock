@@ -940,3 +940,12 @@ a.btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--a
 @media (max-width: 900px) {
   .run-layout { grid-template-columns: 1fr; }
 }
+
+/* --- 3.F5 B3: React-Flow-Steuerung an Theme-Variablen gebunden --- */
+.react-flow__controls { box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18); border: 1px solid var(--border-strong); border-radius: 6px; overflow: hidden; }
+.react-flow__controls-button {
+  background: var(--surface); color: var(--text); border-bottom: 1px solid var(--border-strong);
+}
+.react-flow__controls-button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
+.react-flow__controls-button svg { fill: currentColor; color: var(--text); }
+/* --- Ende 3.F5 B3 --- */
