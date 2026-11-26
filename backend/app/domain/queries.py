@@ -24,7 +24,10 @@ MAX_LIMIT = 1000
 def _row(mapping: Any) -> dict[str, Any]:
     out = dict(mapping)
     for key in _JSON & out.keys():
-        # `type` ist bei Blöcken Text, bei Spalten jsonb
+        # `type` ist bei Blöcken Text, bei Spalten jsonb. `default` kommt vom Treiber schon dekodiert und darf ein
+        # String sein ("eingereicht", "{{user.id}}"), also nicht noch einmal parsen.
+        if key == "default":
+            continue
         if isinstance(out[key], str) and (key != "type" or out[key].startswith("{")):
             out[key] = json.loads(out[key])
     return out
