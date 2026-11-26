@@ -3,8 +3,9 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { LoginPage, SignupPage } from "./auth/AuthPages";
 import { DocumentPage } from "./documents/DocumentView";
 import { Home } from "./home/Home";
+import { TableEditorPage } from "./tables/TableEditor";
 import { RequireAuth } from "./layout/AppShell";
-import { InboxRequestsPage, InboxTasksPage, RunPage, TablePage, WorkflowPage } from "./layout/Placeholders";
+import { InboxRequestsPage, InboxTasksPage, RunPage, WorkflowPage } from "./layout/Placeholders";
 
 export function App() {
   return (
@@ -14,7 +15,7 @@ export function App() {
       <Route element={<RequireAuth />}>
         <Route path="/" element={<Home />} />
         <Route path="/documents/:id" element={<DocumentPage />} />
-        <Route path="/tables/:id" element={<TablePage />} />
+        <Route path="/tables/:id" element={<TableEditorPage />} />
         <Route path="/workflows/:id" element={<WorkflowPage />} />
         <Route path="/runs/:id" element={<RunPage />} />
         <Route path="/inbox/tasks" element={<InboxTasksPage />} />

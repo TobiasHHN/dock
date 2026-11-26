@@ -10,6 +10,8 @@ export type DocContextValue = {
   blocks: FlatBlock[];
   /** Darf der angemeldete Nutzer Blöcke ändern (Demo: nur `einkauf`, und nicht schreibgeschützt)? */
   editable: boolean;
+  /** Dokument nur zur Ansicht (z. B. Schritt-Dokument eines abgeschlossenen Schritts): Formulare sind schreibgeschützt. */
+  readOnly?: boolean;
   me: UserOut | null;
   users: Record<string, UserOut>;
   authors: Record<string, Actor>;

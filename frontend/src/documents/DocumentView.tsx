@@ -13,6 +13,7 @@ import {
   type FlatBlock, type NewBlock, childrenOf, deleteBlock, firstTextId, insertBlock, moveBlock, renameDocument,
   templatesFor, updateBlock,
 } from "./blockOps";
+import "./blocks"; // trägt die Blocktypen aus P3/P4 in BLOCK_COMPONENTS ein
 import { BLOCK_COMPONENTS } from "./blocks/registry";
 import { DocContext, type DocContextValue, requestFocus, useDoc } from "./docContext";
 import { TextBlock } from "./TextBlock";
@@ -42,6 +43,7 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
       channel,
       blocks,
       editable: mayEdit,
+      readOnly,
       me,
       users,
       authors: ch?.authors ?? {},
@@ -52,7 +54,7 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
       },
       setEditing: (blockId) => sync.sendPresence(channel, { editing: blockId }),
     }),
-    [docId, channel, blocks, mayEdit, me, users, ch?.authors, presence, run],
+    [docId, channel, blocks, mayEdit, readOnly, me, users, ch?.authors, presence, run],
   );
 
   // Sprungmarke #blk_… (z. B. aus der Suche)
