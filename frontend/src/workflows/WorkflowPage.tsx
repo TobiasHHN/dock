@@ -1,6 +1,8 @@
-// Workflow-Detailseite `/workflows/:id` (Task 4.6, L 5.5): Graph, Startknopf nur für Berechtigte und Run-Liste.
+// Workflow-Ansicht (Task 4.6, L 5.5): Graph, Startknopf nur für Berechtigte und Run-Liste. Lebt als Blatt im
+// Übersichtsdokument des Workflows (B29); `/workflows/:id` leitet dorthin um. Nur Workflows ohne
+// Übersichtsdokument (vor B27 angelegt) zeigen die Ansicht hier allein, mit „Als Dokument anlegen“.
 import { useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, Navigate, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Op } from "../api";
 import { canEditStructure, useAuth, workflowApi } from "../api/client";
@@ -10,11 +12,59 @@ import { BatchRejected, newId, submit, useChannel } from "../sync/store";
 import { Icon, relativeTime } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import { canStartWorkflow } from "./layout";
+import { type HomeDoc, type HomeWorkflow, overviewDocFor, overviewDocId } from "../home/homeModel";
 import { WorkflowGraph } from "./WorkflowGraph";
 
 export function WorkflowPage() {
   const { id } = useParams();
-  return <WorkflowDetail workflowId={id!} />;
+  const me = useAuth((s) => s.user);
+  const navigate = useNavigate();
+  const ws = useChannel("workspace");
+  const [creating, setCreating] = useState(false);
+  const docs = ws?.view?.documents as HomeDoc[] | undefined;
+  const workflows = (ws?.view?.workflows ?? []) as HomeWorkflow[];
+  if (!docs) {
+    return (
+      <div className="doc-skeleton" role="status" aria-label="Workflow wird geladen …">
+        <span className="sk sk-title" />
+      </div>
+    );
+  }
+  const wf = workflows.find((w) => w.id === id || w.key === id);
+  const overview = wf ? overviewDocFor(wf, docs) : null;
+  if (wf && overview) return <Navigate to={`/documents/${overview.id}`} replace />;
+
+  async function createOverview() {
+    if (!wf) return;
+    const docId = overviewDocId(wf.id);
+    setCreating(true);
+    try {
+      await submit([{
+        op: "doc.create", id: docId, title: wf.name ?? wf.key ?? wf.id, owner: { workflow: wf.id, step: null },
+        blocks: [{ id: newId("blk"), type: "workflow", props: { workflow: wf.id, mode: "launcher" } }],
+      } as never]);
+      navigate(`/documents/${docId}`, { replace: true });
+    } catch (e) {
+      const msg = e instanceof BatchRejected ? e.error.message : (e as Error).message;
+      toast(`Dokument konnte nicht angelegt werden: ${msg}`, "error");
+      setCreating(false);
+    }
+  }
+
+  return (
+    <>
+      {wf && canEditStructure(me) && (
+        <p className="alert">
+          <Icon name="info" />
+          Dieser Workflow hat noch kein Dokument.
+          <button type="button" className="primary" disabled={creating} onClick={createOverview}>
+            {creating ? "Lege an …" : "Als Dokument anlegen"}
+          </button>
+        </p>
+      )}
+      <WorkflowDetail workflowId={id!} />
+    </>
+  );
 }
 
 export function WorkflowDetail({ workflowId, embedded = false }: { workflowId: string; embedded?: boolean }) {
@@ -98,7 +148,7 @@ export function WorkflowDetail({ workflowId, embedded = false }: { workflowId: s
           <p className="muted small">Key: <span translate="no">{wf.key}</span> · {wf.draft.steps.length} Schritte</p>
         </div>
         <div className="actions">
-          {canEditStructure(me) && (
+          {!embedded && canEditStructure(me) && (
             <button
               type="button" className="ghost quiet-danger"
               onClick={async () => { if (await deleteWorkflow(wf)) navigate("/"); }}

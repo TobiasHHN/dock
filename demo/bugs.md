@@ -49,6 +49,7 @@ Sortiert nach Priorität.
 | B26 | Viele Dokumente erscheinen live und sind nach dem Neuladen weg | Bug | Echtzeit, Backend | Hoch | 3.F5 (Browser) | P1 | behoben | `task/3.F5-test-db` |
 | B27 | Home listet Dokumente willkürlich; gewünscht ist ein Baum je Workflow (Übersichtsdokument, darunter aufklappbar die Schritt-Dokumente, wie in Confluence) | Feature | Backend, Frontend, MCP | Mittel | 3.F5 (Browser) | P1 + P2 | behoben | `task/3.F5-home-workflows` |
 | B28 | Workflows lassen sich nicht löschen | Feature | Frontend, MCP | Mittel | 3.F5 (Browser) | P2 + P5 | behoben | `task/3.F5-workflow-delete` |
+| B29 | Die Workflow-Seite ist kein Dokument; man soll dort wie in jedem Dokument Inhalte ergänzen können, der Workflow ist nur ein Teil davon | UX | Frontend | Mittel | 3.F5 (Browser) | P2 | behoben | `task/3.F5-workflow-delete` |
 
 ## Details
 
@@ -193,6 +194,11 @@ Unit-Tests grün (Backend 397, Frontend 398), Typecheck sauber. **Noch nicht im 
 
 - **Fix:** Button „Workflow löschen“ auf der Workflow-Seite und im Übersichtsdokument (statt „Dokument löschen“). Ein Batch: `workflow.delete`, danach `doc.delete` für alle Schritt-Dokumente mit `owner.workflow`; das Übersichtsdokument ergänzt die Pipeline (B27). Bestätigungsdialog nennt die betroffenen Dokumente. Neues MCP-Tool `delete_workflow(workflow, delete_documents=true)`.
 - **Grenzen:** Mit aktiven Runs oder `workflow`-Blöcken in anderen Dokumenten lehnt der Server ab (IN_USE, Meldung im Toast). Abgeschlossene Runs gehen mit. Nur für `einkauf`.
+
+### B29: Workflow-Seite als Dokument
+
+- **Fix:** `/workflows/:id` leitet auf das Übersichtsdokument des Workflows um (B27). Dort ist der Workflow ein Block (Startknopf, Abläufe) und ein eigenes Blatt (Graph); alles andere lässt sich wie in jedem Dokument hinzufügen. Workflows ohne Übersichtsdokument (vor B27 angelegt) zeigen die alte Ansicht mit „Als Dokument anlegen“ (`doc_ov_<…>`, `owner = { workflow, step: null }`). „Workflow löschen“ steht nur noch in der Dokument-Leiste bzw. der alten Ansicht, nicht im eingebetteten Blatt.
+- **Rechte:** Wie bei Schritt-Dokumenten darf nur `einkauf` das Übersichtsdokument bearbeiten.
 
 <!-- Vorlage für neue Details:
 

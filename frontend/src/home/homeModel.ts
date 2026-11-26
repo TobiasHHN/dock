@@ -18,7 +18,7 @@ export function groupDocuments(docs: HomeDoc[], workflows: HomeWorkflow[]): { gr
   const matches = (w: HomeWorkflow, ref: string | undefined) => !!ref && (ref === w.id || (!!w.key && ref === w.key));
 
   const groups = workflows.map((w): HomeGroup => {
-    const overview = docs.find((d) => matches(w, d.owner?.workflow) && !d.owner?.step) ?? null;
+    const overview = overviewDocFor(w, docs);
     if (overview) placed.add(overview.id);
     // Reihenfolge der Schritte aus der Definition, danach weitere Dokumente des Workflows nach Titel
     const stepIds = (w.documents ?? []).filter((id) => byId.has(id) && id !== overview?.id);
@@ -35,6 +35,14 @@ export function groupDocuments(docs: HomeDoc[], workflows: HomeWorkflow[]): { gr
   const loose = docs.filter((d) => !placed.has(d.id)).sort(byUpdated);
   return { groups, loose };
 }
+
+/** Übersichtsdokument eines Workflows (owner.step null), `ref` = ID oder Key. */
+export function overviewDocFor(wf: HomeWorkflow, docs: HomeDoc[]): HomeDoc | null {
+  return docs.find((d) => !!d.owner && !d.owner.step && (d.owner.workflow === wf.id || (!!wf.key && d.owner.workflow === wf.key))) ?? null;
+}
+
+/** Gleiche ID wie die Pipeline (`overview_doc_id`), für Workflows, die noch keines haben. */
+export const overviewDocId = (workflowId: string) => `doc_ov_${workflowId.replace(/^wf_/, "")}`;
 
 const STORAGE_KEY = "dock.home.expanded";
 
