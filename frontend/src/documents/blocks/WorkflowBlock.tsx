@@ -123,7 +123,7 @@ export function WorkflowBlock({ block }: { block: FlatBlock }) {
         {mayStart && (
           <button type="button" className="primary" disabled={starting} aria-busy={starting} onClick={startRun}>
             {starting && <span className="spinner" aria-hidden="true" />}
-            {mode === "subflow" ? "Unter-Workflow starten" : "Workflow starten"}
+            {mode === "subflow" ? "Unter-Workflow starten" : "Vorgang starten"}
           </button>
         )}
       </div>
