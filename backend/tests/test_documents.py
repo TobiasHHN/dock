@@ -25,7 +25,7 @@ from app.schemas.common import Actor
 from app.schemas.ops import OpBatch
 from app.schemas.ws import PresenceState
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
+DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock_test")
 ANNA = Actor(type="user", id="usr_zz14anna", name="Anna")
 BEN = Actor(type="user", id="usr_zz14ben", name="Ben")
 AGENT = Actor(type="agent", id="agt_zz14", on_behalf_of=ANNA.id, name="Agent")

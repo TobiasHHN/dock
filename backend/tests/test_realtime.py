@@ -27,7 +27,7 @@ from app.realtime import hub, presence
 from app.schemas.common import Actor
 from app.schemas.ws import PresenceState
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
+DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock_test")
 USERS = {"anna": ("usr_zz15anna", "einkauf"), "ben": ("usr_zz15ben", "mitarbeiter"),
          "cy": ("usr_zz15cy", "mitarbeiter")}
 TIMEOUT = 5

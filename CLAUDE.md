@@ -48,7 +48,7 @@ python demo/seed.py                 # Demo-Nutzer und Templates, entsteht mit Ta
 python demo/fallback.py             # Fallback ohne Agent: Import + Bestellprozess-Batch (Task 5.6, nach dem Seed)
 
 # Backend-Tests (lokale venv: python3 -m venv backend/.venv && backend/.venv/bin/pip install -e "backend[dev]")
-backend/.venv/bin/pytest backend
+backend/.venv/bin/pytest backend   # nutzt eigene DB dock_test (legt tests/conftest.py aus db/init.sql an), nie die Demo-DB
 
 # Frontend (einmalig: cd frontend && npm install)
 cd frontend && npm test             # vitest, lädt spec/fixtures

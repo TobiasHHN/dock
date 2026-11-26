@@ -29,7 +29,7 @@ from app.schemas.common import Actor
 from app.schemas.ops import OpBatch
 from tests.test_form_run import build_order_process
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
+DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock_test")
 
 ANNA = Actor(type="user", id="usr_zz44anna", name="Anna Einkauf")
 BEN = Actor(type="user", id="usr_zz44ben", name="Ben Mitarbeiter")

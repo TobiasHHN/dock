@@ -24,7 +24,7 @@ from app.ops.handlers import HANDLERS, register
 from app.schemas.common import Actor
 from app.schemas.ops import OpBatch
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
+DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock_test")
 ANNA = Actor(type="user", id="usr_zz12anna", name="Anna")  # Rolle einkauf, angelegt in der Fixture `engine`
 BEN = Actor(type="user", id="usr_zz12ben", name="Ben")  # Rolle mitarbeiter
 
