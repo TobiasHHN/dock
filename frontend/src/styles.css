@@ -709,7 +709,7 @@ table.grid .col-actions { width: 1%; white-space: nowrap; text-align: right; }
    Responsiv & Bewegung
    ══════════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {
-  .profile-name, .live-text { display: none; }
+  .profile-name { display: none; }
 }
 
 @media (max-width: 760px) {

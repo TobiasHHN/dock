@@ -99,7 +99,6 @@ function AppShell() {
         <span className="spacer" />
         <span className={`live ${status}`} role="status" title={liveLabel}>
           <span className="conn" aria-hidden="true" />
-          <span className="live-text">{live ? "Live" : "Verbinde …"}</span>
           <span className="sr-only">{liveLabel}</span>
         </span>
         <NotificationBell />
