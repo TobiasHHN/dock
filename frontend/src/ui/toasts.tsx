@@ -22,11 +22,11 @@ export const toast = (text: string, kind: Toast["kind"] = "info") => useToasts.g
 export function Toasts() {
   const { toasts, dismiss } = useToasts();
   return (
-    <div className="toasts" role="status">
+    <div className="toasts" role="status" aria-live="polite">
       {toasts.map((t) => (
-        <div key={t.id} className={`toast ${t.kind}`} onClick={() => dismiss(t.id)}>
+        <button key={t.id} type="button" className={`toast ${t.kind}`} onClick={() => dismiss(t.id)} title="Hinweis schließen">
           {t.text}
-        </div>
+        </button>
       ))}
     </div>
   );

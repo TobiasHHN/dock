@@ -31,8 +31,8 @@ export function initials(label: string): string {
 export function Avatar({ actor, users }: { actor: Actor; users: Record<string, UserOut> }) {
   const label = actorLabel(actor, users);
   return (
-    <span className={`avatar ${actor.type === "agent" ? "agent" : ""}`} title={label}>
-      {actor.type === "agent" ? "🤖" : initials(actor.name ?? users[actor.id]?.name ?? "?")}
+    <span className={`avatar ${actor.type === "agent" ? "agent" : ""}`} title={label} role="img" aria-label={label}>
+      <span aria-hidden="true">{actor.type === "agent" ? "🤖" : initials(actor.name ?? users[actor.id]?.name ?? "?")}</span>
     </span>
   );
 }

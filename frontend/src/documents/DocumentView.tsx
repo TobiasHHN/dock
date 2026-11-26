@@ -5,8 +5,9 @@ import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import type { Actor } from "../api";
 import { canEditStructure, useAuth } from "../api/client";
-import { sync, useChannel } from "../sync/store";
+import { sync, useChannel, useSync } from "../sync/store";
 import { Avatar, actorLabel, useUsers } from "../ui/actors";
+import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import {
   type FlatBlock, type NewBlock, childrenOf, deleteBlock, firstTextId, insertBlock, moveBlock, renameDocument,
@@ -60,27 +61,78 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
     document.getElementById(location.hash.slice(1))?.scrollIntoView({ block: "center" });
   }, [blocks.length]);
 
-  if (!ch || ch.status === "loading") return <p className="muted">Dokument wird geladen …</p>;
-  if (ch.status === "error") return <p className="error-text">Dokument nicht verfügbar: {ch.error?.message}</p>;
-  if (!doc) return <p className="muted">Dieses Dokument wurde gelöscht. <Link to="/">Zur Übersicht</Link></p>;
+  if (!ch || ch.status === "loading") return <DocSkeleton />;
+  if (ch.status === "error")
+    return <p className="alert" role="alert"><Icon name="alert" />Dokument nicht verfügbar: {ch.error?.message}. <Link to="/">Zur Übersicht</Link></p>;
+  if (!doc)
+    return (
+      <div className="empty-state">
+        <span className="empty-state-icon"><Icon name="file" size={22} /></span>
+        <h1>Dokument gelöscht</h1>
+        <p className="muted">Dieses Dokument gibt es nicht mehr.</p>
+        <Link to="/">Zur Übersicht</Link>
+      </div>
+    );
 
   return (
     <DocContext.Provider value={ctx}>
-      <div className="doc-head">
-        <DocTitle docId={docId} title={doc.title} editable={mayEdit} />
-        <div className="presence">
-          {others.map((p, i) => (
-            <Avatar key={`${p.actor.type}:${p.actor.id}:${i}`} actor={p.actor} users={users} />
-          ))}
-        </div>
+      <div className="doc-toolbar">
+        <nav className="breadcrumb" aria-label="Brotkrumen">
+          <Link to="/">Dokumente</Link>
+          <Icon name="chevronRight" size={14} />
+          <span aria-current="page">{doc.title || "Ohne Titel"}</span>
+        </nav>
+        <span className="spacer" />
+        {mayEdit && <SaveState />}
+        {others.length > 0 && (
+          <div className="presence" aria-label={`${others.length} weitere im Dokument`}>
+            {others.map((p, i) => (
+              <Avatar key={`${p.actor.type}:${p.actor.id}:${i}`} actor={p.actor} users={users} />
+            ))}
+          </div>
+        )}
       </div>
-      {doc.owner && <p className="small muted">Schritt „{doc.owner.step}“ eines Workflows</p>}
-      {!mayEdit && !readOnly && <div className="readonly-hint">Nur lesen: Dokumente ändern darf in der Demo die Rolle Einkauf.</div>}
+      <div className="doc-head">
+        {doc.owner && <span className="pill pill-success">Schritt „{doc.owner.step}“ eines Workflows</span>}
+        <DocTitle docId={docId} title={doc.title} editable={mayEdit} />
+      </div>
+      {!mayEdit && !readOnly && (
+        <div className="readonly-hint"><Icon name="info" />Nur lesen: Dokumente ändern darf in der Demo die Rolle Einkauf.</div>
+      )}
       <div className="doc-body">
         <BlockChildren parent={null} />
         {mayEdit && <AddBlockButton />}
       </div>
     </DocContext.Provider>
+  );
+}
+
+/** „Speichert …“, solange eigene Änderungen noch nicht vom Server bestätigt sind (ausstehende Batches im Sync-Store). */
+function SaveState() {
+  const pending = useSync((s) => s.pending.some((p) => !p.acked));
+  const status = useSync((s) => s.status);
+  const offline = status !== "open";
+  return (
+    <span className={`save-state ${pending ? "saving" : ""} ${offline ? "offline" : ""}`} role="status">
+      {offline ? (
+        <>Offline, Änderungen werden nachgereicht</>
+      ) : pending ? (
+        <>Speichert …</>
+      ) : (
+        <><Icon name="check" size={14} strokeWidth={2.4} />Gespeichert</>
+      )}
+    </span>
+  );
+}
+
+function DocSkeleton() {
+  return (
+    <div className="doc-skeleton" aria-label="Dokument wird geladen …" role="status">
+      <span className="sk sk-title" />
+      <div className="doc-body">
+        <span className="sk" /><span className="sk" /><span className="sk sk-short" />
+      </div>
+    </div>
   );
 }
 
@@ -99,6 +151,8 @@ function DocTitle({ docId, title, editable }: { docId: string; title: string; ed
   return (
     <input
       className="doc-title"
+      aria-label="Dokumenttitel"
+      autoComplete="off"
       value={value}
       readOnly={!editable}
       onFocus={() => (editing.current = true)}
@@ -135,7 +189,9 @@ function AddBlockButton() {
   const top = childrenOf(blocks, null);
   return (
     <div className="add-block" style={{ position: "relative" }}>
-      <button className="ghost muted" onClick={() => setOpen(!open)}>+ Block hinzufügen</button>
+      <button className="ghost" onClick={() => setOpen(!open)} aria-expanded={open}>
+        <Icon name="plus" size={14} />Block hinzufügen
+      </button>
       {open && (
         <InsertMenu
           parentType={null}
@@ -204,10 +260,10 @@ function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode
       <div className="gutter">
         {ctx.editable && (
           <>
-            <button className="ghost" title="Block darunter einfügen" onClick={() => setMenu(!menu)}>+</button>
-            <button className="ghost" title="Nach oben" onClick={() => moveBlock(ctx.blocks, block, -1)?.catch(fail("Nicht verschoben"))}>↑</button>
-            <button className="ghost" title="Nach unten" onClick={() => moveBlock(ctx.blocks, block, 1)?.catch(fail("Nicht verschoben"))}>↓</button>
-            <button className="ghost danger" title="Löschen" disabled={!!locked} onClick={() => deleteBlock(block.id).catch(fail("Nicht gelöscht"))}>✕</button>
+            <button className="ghost" title="Block darunter einfügen" aria-label="Block darunter einfügen" aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name="plus" size={14} /></button>
+            <button className="ghost" title="Nach oben" aria-label="Block nach oben verschieben" onClick={() => moveBlock(ctx.blocks, block, -1)?.catch(fail("Nicht verschoben"))}><Icon name="arrowUp" size={14} /></button>
+            <button className="ghost" title="Nach unten" aria-label="Block nach unten verschieben" onClick={() => moveBlock(ctx.blocks, block, 1)?.catch(fail("Nicht verschoben"))}><Icon name="arrowDown" size={14} /></button>
+            <button className="ghost danger" title="Löschen" aria-label="Block löschen" disabled={!!locked} onClick={() => deleteBlock(block.id).catch(fail("Nicht gelöscht"))}><Icon name="trash" size={14} /></button>
           </>
         )}
       </div>
@@ -281,6 +337,7 @@ function ListItemBlock({ block, index, ordered }: { block: FlatBlock; index: num
           {checked === true || checked === false ? (
             <input
               type="checkbox"
+              aria-label="Erledigt"
               checked={checked}
               disabled={!editable}
               onChange={(e) => updateBlock(block.id, { checked: e.target.checked }).catch(fail("Nicht gespeichert"))}
