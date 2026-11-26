@@ -2,7 +2,7 @@
 import { describe, expect, it } from "vitest";
 import type { FlatBlock } from "../documents/blockOps";
 import {
-  type ButtonDef, canAct, clearField, draftScope, draftSetOp, effectiveButtons, errorsOf, formOf, formState, hasErrors,
+  type ButtonDef, buttonLabel, canAct, clearField, draftScope, draftSetOp, effectiveButtons, errorsOf, formOf, formState, hasErrors,
   inputBlocks, inputType, itemInsertOp, noErrors, resolveField, splitErrors, submitOp, validateLocal, visibleButtons,
 } from "./formModel";
 
@@ -187,5 +187,14 @@ describe("Ops", () => {
         workspaceRoles: [{ id: "rol_chef", key: "chef" }],
       }).fillable,
     ).toBe(true);
+  });
+});
+
+describe("buttonLabel", () => {
+  it("macht aus Ergebnis-Namen Aufforderungen und lässt andere Labels stehen", () => {
+    expect(buttonLabel("Genehmigt")).toBe("Genehmigen");
+    expect(buttonLabel("Abgelehnt")).toBe("Ablehnen");
+    expect(buttonLabel("Eingereicht")).toBe("Einreichen");
+    expect(buttonLabel("Bestellung abschließen")).toBe("Bestellung abschließen");
   });
 });

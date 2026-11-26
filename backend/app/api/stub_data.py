@@ -126,9 +126,9 @@ DOCS: dict[str, tuple[Document, list[Block]]] = {
                      "row": "{{run.steps.erfassen.results.order.id}}", "values": {"col_b_status": "abgelehnt"}},
                 ],
                 "buttons": [
-                    {"id": "approve", "label": "Genehmigt", "style": "primary", "actions": ["approve"],
+                    {"id": "approve", "label": "Genehmigen", "style": "primary", "actions": ["approve"],
                      "outcome": "approved"},
-                    {"id": "reject", "label": "Abgelehnt", "style": "danger", "actions": ["reject"],
+                    {"id": "reject", "label": "Ablehnen", "style": "danger", "actions": ["reject"],
                      "outcome": "rejected", "require": ["kommentar"]},
                 ],
             }, pos="a1"),
