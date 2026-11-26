@@ -109,7 +109,9 @@ function AppShell() {
         </button>
       </header>
       <main className="page" id="main" tabIndex={-1}>
-        <Outlet />
+        <div key={location.pathname} className="page-enter">
+          <Outlet />
+        </div>
       </main>
       <nav className="tabbar" aria-label="Hauptnavigation mobil">
         <NavLink to="/" end>
