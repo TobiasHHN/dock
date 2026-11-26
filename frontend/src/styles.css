@@ -677,6 +677,31 @@ table.grid .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 .table-view-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; }
 .table-view-title { display: inline-flex; align-items: center; gap: 6px; font-size: 0.85rem; font-weight: 600; }
 
+/* ── Formulare (Task 3.4) ── */
+.form-block { margin: 8px 0; padding: 16px 18px; border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-xs); }
+.form-block > .block { margin-bottom: 2px; }
+.form-note { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; padding: 8px 12px; font-size: 0.85rem; color: var(--muted); background: var(--surface-2); border-radius: var(--radius-sm); }
+.form-buttons { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border); }
+.field { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 12px; max-width: 480px; }
+.field label { font-size: 0.85rem; font-weight: 500; color: var(--text-2); }
+.field input.num { text-align: right; font-variant-numeric: tabular-nums; }
+.field.field-bool { flex-direction: row; align-items: center; gap: 10px; flex-wrap: wrap; }
+.field.has-error input, .field.has-error select, .field.has-error textarea { border-color: var(--danger); background: var(--danger-soft); }
+.field-error { font-size: 0.8rem; color: var(--danger-text); }
+.block-msg { display: block; }
+.line-items { margin: 8px 0 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.line-items > .table-wrap { align-self: stretch; }
+.line-items.has-error > .table-wrap { border-color: var(--danger); }
+.line-items-head { display: flex; align-items: baseline; gap: 10px; }
+.line-items td input, .line-items td select { width: 100%; min-width: 90px; padding: 7px 10px; font-size: 0.875rem; }
+.line-items td.cell-error input, .line-items td.cell-error select { border-color: var(--danger); background: var(--danger-soft); }
+.line-items td input[type="checkbox"] { width: 16px; }
+.spinner {
+  width: 14px; height: 14px; border-radius: 50%; flex: none;
+  border: 2px solid currentColor; border-right-color: transparent; animation: spin 700ms linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
 /* ══════════════════════════════════════════════════════════════
    Responsiv & Bewegung
    ══════════════════════════════════════════════════════════════ */

@@ -43,6 +43,7 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
       channel,
       blocks,
       editable: mayEdit,
+      readOnly,
       me,
       users,
       authors: ch?.authors ?? {},
@@ -53,7 +54,7 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
       },
       setEditing: (blockId) => sync.sendPresence(channel, { editing: blockId }),
     }),
-    [docId, channel, blocks, mayEdit, me, users, ch?.authors, presence, run],
+    [docId, channel, blocks, mayEdit, readOnly, me, users, ch?.authors, presence, run],
   );
 
   // Sprungmarke #blk_… (z. B. aus der Suche)

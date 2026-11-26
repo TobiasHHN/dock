@@ -7,11 +7,12 @@
 //   doc:<id>    confirmed = { tables: [], documents: [doc mit blocks] }   (Form wie spec/fixtures, apply.ts)
 //   table:<id>  confirmed = { tables: [table mit rows], documents: [] }
 //   workspace   confirmed = { documents, tables, workflows, roles }       (Listen, eigene kleine Anwendung)
-//   user, run   confirmed = Snapshot-Daten; bei neuen Ops holt der Store einen frischen Snapshot (bis 4.4 die
-//               Ereignisse für diese Kanäle festlegt).
+//   user, run   confirmed = Snapshot-Daten; `draft.*`-Ops (Formularentwürfe, sync/drafts.ts) werden nachgebildet, bei allen
+//               anderen Ops holt der Store einen frischen Snapshot (bis 4.4 die Ereignisse für diese Kanäle festlegt).
 
 import type { Op, OpBatch } from "../api";
 import { type State, UnsupportedOp, applyOps, isMirrored } from "./apply";
+import { applyDraftOps, draftOpsFor, isDraftOp, scopeKey } from "./drafts";
 import type { Json } from "./tableRules";
 
 export type ChannelKind = "doc" | "table" | "run" | "user" | "workspace";
@@ -134,14 +135,17 @@ export function applyToChannel(channel: string, state: Json, ops: Json[]): Apply
       throw e;
     }
   }
-  // user, run: Inhalt kennt nur der Server
+  // user, run: Entwürfe (draft.*) bildet der Client nach (L 7.6), alles andere kennt nur der Server
+  if (ops.length > 0 && ops.every((o) => isDraftOp(o.op))) {
+    return draftOpsFor(channel, ops).length ? { state: applyDraftOps(state, channel, ops), resync: false } : { state, resync: false };
+  }
   return { state, resync: ops.length > 0 };
 }
 
 /** Kann der Client den Batch selbst nachbilden? Sonst wird er nicht optimistisch angewendet (L 7.4). */
 export function isOptimistic(ops: Op[]): boolean {
   // text.edit nicht optimistisch: Textblöcke führen ihren lokalen Stand selbst (OT, documents/textSync.ts)
-  return ops.every((o) => isMirrored(o.op) && o.op !== "text.edit" && !(o.op === "doc.create" && (o as Json).markdown));
+  return ops.every((o) => (isMirrored(o.op) || isDraftOp(o.op)) && o.op !== "text.edit" && !(o.op === "doc.create" && (o as Json).markdown));
 }
 
 export type Pending = {
@@ -184,6 +188,7 @@ export function channelsFor(ops: Json[], blockDoc: (block: string) => string | u
       const d = inserted.get(op.block) ?? blockDoc(op.block);
       if (d) out.add(`doc:${d}`);
     }
+    if (isDraftOp(name) && scopeKey(op.scope)) out.add(scopeKey(op.scope));
     if (name === "run.start") out.add(`run:${op.id}`);
     else if (typeof op.run === "string") out.add(`run:${op.run}`);
   }
