@@ -159,7 +159,7 @@ export function WorkflowDetail({ workflowId, embedded = false }: { workflowId: s
           {mayStart && (
             <button type="button" className="primary" disabled={starting} aria-busy={starting} onClick={startRun}>
               {starting && <span className="spinner" aria-hidden="true" />}
-              Workflow starten
+              Vorgang starten
             </button>
           )}
         </div>
