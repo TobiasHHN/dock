@@ -177,11 +177,11 @@ def _stub_reads(monkeypatch):
         rows = D.ROWS.get(t.id, [])
         return {"table": t.id, "rows": [r.model_dump() for r in rows], "total": len(rows)}
 
-    async def fetch_document(s, ref):
+    async def fetch_document(s, ref, run=None, user=None):
         d, blocks = doc(ref)
         return {"document": d.model_dump(), "blocks": [b.model_dump() for b in blocks]}
 
-    async def fetch_document_markdown(s, ref):
+    async def fetch_document_markdown(s, ref, run=None, user=None):
         d, _ = doc(ref)
         return {"document": d.model_dump(), "markdown": f"# {d.title} {{#blk_h1}}\n"}
 

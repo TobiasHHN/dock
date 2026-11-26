@@ -211,6 +211,16 @@ def prepare_values(form: Form, raw: dict[str, Any], button: dict[str, Any], cont
 # ── Laden ────────────────────────────────────────────────────────────────────
 
 
+async def _load_columns(s: AsyncSession, blocks: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    col_ids = {p["column"] for b in blocks if b["type"] in ("field", "line_items")
+               for p in ([b["props"]] if b["type"] == "field" else b["props"].get("columns") or []) if p.get("column")}
+    if not col_ids:
+        return {}
+    return {c["id"]: {**dict(c), "type": _j(c["type"])} for c in (await s.execute(
+        text("SELECT id, key, name, type, required FROM columns WHERE id = ANY(CAST(:ids AS text[]))"),
+        {"ids": sorted(col_ids)})).mappings()}
+
+
 async def load_form(s: AsyncSession, form_block: str, workspace: str = DEFAULT_WORKSPACE) -> Form:
     row = (await s.execute(text("""SELECT b.id, b.doc_id, b.type, b.props, d.owner_workflow, d.owner_step
                                    FROM blocks b JOIN documents d ON d.id = b.doc_id
@@ -225,25 +235,108 @@ async def load_form(s: AsyncSession, form_block: str, workspace: str = DEFAULT_W
         text("SELECT id, parent_id, position, type, props FROM blocks WHERE doc_id = :d"),
         {"d": row["doc_id"]})).mappings()]
     block = next(b for b in blocks if b["id"] == form_block)
-    col_ids = {p["column"] for b in blocks if b["type"] in ("field", "line_items")
-               for p in ([b["props"]] if b["type"] == "field" else b["props"].get("columns") or []) if p.get("column")}
-    columns: dict[str, dict[str, Any]] = {}
-    if col_ids:
-        columns = {c["id"]: {**dict(c), "type": _j(c["type"])} for c in (await s.execute(
-            text("SELECT id, key, name, type, required FROM columns WHERE id = ANY(CAST(:ids AS text[]))"),
-            {"ids": sorted(col_ids)})).mappings()}
+    columns = await _load_columns(s, blocks)
     owner = {"workflow": row["owner_workflow"], "step": row["owner_step"]} if row["owner_workflow"] else None
     return Form(block, blocks, columns, owner)
+
+
+async def load_run_form(s: AsyncSession, run_id: str, form_block: str, workspace: str = DEFAULT_WORKSPACE
+                        ) -> tuple[Form, dict[str, Any], Any, str, list[dict[str, Any]], dict[str, Any] | None]:
+    """Lädt Formular aus den eingefrorenen Dokumenten der Run-Version samt Run, Schritt und offener Aufgabe."""
+    from app.schemas.workflows import WorkflowDefinition
+
+    row = (await s.execute(
+        text("""SELECT r.*, v.definition AS wf_def, v.documents AS wf_docs
+                FROM runs r
+                JOIN workflows w ON w.id = r.workflow_id
+                JOIN workflow_versions v ON v.workflow_id = r.workflow_id AND v.version = r.version
+                WHERE r.id = :id AND w.workspace_id = :ws"""),
+        {"id": run_id, "ws": workspace})).mappings().first()
+    if row is None:
+        raise PipelineError("NOT_FOUND", f"Run '{run_id}' wurde nicht gefunden")
+
+    run_dict = {**dict(row)}
+    for col in ("result", "input", "steps", "started_by"):
+        run_dict[col] = _j(run_dict[col])
+    definition = WorkflowDefinition.model_validate(_j(run_dict.pop("wf_def")))
+    frozen_docs = _j(run_dict.pop("wf_docs")) or {}
+
+    found_step = None
+    found_blocks: list[dict[str, Any]] = []
+    found_block: dict[str, Any] | None = None
+    for step in definition.steps:
+        doc_blocks = frozen_docs.get(step.document) or []
+        hit = next((b for b in doc_blocks if b["id"] == form_block), None)
+        if hit is not None:
+            found_step = step.key
+            found_blocks = doc_blocks
+            found_block = hit
+            break
+
+    if found_block is None or found_step is None:
+        exists = (await s.execute(
+            text("""SELECT 1 FROM blocks b JOIN documents d ON d.id = b.doc_id
+                    WHERE b.id = :id AND d.workspace_id = :ws"""),
+            {"id": form_block, "ws": workspace})).first()
+        if exists is None:
+            raise PipelineError("NOT_FOUND", f"Block '{form_block}' wurde nicht gefunden")
+        raise PipelineError("FORBIDDEN", "Dieses Formular gehört nicht zu einem Schritt dieses Runs",
+                            {"form_block": form_block, "run": run_id})
+
+    if found_block["type"] != "form":
+        raise PipelineError("VALIDATION", f"Block '{form_block}' ist kein Formular",
+                            {"errors": {"form_block": f"Block '{form_block}' ist kein Formular"}})
+
+    columns = await _load_columns(s, found_blocks)
+    form = Form(found_block, found_blocks, columns, owner={"workflow": run_dict["workflow_id"], "step": found_step})
+    task_row = (await s.execute(
+        text("""SELECT * FROM tasks WHERE run_id = :r AND step = :s AND status = 'open'
+                ORDER BY created_at DESC LIMIT 1"""),
+        {"r": run_id, "s": found_step})).mappings().first()
+    return form, run_dict, definition, found_step, found_blocks, (dict(task_row) if task_row else None)
+
+
+async def _has_waiting_subrun(s: AsyncSession, run_id: str, step_key: str, blocks: list[dict[str, Any]]) -> bool:
+    waits = any(
+        b.get("type") == "workflow"
+        and (b.get("props") or {}).get("mode") == "subflow"
+        and bool((b.get("props") or {}).get("wait"))
+        for b in blocks
+    )
+    if not waits:
+        return False
+    hit = (await s.execute(
+        text("SELECT 1 FROM runs WHERE parent_run = :r AND parent_step = :s AND status = 'active' LIMIT 1"),
+        {"r": run_id, "s": step_key})).first()
+    return hit is not None
 
 
 # ── Sichtbarkeit (L 4.3) ─────────────────────────────────────────────────────
 
 
 def buttons_allowed(form: Form, run: str | None) -> list[dict[str, Any]]:
-    """Buttons, die der Akteur sehen darf. Recht `submit`: in der Demo hat jeder angemeldete Akteur es (Rechte-
-    Modell ist nicht im Scope). Ein Schritt-Dokument eines Workflows ist nur im Run absendbar, und die Run-Regeln
-    (aktiver Schritt, `can_act`, kein wartender Sub-Run) kommen mit Task 4.3."""
+    """Buttons außerhalb eines Runs; Schritt-Dokumente eines Workflows sind nur im Run absendbar."""
     if run is not None or form.owner is not None:
+        return []
+    return form.buttons
+
+
+async def _visible_in_run(s: AsyncSession, form_block: str, user: Actor, run_id: str,
+                          workspace: str = DEFAULT_WORKSPACE) -> list[dict[str, Any]]:
+    from app.domain import tasks as T
+
+    try:
+        form, run_dict, _, step_key, blocks, open_task = await load_run_form(s, run_id, form_block, workspace)
+    except PipelineError:
+        return []
+    if not form.buttons or run_dict["status"] != "active" or run_dict["current_step"] != step_key or open_task is None:
+        return []
+    if user.type != "system":
+        ctx_stub = type("_Ctx", (), {"session": s, "workspace_id": workspace})()
+        roles = await T.actor_role_refs(ctx_stub, user)
+        if not T.can_act(user, roles, T.task_from_row(open_task)):
+            return []
+    if await _has_waiting_subrun(s, run_id, step_key, blocks):
         return []
     return form.buttons
 
@@ -251,13 +344,17 @@ def buttons_allowed(form: Form, run: str | None) -> list[dict[str, Any]]:
 async def visible_buttons(form_block: str, user: Actor, run: str | None = None, *,
                           session: AsyncSession | None = None) -> list[dict[str, Any]]:
     """Regel aus L 4.3: explizite Buttons oder automatischer „Speichern“, Recht `submit`, im Run: aktiver Schritt,
-    `can_act` und kein wartender Sub-Run (Run-Teil: Task 4.3). Ohne `session` wird eine eigene geöffnet."""
+    `can_act` und kein wartender Sub-Run. Ohne `session` wird eine eigene geöffnet."""
     if session is not None:
-        return buttons_allowed(await load_form(session, form_block), run)
+        if run is not None:
+            return await _visible_in_run(session, form_block, user, run)
+        return buttons_allowed(await load_form(session, form_block), None)
     from app.db.session import SessionLocal
 
     async with SessionLocal() as own:
-        return buttons_allowed(await load_form(own, form_block), run)
+        if run is not None:
+            return await _visible_in_run(own, form_block, user, run)
+        return buttons_allowed(await load_form(own, form_block), None)
 
 
 # ── Absenden (L 4.6) ─────────────────────────────────────────────────────────
@@ -317,23 +414,74 @@ async def submit_form(ctx: Any, op: FormSubmit) -> dict[str, Any]:
     member = ctx.actor.on_behalf_of or ctx.actor.id
     await s.execute(text("SELECT pg_advisory_xact_lock(hashtextextended(:k, 0))"),
                     {"k": f"submission:{op.submission_id}"})
-    prev = (await s.execute(text("SELECT form_block, actor, results FROM form_submissions WHERE id = :id"),
+    prev = (await s.execute(text("SELECT form_block, run_id, actor, results FROM form_submissions WHERE id = :id"),
                             {"id": op.submission_id})).mappings().first()
     if prev is not None:
         who = (_j(prev["actor"]) or {}).get("id")
-        if prev["form_block"] != op.form_block or who != ctx.actor.id:
+        if prev["form_block"] != op.form_block or who != ctx.actor.id or prev["run_id"] != op.run:
             raise PipelineError("VALIDATION", f"submission_id '{op.submission_id}' ist schon vergeben",
                                 {"errors": {"submission_id": "bereits für eine andere Absendung verwendet"}})
-        return {"results": _j(prev["results"]), "duplicate": True}
+        out_dup: dict[str, Any] = {"results": _j(prev["results"]), "duplicate": True}
+        if op.run is not None:
+            r_row = (await s.execute(
+                text("SELECT status, current_step, result FROM runs WHERE id = :r"), {"r": op.run})).mappings().first()
+            if r_row is not None:
+                run_info: dict[str, Any] = {"status": r_row["status"], "current_step": r_row["current_step"]}
+                if r_row["result"] is not None:
+                    run_info["result"] = _j(r_row["result"])
+                out_dup["run"] = run_info
+        return out_dup
 
+    open_task: dict[str, Any] | None = None
+    run_ctx_data: dict[str, Any] | None = None
     if op.run is not None:
-        raise PipelineError("VALIDATION", "Absenden im Run-Kontext ist noch nicht verfügbar (Task 4.3)",
-                            {"errors": {"run": "noch nicht verfügbar"}})
-    form = await load_form(s, op.form_block, ctx.workspace_id)
-    allowed = buttons_allowed(form, None)
-    if not allowed:
-        raise PipelineError("FORBIDDEN", "Dieses Formular kann hier nicht abgesendet werden "
-                            "(keine Buttons oder ein Schritt-Dokument außerhalb eines Runs)", {"form_block": op.form_block})
+        from app.domain import tasks as T
+        from app.domain import workflows as W
+
+        form, run_dict, _, step_key, blocks, open_task = await load_run_form(
+            s, op.run, op.form_block, ctx.workspace_id)
+        if run_dict["status"] != "active" or run_dict["current_step"] != step_key:
+            raise PipelineError("FORBIDDEN", "Dieses Formular ist im aktuellen Stand des Runs nicht absendbar",
+                                {"form_block": op.form_block, "run": op.run, "step": step_key})
+        if open_task is None:
+            raise PipelineError("TASK_DONE", f"Für Schritt '{step_key}' gibt es keine offene Aufgabe",
+                                {"run": op.run, "step": step_key})
+        if ctx.actor.type != "system":
+            task_model = T.task_from_row(open_task)
+            roles = await T.actor_role_refs(ctx, ctx.actor)
+            if not T.can_act(ctx.actor, roles, task_model):
+                who = T.effective_id(ctx.actor)
+                if who in task_model.excluded:
+                    raise PipelineError("FORBIDDEN", "Vier-Augen-Prinzip: Sie sind für diese Aufgabe ausgeschlossen",
+                                        {"task": task_model.id})
+                is_cand = who in task_model.candidates.users or bool(set(roles) & set(task_model.candidates.roles))
+                if is_cand and task_model.claimed_by is not None:
+                    raise PipelineError(
+                        "TASK_CLAIMED",
+                        f"Aufgabe wird bereits von {task_model.claimed_by.name or task_model.claimed_by.id} bearbeitet",
+                        {"claimed_by": task_model.claimed_by.model_dump(mode="json", exclude_none=True)},
+                    )
+                raise PipelineError("FORBIDDEN", "Sie sind für diese Aufgabe nicht zuständig", {"task": task_model.id})
+        if await _has_waiting_subrun(s, op.run, step_key, blocks):
+            raise PipelineError("FORBIDDEN", "Ein Unter-Workflow dieses Schritts läuft noch",
+                                {"run": op.run, "step": step_key})
+        if not form.buttons:
+            raise PipelineError("FORBIDDEN", "Dieses Formular hat keine absendbaren Buttons",
+                                {"form_block": op.form_block})
+        allowed = form.buttons
+        scope = f"run:{op.run}"
+        reset = False if form.props.get("reset_after_submit") is None else bool(form.props.get("reset_after_submit"))
+        run_ctx_data = (await W.build_run_expr_context(ctx, run_dict, actor=ctx.actor))["run"]
+    else:
+        form = await load_form(s, op.form_block, ctx.workspace_id)
+        allowed = buttons_allowed(form, None)
+        if not allowed:
+            raise PipelineError("FORBIDDEN", "Dieses Formular kann hier nicht abgesendet werden "
+                                "(keine Buttons oder ein Schritt-Dokument außerhalb eines Runs)",
+                                {"form_block": op.form_block})
+        scope = f"user:{member}"
+        reset = True if form.props.get("reset_after_submit") is None else bool(form.props.get("reset_after_submit"))
+
     button = next((b for b in allowed if b["id"] == op.button), None)
     if button is None:
         raise PipelineError("VALIDATION", f"Das Formular hat keinen Button „{op.button}“",
@@ -345,15 +493,12 @@ async def submit_form(ctx: Any, op: FormSubmit) -> dict[str, Any]:
     actions = [form.actions[k] for k in button.get("actions") or []]
 
     # Kanäle der betroffenen Tabellen und des Entwurfs sortiert sperren (T 2.5)
-    scope = f"user:{member}"
-    reset = form.props.get("reset_after_submit")
-    reset = True if reset is None else reset
-    channels = {f"table:{a['table']}" for a in actions} | ({scope} if reset else set())
+    channels = {f"table:{a['table']}" for a in actions} | ({scope} if (reset or op.run is not None) else set())
     for channel in sorted(channels):
         await ctx.lock_channel(channel)
 
     user = await _user_context(ctx)
-    base_ctx: dict[str, Any] = {"user": user, "run": None, "results": {}, "fields": {},
+    base_ctx: dict[str, Any] = {"user": user, "run": run_ctx_data, "results": {}, "fields": {},
                                 "tables": await _lookup_data(ctx, form.lookup_tables)}
     if op.values is not None:
         raw = dict(op.values)
@@ -377,12 +522,17 @@ async def submit_form(ctx: Any, op: FormSubmit) -> dict[str, Any]:
 
     await s.execute(
         text("""INSERT INTO form_submissions (id, form_block, run_id, button, "values", results, actor)
-                VALUES (:id, :b, NULL, :button, CAST(:v AS jsonb), CAST(:r AS jsonb), CAST(:a AS jsonb))"""),
-        {"id": op.submission_id, "b": op.form_block, "button": button["id"], "v": json.dumps(values),
+                VALUES (:id, :b, :run, :button, CAST(:v AS jsonb), CAST(:r AS jsonb), CAST(:a AS jsonb))"""),
+        {"id": op.submission_id, "b": op.form_block, "run": op.run, "button": button["id"], "v": json.dumps(values),
          "r": json.dumps(results), "a": json.dumps(ctx.actor.model_dump(mode="json", exclude_none=True))})
     if reset:
         await s.execute(text("DELETE FROM form_drafts WHERE form_block = :b AND scope = :s"),
                         {"b": op.form_block, "s": scope})
+    if op.run is not None and open_task is not None:
+        from app.domain import workflows as W
+
+        run_out = await W.complete_task(ctx, open_task["id"], button, values, results, ctx.actor)
+        return {"results": results, "run": run_out}
     return {"results": results}
 
 
