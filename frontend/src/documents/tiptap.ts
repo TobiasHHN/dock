@@ -12,6 +12,12 @@ import { type Edit, MARK_ORDER, type Mark, type Unit, cpLength, fromUnits, toUni
 /** Ein Textblock enthält genau einen Absatz; Überschrift/Listenpunkt ergibt sich aus dem Blocktyp. */
 const OneParagraph = Node.create({ name: "doc", topNode: true, content: "paragraph" });
 
+function formatValueDisplay(val: Json): string {
+  if (val === true) return "Ja";
+  if (val === false) return "Nein";
+  return String(val);
+}
+
 /** Erwähnung (`mention`) und berechneter Wert (`value`): eine nicht teilbare Einheit. */
 const InlineAtom = Node.create({
   name: "inlineAtom",
@@ -19,12 +25,12 @@ const InlineAtom = Node.create({
   inline: true,
   atom: true,
   selectable: true,
-  addAttributes: () => ({ kind: { default: "mention" }, value: { default: "" } }),
+  addAttributes: () => ({ kind: { default: "mention" }, value: { default: "" }, display: { default: null } }),
   parseHTML: () => [{ tag: "span[data-atom]" }],
   renderHTML: ({ node }) => [
     "span",
     { class: node.attrs.kind, "data-atom": node.attrs.kind, contenteditable: "false" },
-    node.attrs.kind === "mention" ? `@${node.attrs.value}` : node.attrs.value,
+    node.attrs.kind === "mention" ? `@${node.attrs.value}` : (node.attrs.display ?? node.attrs.value),
   ],
 });
 
@@ -55,7 +61,15 @@ function inlineNodes(content: Json[] | undefined): JSONContent[] {
     if (part.t === "text") pushText(part.text ?? "", (part.marks ?? []).map((m: string) => ({ type: m })));
     else if (part.t === "link") pushText(part.text ?? "", [{ type: "link", attrs: { href: part.href } }]);
     else if (part.t === "mention") out.push({ type: "inlineAtom", attrs: { kind: "mention", value: part.target } });
-    else if (part.t === "value") out.push({ type: "inlineAtom", attrs: { kind: "value", value: part.expr } });
+    else if (part.t === "value")
+      out.push({
+        type: "inlineAtom",
+        attrs: {
+          kind: "value",
+          value: part.expr,
+          display: part.value !== undefined && part.value !== null ? formatValueDisplay(part.value) : null,
+        },
+      });
   }
   return out;
 }

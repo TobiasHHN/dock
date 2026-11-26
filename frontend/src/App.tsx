@@ -7,7 +7,8 @@ import { TableEditorPage } from "./tables/TableEditor";
 import { RequireAuth } from "./layout/AppShell";
 import { InboxTasksPage } from "./inbox/TaskList";
 import { InboxRequestsPage } from "./inbox/MyRequests";
-import { RunPage, WorkflowPage } from "./layout/Placeholders";
+import { RunPage } from "./workflows/RunView";
+import { WorkflowPage } from "./workflows/WorkflowPage";
 
 export function App() {
   return (

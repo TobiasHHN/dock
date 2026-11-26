@@ -22,6 +22,8 @@ export type DocContextValue = {
   setEditing: (blockId: string | null) => void;
   /** Run-Kontext (für P3/P4: Formulare, Ausdrücke im Workflow-Schritt). */
   run?: string;
+  owner?: { workflow: string; step: string } | null;
+  stepKey?: string | null;
 };
 
 export const DocContext = createContext<DocContextValue | null>(null);

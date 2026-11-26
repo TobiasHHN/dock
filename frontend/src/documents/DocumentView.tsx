@@ -3,8 +3,10 @@
 // `DocumentView` ist eigenständig nutzbar (z. B. als Schritt-Dokument in der Run-Ansicht, Task 4.6).
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import type { Actor } from "../api";
-import { canEditStructure, useAuth } from "../api/client";
+import { canEditStructure, useAuth, workflowApi } from "../api/client";
+import { useChannelInvalidate } from "../inbox/inboxModel";
 import { submit, sync, useChannel, useSync } from "../sync/store";
 import { Avatar, actorLabel, useUsers } from "../ui/actors";
 import { confirmDialog } from "../ui/confirm";
@@ -26,7 +28,72 @@ export function DocumentPage() {
   return <DocumentView docId={id!} />;
 }
 
-export function DocumentView({ docId, readOnly = false, run }: { docId: string; readOnly?: boolean; run?: string }) {
+export function DocumentView({
+  docId, readOnly = false, run, stepKey,
+}: {
+  docId: string; readOnly?: boolean; run?: string; stepKey?: string;
+}) {
+  if (run) return <RunDocumentView docId={docId} run={run} readOnly={readOnly} stepKey={stepKey} />;
+  return <LiveDocumentView docId={docId} readOnly={readOnly} />;
+}
+
+function RunDocumentView({
+  docId, run, readOnly, stepKey,
+}: {
+  docId: string; run: string; readOnly: boolean; stepKey?: string;
+}) {
+  const me = useAuth((s) => s.user);
+  const users = useUsers();
+  const { data, isLoading, isError, error } = useQuery({
+    queryKey: ["run-doc", run, docId],
+    queryFn: () => workflowApi.documentInRun(docId, run),
+  });
+  useChannelInvalidate(`run:${run}`, [["run-doc", run, docId]]);
+
+  const blocks = useMemo(() => (data?.blocks ?? []) as FlatBlock[], [data?.blocks]);
+  const owner = data?.document.owner ?? null;
+  const ctx: DocContextValue = useMemo(
+    () => ({
+      docId,
+      channel: "",
+      blocks,
+      editable: false,
+      readOnly,
+      me,
+      users,
+      authors: {},
+      run,
+      owner,
+      stepKey: stepKey ?? owner?.step ?? null,
+      lockedBy: () => null,
+      setEditing: () => undefined,
+    }),
+    [docId, blocks, readOnly, me, users, run, owner, stepKey],
+  );
+
+  if (isLoading) return <DocSkeleton />;
+  if (isError || !data) {
+    return (
+      <p className="alert" role="alert">
+        <Icon name="alert" />
+        Schritt-Dokument konnte nicht geladen werden: {(error as Error | undefined)?.message ?? "Unbekannter Fehler"}
+      </p>
+    );
+  }
+
+  return (
+    <DocContext.Provider value={ctx}>
+      <div className="doc-embedded">
+        <h3 className="doc-embedded-title">{data.document.title || "Ohne Titel"}</h3>
+        <div className="doc-body doc-embedded-body">
+          <BlockChildren parent={null} />
+        </div>
+      </div>
+    </DocContext.Provider>
+  );
+}
+
+function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly?: boolean }) {
   const channel = `doc:${docId}`;
   const ch = useChannel(channel);
   const me = useAuth((s) => s.user);
@@ -49,14 +116,13 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
       me,
       users,
       authors: ch?.authors ?? {},
-      run,
       lockedBy: (blockId) => {
         const entry = presence.find((p) => p.state?.editing === blockId && !(p.actor.type === "user" && p.actor.id === me?.id));
         return entry ? actorLabel(entry.actor, users) : null;
       },
       setEditing: (blockId) => sync.sendPresence(channel, { editing: blockId }),
     }),
-    [docId, channel, blocks, mayEdit, readOnly, me, users, ch?.authors, presence, run],
+    [docId, channel, blocks, mayEdit, readOnly, me, users, ch?.authors, presence],
   );
 
   // Sprungmarke #blk_… (z. B. aus der Suche)
@@ -106,7 +172,7 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
         </nav>
         <span className="spacer" />
         {mayEdit && <SaveState />}
-        {mayEdit && !run && (
+        {mayEdit && (
           <button className="danger" onClick={deleteDocument}>
             <Icon name="trash" size={14} />Dokument löschen
           </button>

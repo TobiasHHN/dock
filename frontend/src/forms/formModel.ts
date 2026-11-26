@@ -56,6 +56,7 @@ export type Me = { id: string; roles: string[] } | null;
 export function canAct(task: Json, me: Me): boolean {
   if (!task || !me) return false;
   if (typeof task.can_act === "boolean") return task.can_act;
+  if (Array.isArray(task.excluded) && task.excluded.includes(me.id)) return false;
   const claimed = task.claimed_by_id ?? task.claimed_by?.id;
   if (claimed) return claimed === me.id;
   const users: string[] = task.candidate_users ?? task.candidates?.users ?? [];

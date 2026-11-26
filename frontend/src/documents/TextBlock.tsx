@@ -51,7 +51,7 @@ export function TextBlock({ block }: { block: FlatBlock }) {
   const editor = useEditor(
     {
       extensions: textExtensions(PLACEHOLDER[block.type] ?? ""),
-      content: inlineToDoc(sync.confirmedBlock(ctx.channel, block.id)?.props?.content ?? block.props.content),
+      content: inlineToDoc((ctx.channel ? sync.confirmedBlock(ctx.channel, block.id)?.props?.content : undefined) ?? block.props.content),
       editable: ctx.editable,
       shouldRerenderOnTransaction: false,
       editorProps: {
@@ -84,9 +84,9 @@ export function TextBlock({ block }: { block: FlatBlock }) {
     [block.id],
   );
 
-  // Abgleich mit dem Server
+  // Abgleich mit dem Server (nur wenn ein Live-Kanal aktiv ist; im Run-Dokument statisch/ausgewertet)
   useEffect(() => {
-    if (!editor) return;
+    if (!editor || !ctx.channel) return;
     const ts = new TextSync(block.id, ctx.channel, syncDeps);
     ts.attach({
       getUnits: () => editorUnits(editor),
@@ -113,6 +113,11 @@ export function TextBlock({ block }: { block: FlatBlock }) {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, block.id, ctx.channel]);
+
+  useEffect(() => {
+    if (!editor || ctx.channel) return;
+    editor.commands.setContent(inlineToDoc(block.props.content), false);
+  }, [editor, ctx.channel, block.props.content]);
 
   useEffect(() => {
     editor?.setEditable(ctx.editable);
