@@ -23,6 +23,7 @@ services:
       DATABASE_URL: postgresql+asyncpg://dock:dock@db:5432/dock
       JWT_SECRET: dev-secret-change-me-please-use-32-bytes-min
       FASTEMBED_CACHE_PATH: /cache/fastembed
+      PRELOAD_EMBEDDING_MODEL: "true"
     volumes:
       - ./backend:/srv
       - ./demo:/srv/demo:ro  # MCP-Import per file_path über HTTP (B11): demo/Bestelluebersicht.xlsx

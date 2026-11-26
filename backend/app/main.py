@@ -1,3 +1,4 @@
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -5,8 +6,10 @@ from starlette.routing import Route
 
 from app.api import ws
 from app.api.routers import all_routers
+from app.config import settings
 from app.mcp.server import mcp
 from app.realtime import hub
+from app.search.embeddings import get_embedder
 
 
 @asynccontextmanager
@@ -16,6 +19,9 @@ async def lifespan(_app: FastAPI):
     mcp._session_manager = None
     mcp.streamable_http_app()
     await hub.start_listener()
+    if settings.preload_embedding_model:
+        # Im Thread, damit der Start nicht blockiert; Anfragen warten ggf. auf dasselbe Laden
+        asyncio.create_task(asyncio.to_thread(get_embedder().load))
     try:
         async with mcp.session_manager.run():
             yield

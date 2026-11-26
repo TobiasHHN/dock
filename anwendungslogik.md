@@ -1321,7 +1321,7 @@ list_tasks(assigned_to = "me", workflow = "bestellprozess")
   → [{ id: tsk_2, run: run_42, step: genehmigung, title: "Bestellung KS 4711 – Anna Beispiel", due_at: … }]
 get_task(tsk_2)
   → Schritt-Dokument als Markdown (Werte ausgewertet), Artikel,
-    buttons: [{ id: approve, label: Genehmigt }, { id: reject, label: Abgelehnt, require: [kommentar] }]
+    buttons: [{ id: approve, label: Genehmigen }, { id: reject, label: Ablehnen, require: [kommentar] }]
 complete_task(tsk_2, button = "approve", values = { kommentar: "Passt." })
   → { run: { status: active, current_step: bestellung } }
 ```

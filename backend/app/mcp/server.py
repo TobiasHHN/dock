@@ -26,7 +26,12 @@ from app.schemas.tables import ColumnIn, ColumnPatch, FilterCondition, SortSpec
 from app.schemas.workflows import Assignee, WorkflowDefinition
 
 # host 0.0.0.0: kein DNS-Rebinding-Schutz auf localhost-Hosts (Zugriff aus Docker/LAN); Pfad "/" wegen Mount unter /mcp.
-mcp = FastMCP("dock", host="0.0.0.0", streamable_http_path="/")
+# Der Titel steht in der Oberfläche immer als Kopf über dem Dokument; ein Titel-Block darunter wäre doppelt.
+TITLE_HINT = ("Der Dokumenttitel (`title`) wird in der Oberfläche automatisch als Überschrift über dem Dokument angezeigt. "
+              "Den Titel deshalb NICHT als erste Überschrift oder ersten Absatz in Inhalt/Markdown wiederholen: "
+              "der Inhalt beginnt direkt mit dem eigentlichen Text.")
+
+mcp = FastMCP("dock", instructions=TITLE_HINT, host="0.0.0.0", streamable_http_path="/")
 
 
 # Schlanke Beschreibungen statt des kompletten Op-/Block-Schemas im Tool-Schema (B12); Details: describe_schema.
@@ -257,7 +262,9 @@ async def create_document(title: str, markdown: str | None = None,
                           blocks: Annotated[list[dict[str, Any]], Field(description=BLOCKS_HINT)] | None = None,
                           owner: dict[str, str] | None = None, ctx: Context | None = None) -> Any:
     """Legt ein Dokument an (op `doc.create`) aus Markdown (Syntax wie `get_document`, Server parst in Blöcke) ODER
-    aus `blocks` (Blockbaum, Aufbau: `describe_schema`). Bevorzugt Markdown. Actions und Buttons von Formularen stehen nicht im Markdown, sondern werden mit `block.update`
+    aus `blocks` (Blockbaum, Aufbau: `describe_schema`). Bevorzugt Markdown. Der Titel wird
+    automatisch über dem Dokument angezeigt: NICHT noch einmal als erste Überschrift oder erster Absatz in `markdown`/`blocks`
+    schreiben, der Inhalt beginnt direkt mit dem Text. Actions und Buttons von Formularen stehen nicht im Markdown, sondern werden mit `block.update`
     (edit_document / apply_ops) gesetzt. `owner` = {"workflow": …, "step": …} macht es zum Schritt-Dokument."""
     if (markdown is None) == (blocks is None):
         raise ToolError("VALIDATION at markdown|blocks: genau eines von beiden angeben")
@@ -276,7 +283,8 @@ async def create_document(title: str, markdown: str | None = None,
 async def edit_document(doc: str, ops: Annotated[list[dict[str, Any]], Field(description=OPS_HINT)],
                         base_version: dict[str, int] | None = None, ctx: Context | None = None) -> Any:
     """Bearbeitet ein Dokument mit `block.insert|update|move|delete`, `text.edit` und `doc.update`
-    (Felder je Op: `describe_schema`).
+    (Felder je Op: `describe_schema`). Der Dokumenttitel steht schon als Kopf über dem Dokument: keinen Block einfügen,
+    der den Titel wiederholt (kein erster Block mit dem Titel als Überschrift). Titel ändern: `doc.update`.
     `base_version` = {block_id: zuletzt gelesene Version}; bei veraltetem Stand kommt CONFLICT, dann neu lesen
     (get_document format=json). BLOCK_IN_USE: ein Mensch tippt gerade im Block, später erneut versuchen."""
     allowed = ("block.", "text.edit", "doc.update")
@@ -372,7 +380,9 @@ async def create_workflow(key: str, name: str, definition: WorkflowDefinition, d
     """Legt einen Workflow-Entwurf an (op `workflow.create`). Erst `list_roles` aufrufen, um gültige Rollen für die
     Zuständigen zu kennen. Besser: zusammen mit Dokumenten in EINEM `apply_ops`-Batch anlegen, dann
     `validate_workflow`, dann `publish_workflow`. Das Backend legt automatisch ein Übersichtsdokument an
-    (`description` + Workflow-Block, Owner `{workflow, step: null}`); die Schritt-Dokumente erscheinen darunter."""
+    (`description` + Workflow-Block, Owner `{workflow, step: null}`); die Schritt-Dokumente erscheinen darunter.
+    Schritt-Dokumente (`doc.create` mit Owner `{workflow, step}`): der `title` wird automatisch als Kopf angezeigt,
+    deshalb NICHT als erste Überschrift in die Blöcke schreiben."""
     wf_id = new_id("wf")
     op = {"op": "workflow.create", "id": wf_id, "key": key, "name": name, "definition": _dump(definition)}
     if description:
@@ -557,7 +567,9 @@ async def apply_ops(batch: Annotated[dict[str, Any], Field(description=BATCH_HIN
     {"op":"import.include","import_id":…} plus Ergänzungen (Rollen, Spalten, Actions/Buttons per block.update,
     workflow.create, workflow.publish). Fehler (CONFLICT, IN_USE, BLOCK_IN_USE, VALIDATION mit Pfad) lesen und den
     Batch korrigiert erneut senden. `batch_id` und alle IDs (Präfix + ULID) erzeugt der Aufrufer.
-    Felder der einzelnen Ops und Blöcke: `describe_schema` (z. B. topic="ops", topic="row.update")."""
+    Felder der einzelnen Ops und Blöcke: `describe_schema` (z. B. topic="ops", topic="row.update").
+    Bei `doc.create` (auch Schritt-Dokumente von Workflows) steht der `title` schon als Kopf über dem Dokument: den Titel
+    NICHT als erste Überschrift oder ersten Absatz in die Blöcke schreiben."""
     return await _post_batch(ctx, batch)
 
 
@@ -582,7 +594,7 @@ async def describe_schema(topic: str = "ops") -> Any:
     """Beschreibt Ops und Blöcke für `apply_ops`, `edit_document` und `create_document` (die Tool-Schemas dort sind
     absichtlich schlank, der Server validiert strikt und meldet Fehler mit Pfad). `topic`: `ops` = alle Op-Typen mit
     Feldnamen (`?` = optional), `blocks` = alle Blocktypen mit Feldern, ein Op-Name (z. B. `row.update`) oder ein
-    Blocktyp (z. B. `form`) = vollständiges JSON-Schema dieses einen Typs."""
+    Blocktyp (z. B. `form`) = vollständiges JSON-Schema dieses einen Typs. Dokumenttitel nie als ersten Block wiederholen."""
     ops, blocks = _variants(Op, "op"), _variants(BlockIn, "type")
     if topic == "ops":
         return {"ops": _summary(ops), "hint": "Details je Op: describe_schema(topic=<op>). Batch = {batch_id, base?, ops:[…]}"}

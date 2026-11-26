@@ -13,7 +13,7 @@ import { actorLabel, useUsers } from "../ui/actors";
 import { confirmDialog } from "../ui/confirm";
 import { Icon, relativeTime } from "../ui/icons";
 import { toast } from "../ui/toasts";
-import { canCancelRun } from "./layout";
+import { canCancelRun, isStepResponsible } from "./layout";
 import { RunTimeline } from "./RunTimeline";
 import { WorkflowGraph } from "./WorkflowGraph";
 
@@ -84,6 +84,7 @@ export function RunView({ runId }: { runId: string }) {
   const openTask = runCh?.view?.task;
   const activeStep = run.current?.step ?? null;
   const currentStepDef = workflow?.draft.steps.find((s) => s.key === selectedStep);
+  const stepVisible = !!currentStepDef && isStepResponsible(currentStepDef, run, me, openTask, wsRoles);
   const stepEditable = run.status === "active" && !!selectedStep && selectedStep === activeStep;
 
   const mayCancel = canCancelRun(run, workflow?.draft, me, wsRoles);
@@ -196,33 +197,11 @@ export function RunView({ runId }: { runId: string }) {
         )}
       </div>
 
-      <section className="panel wf-graph-panel" aria-label="Ablauf-Graph">
-        <div className="panel-head">
-          <h2>Ablauf</h2>
-          <div className="wf-legend small muted">
-            <span><i className="wf-dot wf-dot-done" /> Erledigt</span>
-            <span><i className="wf-dot wf-dot-active" /> Aktuell</span>
-            <span><i className="wf-dot wf-dot-pending" /> Offen</span>
-          </div>
-        </div>
-
-        {workflow ? (
-          <WorkflowGraph
-            definition={workflow.draft}
-            steps={run.steps}
-            current={run.current}
-            runStatus={run.status}
-            selectedStep={selectedStep}
-            onSelectStep={setSelectedStep}
-          />
-        ) : (
-          <div className="skeleton-list" style={{ padding: "16px" }}><span /><span /></div>
-        )}
-      </section>
-
       <div className="run-layout">
         <section className="panel run-step-panel" aria-label={currentStepDef?.name ?? "Schritt-Dokument"}>
-          {currentStepDef ? (
+          {currentStepDef && !stepVisible ? (
+            <p className="empty">Für diesen Schritt bist du nicht zuständig, sein Dokument wird dir nicht angezeigt.</p>
+          ) : currentStepDef ? (
             <DocumentView
               key={`${runId}:${currentStepDef.document}:${selectedStep}`}
               docId={currentStepDef.document}
@@ -231,10 +210,33 @@ export function RunView({ runId }: { runId: string }) {
               readOnly={!stepEditable}
             />
           ) : (
-            <p className="empty">Wähle einen Schritt im Graph aus.</p>
+            <p className="empty">Wähle unten im Ablauf einen Schritt aus.</p>
           )}
         </section>
 
+        <section className="panel wf-graph-panel" aria-label="Ablauf-Graph">
+          <div className="panel-head">
+            <h2>Ablauf</h2>
+            <div className="wf-legend small muted">
+              <span><i className="wf-dot wf-dot-done" /> Erledigt</span>
+              <span><i className="wf-dot wf-dot-active" /> Aktuell</span>
+              <span><i className="wf-dot wf-dot-pending" /> Offen</span>
+            </div>
+          </div>
+
+          {workflow ? (
+            <WorkflowGraph
+              definition={workflow.draft}
+              steps={run.steps}
+              current={run.current}
+              runStatus={run.status}
+              selectedStep={selectedStep}
+              onSelectStep={setSelectedStep}
+            />
+          ) : (
+            <div className="skeleton-list" style={{ padding: "16px" }}><span /><span /></div>
+          )}
+        </section>
         <RunTimeline runId={runId} events={run.events} />
       </div>
     </div>

@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { useAuth } from "../../api/client";
 import { FormContext } from "../../forms/formContext";
 import {
-  type ButtonDef, type FormErrors, effectiveButtons, errorsOf, formState, hasErrors, inputBlocks, noErrors, splitErrors,
+  type ButtonDef, type FormErrors, buttonLabel, effectiveButtons, errorsOf, formState, hasErrors, inputBlocks, noErrors, splitErrors,
   submitOp, validateLocal, visibleButtons,
 } from "../../forms/formModel";
 import { useDraft } from "../../forms/useDraft";
@@ -44,7 +44,7 @@ export function FormBlock({ block }: { block: FlatBlock }) {
 
   const click = async (button: ButtonDef) => {
     if (busy) return;
-    if (button.confirm && !(await confirmDialog({ title: button.confirm, confirmLabel: button.label }))) return;
+    if (button.confirm && !(await confirmDialog({ title: button.confirm, confirmLabel: buttonLabel(button.label) }))) return;
     const local = validateLocal(inputs, draft.values, button);
     if (hasErrors(local)) {
       setErrorsState(local);
@@ -56,8 +56,8 @@ export function FormBlock({ block }: { block: FlatBlock }) {
       const ack = await submit([submitOp(block.id, button.id, newId("sub"), doc.run)]);
       const failed = errorsOf(ack.results);
       if (failed) setErrorsState(splitErrors(failed, keys));
-      else if (ack.results?.["0"]?.duplicate) toast(`${button.label}: war schon abgesendet`);
-      else toast(`${button.label}: gespeichert`);
+      else if (ack.results?.["0"]?.duplicate) toast(`${buttonLabel(button.label)}: war schon abgesendet`);
+      else toast(`${buttonLabel(button.label)}: gespeichert`);
     } catch (e) {
       const err = e instanceof BatchRejected ? e.error : { message: (e as Error).message };
       const fields = errorsOf(err);
@@ -99,7 +99,7 @@ export function FormBlock({ block }: { block: FlatBlock }) {
                 disabled={busy !== null || !draft.ready} aria-busy={busy === b.id} onClick={() => click(b)}
               >
                 {busy === b.id && <span className="spinner" aria-hidden="true" />}
-                {b.label}
+                {buttonLabel(b.label)}
               </button>
             ))}
           </div>

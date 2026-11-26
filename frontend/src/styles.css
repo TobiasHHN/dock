@@ -279,10 +279,10 @@ input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; accen
   border-bottom: 1px solid var(--border);
 }
 .brand {
-  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  display: inline-flex; align-items: baseline; flex: none;
   font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--text);
 }
-.brand::before { content: ""; width: 22px; height: 22px; border-radius: 7px; background: var(--text); }
+.brand::after { content: ""; width: 0.28em; height: 0.28em; margin-left: 0.06em; border-radius: 50%; background: #f97316; }
 a.brand:hover { color: var(--text); }
 a.brand { padding: 4px 8px; margin-left: -8px; border-radius: var(--radius-sm); transition: background 0.15s; }
 a.brand:hover { background: var(--surface-2); }
@@ -297,10 +297,6 @@ a.brand:focus-visible { background: var(--surface-2); }
 .topnav a:hover { background: var(--surface-2); color: var(--text); }
 .topnav a.active { background: var(--surface-2); color: var(--text); }
 
-.live { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); flex: none; }
-.conn { width: 8px; height: 8px; border-radius: 50%; background: var(--subtle); transition: background-color 300ms var(--ease); }
-.live.open .conn { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 20%, transparent); }
-.live.connecting .conn { background: var(--warning); animation: pulse 1.4s var(--ease) infinite; }
 @keyframes pulse { 50% { opacity: 0.35; } }
 
 .profile {
@@ -377,7 +373,6 @@ main.page:focus { outline: none; } /* nur Sprungziel des Skip-Links, nicht inter
   animation: fade-in 280ms var(--ease);
 }
 .auth-brand { font-size: 1.3rem; }
-.auth-brand::before { width: 28px; height: 28px; border-radius: 8px; }
 .auth-card {
   width: 100%; max-width: 400px;
   display: flex; flex-direction: column; gap: 24px;
@@ -709,12 +704,12 @@ table.grid .col-actions { width: 1%; white-space: nowrap; text-align: right; }
    Responsiv & Bewegung
    ══════════════════════════════════════════════════════════════ */
 @media (max-width: 1024px) {
-  .profile-name, .live-text { display: none; }
+  .profile-name { display: none; }
 }
 
 @media (max-width: 760px) {
   .topbar { gap: 8px; padding: 0 12px; }
-  .topnav, .profile, .live { display: none; }
+  .topnav, .profile { display: none; }
   .search { flex: 1; }
   .search .kbd { display: none; }
   .search input { padding-right: 12px; }
@@ -923,7 +918,7 @@ a.btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--a
 .wf-dot-pending { background: var(--subtle); }
 .wf-handle { width: 7px; height: 7px; background: var(--border-strong); border: none; }
 
-.run-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; } /* Verlauf unter dem Schritt-Dokument, nicht daneben */
+.run-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; } /* Reihenfolge untereinander: Schritt-Dokument, Ablauf-Graph, Verlauf */
 .run-step-panel { padding: 8px 14px 18px; }
 .doc-embedded-body { padding: 18px 20px 18px 0; }
 
@@ -1033,6 +1028,23 @@ button.ghost.quiet-danger:focus-visible { background: var(--danger-soft); color:
 .lock-badge .avatar { width: 14px; height: 14px; font-size: 0.5rem; box-shadow: none; background: var(--presence, var(--accent)); }
 .lock-badge .avatar[class*="agent"] { background: var(--presence, var(--agent)); }
 @media (prefers-reduced-motion: reduce) { .block.enter, .lock-badge { animation: none; } }
+
+/* 3.F5: Tipp-Effekt für fremd eingefügten Text. Rest verborgen (Layout bleibt stehen), frische Wörter blenden weich ein,
+   der Cursor an der Kante leuchtet leicht und klingt am Ende aus. */
+.text-block .tw-hidden { visibility: hidden; }
+.text-block .tw-fresh { animation: tw-word 640ms var(--ease) both; }
+@keyframes tw-word { from { opacity: 0; filter: blur(3px); } 60% { filter: blur(0); } to { opacity: 1; filter: none; } }
+.text-block .tw-caret { display: inline-block; position: relative; width: 0; height: 1em; pointer-events: none; }
+.text-block .tw-caret::after {
+  content: ""; position: absolute; left: 1px; top: -0.08em; width: 2px; height: 1.16em; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 10px 1px var(--accent-ring);
+  animation: tw-caret-in 220ms var(--ease) both, tw-caret-breathe 1.2s ease-in-out 220ms infinite;
+}
+.text-block .tw-caret.out::after { animation: tw-caret-out 700ms var(--ease) both; }
+@keyframes tw-caret-in { from { opacity: 0; transform: scaleY(0.4); } to { opacity: 1; transform: none; } }
+@keyframes tw-caret-breathe { 50% { opacity: 0.55; } }
+@keyframes tw-caret-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .text-block .tw-fresh, .text-block .tw-caret::after { animation: none; } }
 
 /* B8: Arbeitsmappe, Blatt-Leiste unten wie in Excel */
 .sheet-bar {
