@@ -3,6 +3,7 @@ Phase 1: Jeder Owner ersetzt die Stubs seines Bereichs durch echte Implementieru
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
@@ -295,17 +296,54 @@ async def read_notification(notification: str, user: User):
 # ── Import (3.6–3.8) ─────────────────────────────────────────────────────────
 imports = APIRouter(prefix="/api/imports", tags=["imports"])
 
-_STUB_PLAN = A.ImportPlan(
+_STUB_PLAN = A.ImportPlan(  # Word-Import: Task 3.7
     import_id="imp_stub",
     created={"tables": [{"id": "tbl_best", "key": "bestellungen", "columns": ["name", "kostenstelle"]}]},
     warnings=["Stub: Import ist noch nicht implementiert"],
 )
+_UPLOAD_CHUNK = 1024 * 1024
+
+
+async def _read_upload(file: UploadFile) -> bytes:
+    """Liest den Upload mit Größenlimit, ohne eine riesige Datei komplett in den Speicher zu holen."""
+    from app.imports.xlsx import MAX_BYTES
+
+    data = bytearray()
+    while chunk := await file.read(_UPLOAD_CHUNK):
+        data += chunk
+        if len(data) > MAX_BYTES:
+            raise HTTPException(413, "Die Datei ist zu groß (erlaubt sind 10 MB).")
+    return bytes(data)
+
+
+async def _prepare_import(source: str, result, user: CurrentUser, session: AsyncSession, apply: bool) -> A.ImportPlan:
+    from app.imports import store
+    from app.ops.context import OpContext
+
+    async with session.begin():
+        plan = await store.save_plan(OpContext(session=session, actor=user.actor), source, result.ops,
+                                     result.created, result.warnings)
+    if apply:
+        batch = OpBatch(batch_id=new_id("batch"), ops=[{"op": "import.include", "import_id": plan.import_id}])
+        try:
+            plan.result = await apply_batch(batch, user.actor)
+        except PipelineError as exc:
+            raise HTTPException(exc.status_code, exc.error.message) from exc
+    return plan
 
 
 @imports.post("/xlsx", response_model=A.ImportPlan)
 async def import_xlsx(user: User, file: UploadFile = File(...), sheet: str | None = Form(None),
-                      apply: bool = Form(False)):
-    return _STUB_PLAN
+                      apply: bool = Form(False), session: AsyncSession = Depends(get_session)):
+    """Bereitet einen Excel-Import vor (schreibt noch nichts). Kaputte oder zu große Dateien: 422 bzw. 413."""
+    from app.imports.xlsx import ImportFileError, parse_xlsx
+
+    data = await _read_upload(file)
+    try:
+        result = await run_in_threadpool(parse_xlsx, data, sheet or None)
+    except ImportFileError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return await _prepare_import("xlsx", result, user, session, apply)
 
 
 @imports.post("/docx", response_model=A.ImportPlan)

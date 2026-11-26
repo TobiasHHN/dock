@@ -246,11 +246,18 @@ async def test_identity_is_forwarded(monkeypatch):
     assert (await _call("list_tasks", {})).content == []
 
 
-async def test_imports_file_path_and_base64():
+async def test_imports_file_path_and_base64(monkeypatch):
+    from app.api import routers
+    from app.schemas.api import ImportPlan
+
+    async def fake_prepare(source, result, user, session, apply):  # Speichern/Ausführen braucht die DB (test_import_xlsx)
+        return ImportPlan(import_id="imp_stub", created=result.created, warnings=result.warnings)
+
+    monkeypatch.setattr(routers, "_prepare_import", fake_prepare)
     xlsx = FILES / "uebersicht.xlsx"
     docx = FILES / "formular.docx"
     for name, args in [
-        ("import_xlsx", {"file_path": str(xlsx), "sheet": "Tabelle1", "apply": True}),
+        ("import_xlsx", {"file_path": str(xlsx), "sheet": "Bestellungen", "apply": True}),
         ("import_xlsx", {"content_base64": base64.b64encode(xlsx.read_bytes()).decode(), "filename": "u.xlsx"}),
         ("import_docx", {"file_path": str(docx), "title": "F", "bind_table": "bestellungen"}),
     ]:
