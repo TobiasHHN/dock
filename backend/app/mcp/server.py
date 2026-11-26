@@ -11,21 +11,31 @@ from __future__ import annotations
 
 import base64
 import os
-from pathlib import Path
-from typing import Any, Literal
+from pathlib import Path, PureWindowsPath
+from typing import Annotated, Any, Literal, get_args
 
 import httpx
+from pydantic import Field
 from mcp.server.fastmcp import Context, FastMCP
 from mcp.server.fastmcp.exceptions import ToolError
 from ulid import ULID
 
 from app.schemas.blocks import BlockIn
-from app.schemas.ops import Op, OpBatch
+from app.schemas.ops import Op
 from app.schemas.tables import ColumnIn, ColumnPatch, FilterCondition, SortSpec
 from app.schemas.workflows import Assignee, WorkflowDefinition
 
 # host 0.0.0.0: kein DNS-Rebinding-Schutz auf localhost-Hosts (Zugriff aus Docker/LAN); Pfad "/" wegen Mount unter /mcp.
 mcp = FastMCP("dock", host="0.0.0.0", streamable_http_path="/")
+
+
+# Schlanke Beschreibungen statt des kompletten Op-/Block-Schemas im Tool-Schema (B12); Details: describe_schema.
+OPS_HINT = ("Liste von Ops, je ein Objekt mit Feld `op` (z. B. {\"op\":\"block.update\",\"block\":\"blk_…\",\"props\":{…}}). "
+            "Felder je Op-Typ: Tool `describe_schema`. Der Server validiert strikt.")
+BLOCKS_HINT = ("Liste von Blöcken {\"id\":\"blk_…\",\"type\":\"paragraph\",\"props\":{…},\"children\":[…]}. "
+               "Blocktypen und Props: Tool `describe_schema` (topic=\"blocks\"). Der Server validiert strikt.")
+BATCH_HINT = ("{\"batch_id\":\"bat_…\",\"base\":{block_id: version}?,\"ops\":[{\"op\":\"<typ>\",…}]}. "
+              "Op-Typen und Felder: Tool `describe_schema` (topic=\"ops\" oder ein Op-Name). Der Server validiert strikt.")
 
 
 class ColumnSpec(ColumnIn):
@@ -116,8 +126,9 @@ async def _ops(ctx: Context | None, ops: list[dict[str, Any]], base: dict[str, i
 
 
 async def _post_batch(ctx: Context | None, batch: Any) -> Any:
-    if isinstance(batch, OpBatch):
-        batch = _dump(batch)
+    """Validiert wird serverseitig von `POST /api/ops` (Pydantic-Vertrag), Fehler kommen mit Pfad zurück."""
+    if not isinstance(batch, dict):
+        raise ToolError("VALIDATION at batch: Objekt {batch_id, ops, base?} erwartet (Details: describe_schema)")
     return _check_result(await _request(ctx, "POST", "/api/ops", json=batch))
 
 
@@ -242,10 +253,11 @@ async def get_document(doc: str, format: Literal["md", "json"] = "md", run: str 
 
 
 @mcp.tool()
-async def create_document(title: str, markdown: str | None = None, blocks: list[BlockIn] | None = None,
+async def create_document(title: str, markdown: str | None = None,
+                          blocks: Annotated[list[dict[str, Any]], Field(description=BLOCKS_HINT)] | None = None,
                           owner: dict[str, str] | None = None, ctx: Context | None = None) -> Any:
     """Legt ein Dokument an (op `doc.create`) aus Markdown (Syntax wie `get_document`, Server parst in Blöcke) ODER
-    aus `blocks`. Actions und Buttons von Formularen stehen nicht im Markdown, sondern werden mit `block.update`
+    aus `blocks` (Blockbaum, Aufbau: `describe_schema`). Bevorzugt Markdown. Actions und Buttons von Formularen stehen nicht im Markdown, sondern werden mit `block.update`
     (edit_document / apply_ops) gesetzt. `owner` = {"workflow": …, "step": …} macht es zum Schritt-Dokument."""
     if (markdown is None) == (blocks is None):
         raise ToolError("VALIDATION at markdown|blocks: genau eines von beiden angeben")
@@ -254,21 +266,24 @@ async def create_document(title: str, markdown: str | None = None, blocks: list[
     if markdown is not None:
         op["markdown"] = markdown
     else:
-        op["blocks"] = [_dump(b) for b in blocks or []]
+        op["blocks"] = blocks or []
     if owner:
         op["owner"] = owner
     return {"id": doc_id, "result": await _ops(ctx, [op])}
 
 
 @mcp.tool()
-async def edit_document(doc: str, ops: list[Op], base_version: dict[str, int] | None = None,
-                        ctx: Context | None = None) -> Any:
-    """Bearbeitet ein Dokument mit `block.insert|update|move|delete`, `text.edit` und `doc.update`.
+async def edit_document(doc: str, ops: Annotated[list[dict[str, Any]], Field(description=OPS_HINT)],
+                        base_version: dict[str, int] | None = None, ctx: Context | None = None) -> Any:
+    """Bearbeitet ein Dokument mit `block.insert|update|move|delete`, `text.edit` und `doc.update`
+    (Felder je Op: `describe_schema`).
     `base_version` = {block_id: zuletzt gelesene Version}; bei veraltetem Stand kommt CONFLICT, dann neu lesen
     (get_document format=json). BLOCK_IN_USE: ein Mensch tippt gerade im Block, später erneut versuchen."""
     allowed = ("block.", "text.edit", "doc.update")
-    raw = [_dump(o) for o in ops]
+    raw = ops
     for i, o in enumerate(raw):
+        if not isinstance(o.get("op"), str):
+            raise ToolError(f"VALIDATION at ops[{i}].op: Feld `op` (z. B. 'block.update') fehlt")
         if not o["op"].startswith(allowed):
             raise ToolError(f"VALIDATION at ops[{i}].op: '{o['op']}' ist in edit_document nicht erlaubt (apply_ops nutzen)")
         if o["op"] == "block.insert" and o.get("doc") != doc:
@@ -284,7 +299,15 @@ def _read_upload(file_path: str | None, content_base64: str | None, filename: st
     if file_path:
         p = Path(file_path).expanduser()
         if not p.is_file():
-            raise ToolError(f"NOT_FOUND at file_path: Datei '{file_path}' nicht gefunden")
+            # Host-Pfade (z. B. C:\…\demo\x.xlsx) gibt es im Container nicht: gleichnamige Datei in demo/ versuchen.
+            alt = Path(os.environ.get("DOCK_DEMO_DIR", "demo")) / PureWindowsPath(file_path).name
+            if alt.is_file():
+                p = alt
+        if not p.is_file():
+            raise ToolError(
+                f"NOT_FOUND at file_path: Datei '{file_path}' ist für den MCP-Server nicht sichtbar (er läuft über HTTP "
+                "nicht auf dem Rechner des Aufrufers). Datei selbst lesen und erneut aufrufen mit "
+                "content_base64 (Base64-Inhalt) und filename, ohne file_path.")
         return filename or p.name, p.read_bytes()
     try:
         return filename or "upload", base64.b64decode(content_base64 or "", validate=True)
@@ -296,7 +319,8 @@ def _read_upload(file_path: str | None, content_base64: str | None, filename: st
 async def import_xlsx(file_path: str | None = None, content_base64: str | None = None, filename: str | None = None,
                       sheet: str | None = None, apply: bool = False, ctx: Context | None = None) -> Any:
     """Importiert eine Excel-Datei (.xlsx) als Tabelle(n). ZUERST Dateien importieren, dann den Rest planen.
-    `file_path` (lokale Datei, stdio) ODER `content_base64` (HTTP). Antwort: {import_id, created, warnings}; es wird
+    ÜBER HTTP (Normalfall) die Datei selbst lesen und `content_base64` + `filename` senden; `file_path` geht nur bei
+    stdio (Server läuft lokal) oder für Pfade, die der Server sieht (z. B. `demo/Bestelluebersicht.xlsx`). Antwort: {import_id, created, warnings}; es wird
     noch nichts geschrieben. Danach EIN `apply_ops`-Batch mit {"op":"import.include","import_id":…} plus Ergänzungen
     (Spalten, Rollen via list_roles, Aktionen, Buttons, Workflow, publish). `apply=true` führt den Import sofort aus.
     Warnungen lesen und selbst beheben."""
@@ -310,7 +334,8 @@ async def import_docx(file_path: str | None = None, content_base64: str | None =
                       title: str | None = None, owner: str | None = None, bind_table: str | None = None,
                       apply: bool = False, ctx: Context | None = None) -> Any:
     """Importiert ein Word-Dokument (.docx) als Dokument mit Formular. ZUERST Dateien importieren (auch Excel, damit
-    `bind_table` auf die importierte Tabelle zeigen kann). `file_path` (lokal) ODER `content_base64`. Antwort:
+    `bind_table` auf die importierte Tabelle zeigen kann). ÜBER HTTP (Normalfall) die Datei selbst lesen und
+    `content_base64` + `filename` senden; `file_path` nur bei stdio oder für vom Server sichtbare Pfade. Antwort:
     {import_id, created, warnings}. Das Formular hat keine Actions/Buttons (Warnung beachten): diese in EINEM
     `apply_ops`-Batch zusammen mit {"op":"import.include","import_id":…}, Workflow und publish ergänzen.
     `bind_table` erzeugt Action create_row + Button „Speichern“."""
@@ -507,13 +532,49 @@ async def set_agent_roles(agent: str, add: list[str] | None = None, remove: list
 # ── Allgemein ────────────────────────────────────────────────────────────────
 
 @mcp.tool()
-async def apply_ops(batch: OpBatch, ctx: Context | None = None) -> Any:
+async def apply_ops(batch: Annotated[dict[str, Any], Field(description=BATCH_HINT)],
+                    ctx: Context | None = None) -> Any:
     """Führt einen atomaren Batch von Operationen aus: entweder klappt alles oder nichts. Typischer Ablauf für
     ganze Prozesse: 1. Dateien importieren (import_xlsx/import_docx), 2. list_roles, 3. EIN Batch mit
     {"op":"import.include","import_id":…} plus Ergänzungen (Rollen, Spalten, Actions/Buttons per block.update,
     workflow.create, workflow.publish). Fehler (CONFLICT, IN_USE, BLOCK_IN_USE, VALIDATION mit Pfad) lesen und den
-    Batch korrigiert erneut senden. `batch_id` und alle IDs (Präfix + ULID) erzeugt der Aufrufer."""
+    Batch korrigiert erneut senden. `batch_id` und alle IDs (Präfix + ULID) erzeugt der Aufrufer.
+    Felder der einzelnen Ops und Blöcke: `describe_schema` (z. B. topic="ops", topic="row.update")."""
     return await _post_batch(ctx, batch)
+
+
+# ── Schema-Doku auf Abruf (B12) ──────────────────────────────────────────────
+
+def _variants(union: Any, tag: str) -> dict[str, Any]:
+    """{Tag-Wert: Pydantic-Modell} einer diskriminierten Union (`Op`, `BlockIn`)."""
+    models = get_args(get_args(union)[0])  # Annotated[Union[…], Field] → Union[…] → Modelle
+    return {get_args(m.model_fields[tag].annotation)[0]: m for m in models}
+
+
+def _summary(models: dict[str, Any]) -> str:
+    lines = []
+    for name, m in models.items():
+        fields = [f"{k}{'' if f.is_required() else '?'}" for k, f in m.model_fields.items() if k not in ("op", "type")]
+        lines.append(f"{name}: {', '.join(fields)}")
+    return "\n".join(lines)
+
+
+@mcp.tool()
+async def describe_schema(topic: str = "ops") -> Any:
+    """Beschreibt Ops und Blöcke für `apply_ops`, `edit_document` und `create_document` (die Tool-Schemas dort sind
+    absichtlich schlank, der Server validiert strikt und meldet Fehler mit Pfad). `topic`: `ops` = alle Op-Typen mit
+    Feldnamen (`?` = optional), `blocks` = alle Blocktypen mit Feldern, ein Op-Name (z. B. `row.update`) oder ein
+    Blocktyp (z. B. `form`) = vollständiges JSON-Schema dieses einen Typs."""
+    ops, blocks = _variants(Op, "op"), _variants(BlockIn, "type")
+    if topic == "ops":
+        return {"ops": _summary(ops), "hint": "Details je Op: describe_schema(topic=<op>). Batch = {batch_id, base?, ops:[…]}"}
+    if topic == "blocks":
+        return {"blocks": _summary(blocks), "hint": "Block = {id, type, props, children?}; Details: describe_schema(topic=<type>)"}
+    model = ops.get(topic) or blocks.get(topic)
+    if model is None:
+        raise ToolError(f"NOT_FOUND at topic: '{topic}' unbekannt. Gültig: ops, blocks, "
+                        f"{', '.join(ops)}, {', '.join(blocks)}")
+    return model.model_json_schema()
 
 
 if __name__ == "__main__":

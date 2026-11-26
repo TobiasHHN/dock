@@ -90,7 +90,7 @@ def fill(node: Any, values: dict[str, str]) -> Any:
 
 
 def build_batch(xlsx: dict[str, Any], docx: dict[str, Any], template: dict[str, Any] | None = None) -> dict[str, Any]:
-    template = template or json.loads(TEMPLATE.read_text())
+    template = template or json.loads(TEMPLATE.read_text(encoding="utf-8"))
     batch = fill(template, placeholders(xlsx, docx))
     batch["batch_id"] = f"{template['batch_id']}_{uuid.uuid4().hex[:8]}"
     return batch

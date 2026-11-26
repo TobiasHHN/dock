@@ -25,6 +25,10 @@ Beispielartikel: **Dell-Monitor** (DELL-U2723, 249,00 €), **Logitech-Maus** (L
 
 Erwartetes Agent-Verhalten (L 8.3, L 10.1): `import_xlsx` und `import_docx` aufrufen, `list_roles` prüfen, dann **ein** `apply_ops`-Batch mit zwei `import.include`, ergänzten Spalten (`status`, `besteller`, `genehmigt_von`, `kommentar`, `lieferanten_nr`, `liefertermin`, `run`), Artikel-Tabelle, Aktionen und Buttons am Formular, Workflow, übrigen Schritt-Dokumenten, Einstiegsdokument und `workflow.publish`. Prüffehler liest der Agent und korrigiert selbst.
 
+**Dateien übergeben (B11):** Bei MCP über **HTTP** (`http://localhost:8000/mcp`) läuft der Server im Backend-Container und sieht Pfade des Rechners nicht. Der Agent soll die Datei selbst lesen und `import_xlsx`/`import_docx` mit `content_base64` und `filename` aufrufen. `file_path` funktioniert nur bei **stdio** (Server läuft lokal auf dem Rechner) und für Pfade, die der Container sieht: `demo/` ist unter `/srv/demo` read-only gemountet (nach `docker compose up -d` neu starten), und ein nicht gefundener Pfad wird mit gleichem Dateinamen in `demo/` gesucht. Wird nichts gefunden, meldet das Tool `NOT_FOUND` mit dem Hinweis auf `content_base64`. Für den Prompt hilft der Zusatz: „Lies die Dateien selbst und übergib sie per `content_base64`.“
+
+**Schlanke Tool-Schemas (B12):** `apply_ops`, `edit_document` und `create_document` nehmen Ops und Blöcke als generische Objekte, der Server validiert weiterhin strikt. Die Felder je Op-/Blocktyp liefert das Tool `describe_schema` (`topic` = `ops`, `blocks` oder ein Op-Name wie `row.update`, Blocktyp wie `form`).
+
 ### Schritt 2: Antrag stellen (Ben, Agent)
 
 > Bestelle 2× Dell-Monitor für Kostenstelle 4711.

@@ -135,7 +135,7 @@ def test_login_with_seeded_password(result):
 def test_mcp_configs(result):
     t, tmp = result["tokens"], result["tmp"]
     for key in ("anna", "ben"):
-        srv = json.loads((tmp / f"{key}.json").read_text())["mcpServers"]["dock"]
+        srv = json.loads((tmp / f"{key}.json").read_text(encoding="utf-8"))["mcpServers"]["dock"]
         assert srv["type"] == "http" and srv["url"] == "http://localhost:8000/mcp"
         assert srv["headers"]["Authorization"] == f"Bearer {t[key]['agent_token']}"
-    assert set(json.loads((tmp / "tokens.json").read_text())) == {"anna", "ben", "chef"}
+    assert set(json.loads((tmp / "tokens.json").read_text(encoding="utf-8"))) == {"anna", "ben", "chef"}

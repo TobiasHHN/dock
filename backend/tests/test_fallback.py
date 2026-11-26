@@ -43,7 +43,7 @@ def tagged(tag: str) -> tuple[dict, callable]:
     def retag_json(obj):
         return json.loads(ids.sub(rf'"\1_zz56{tag}', json.dumps(obj)))
 
-    template = retag_json(json.loads(fallback.TEMPLATE.read_text()))
+    template = retag_json(json.loads(fallback.TEMPLATE.read_text(encoding="utf-8")))
     template["batch_id"] = f"b_zz56{tag}"
     for op in template["ops"]:
         if op["op"] in ("workflow.create", "table.create"):
