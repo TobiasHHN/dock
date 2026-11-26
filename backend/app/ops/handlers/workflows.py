@@ -21,11 +21,15 @@ from typing import Any
 from sqlalchemy import text
 
 from app.domain import references
+from app.domain import tasks as T
 from app.domain import workflows as W
 from app.ops.context import OpContext
 from app.ops.errors import PipelineError
 from app.ops.handlers import register
-from app.schemas.ops import WorkflowCreate, WorkflowDelete, WorkflowPublish, WorkflowUpdate
+from app.schemas.ops import (
+    RunCancel, RunStart, TaskClaim, TaskReassign, TaskRelease,
+    WorkflowCreate, WorkflowDelete, WorkflowPublish, WorkflowUpdate,
+)
 from app.schemas.workflows import WorkflowDefinition
 
 _KEY = re.compile(r"^[a-z][a-z0-9_]{0,62}$")
@@ -166,3 +170,31 @@ async def workflow_delete(ctx: OpContext, op: WorkflowDelete):
     await ctx.touch("workflow", op.workflow, "workspace", deleted=True)
     ctx.add_inverse({"op": "workflow.create", "id": op.workflow, "key": current["key"], "name": current["name"],
                      "definition": current["draft"]})
+
+
+# ── Runs & Aufgaben (Task 4.2) ───────────────────────────────────────────────
+
+
+@register("run.start")
+async def run_start(ctx: OpContext, op: RunStart):
+    return await W.start_run(ctx, op.id, op.workflow, op.input, ctx.actor)
+
+
+@register("run.cancel")
+async def run_cancel(ctx: OpContext, op: RunCancel):
+    return await W.cancel_run(ctx, op.run, op.reason, ctx.actor)
+
+
+@register("task.claim")
+async def task_claim(ctx: OpContext, op: TaskClaim):
+    return await T.claim(ctx, op.task, ctx.actor)
+
+
+@register("task.release")
+async def task_release(ctx: OpContext, op: TaskRelease):
+    return await T.release(ctx, op.task, ctx.actor)
+
+
+@register("task.reassign")
+async def task_reassign(ctx: OpContext, op: TaskReassign):
+    return await T.reassign(ctx, op.task, op.assignees, ctx.actor)
