@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.domain import expressions
 from app.domain import markdown as M
 from app.ops.context import DEFAULT_WORKSPACE
 from app.ops.errors import PipelineError
@@ -172,10 +173,13 @@ def _col_expr(column: dict[str, Any], name: str) -> tuple[str, str]:
     return f"({raw} #>> '{{}}')", "text"
 
 
-def _convert(value: Any, category: str, field: str) -> Any:
+def _convert(value: Any, category: str, field: str, context: dict[str, Any] | None = None) -> Any:
     if isinstance(value, str) and "{{" in value:
-        raise PipelineError("VALIDATION", f"Filter '{field}': Ausdrücke in Filterwerten werden hier nicht ausgewertet",
-                            {"errors": {f"filter.{field}": "Ausdruck {{ }} nicht ausgewertet"}})
+        try:
+            value = expressions.evaluate(value, context or {})
+        except expressions.ExpressionError as exc:
+            raise PipelineError("VALIDATION", f"Filter '{field}': {exc}",
+                                {"errors": {f"filter.{field}": str(exc)}}) from exc
     try:
         if category == "num":
             return float(str(value).replace(",", ".")) if not isinstance(value, (int, float)) else value
@@ -194,10 +198,12 @@ def _like(value: str) -> str:
 
 
 async def query_rows(s: AsyncSession, ref: str, filters: list[dict[str, Any]], sorts: list[dict[str, Any]],
-                     limit: int = 100, offset: int = 0) -> dict[str, Any]:
+                     limit: int = 100, offset: int = 0,
+                     context: dict[str, Any] | None = None) -> dict[str, Any]:
     """Zeilen einer Tabelle mit einfachen Feldfiltern (Spaltentyp-gerecht) und Sortierung; `{table, rows, total}`.
     Filter: `column` (ID oder Key), `op` (eq, ne, gt, gte, lt, lte, contains, in, is_null), `value`.
-    Ausdrücke `{{ }}` in Filterwerten sind Sache der Auswertung im Run-Kontext und werden abgelehnt."""
+    Ausdrücke `{{ }}` in Filterwerten werden mit `context` (z. B. user, run, now, today) ausgewertet; ein Fehler
+    darin ist `VALIDATION` (422)."""
     table = await fetch_table(s, ref)
     by_ref = {c["id"]: c for c in table["columns"]} | {c["key"]: c for c in table["columns"]}
     params: dict[str, Any] = {"t": table["id"]}
@@ -218,16 +224,16 @@ async def query_rows(s: AsyncSession, ref: str, filters: list[dict[str, Any]], s
             wants_null = value is None or value is True or str(value).lower() in {"true", "1"}
             where.append(f"({expr} IS NULL)" if wants_null else f"({expr} IS NOT NULL)")
         elif op == "in":
-            values = [_convert(v, cat, cond["column"]) for v in (value if isinstance(value, list) else [value])]
+            values = [_convert(v, cat, cond["column"], context) for v in (value if isinstance(value, list) else [value])]
             params[f"v{i}"] = values
             cast = {"num": "numeric[]", "bool": "boolean[]", "text": "text[]"}[cat]
             where.append(f"{expr} = ANY(CAST(:v{i} AS {cast}))")
         elif op == "contains":
-            params[f"v{i}"] = _like(str(value))
+            params[f"v{i}"] = _like(str(_convert(value, "text", cond["column"], context)))
             where.append(f"(({expr})::text ILIKE :v{i} ESCAPE '\\')")
         else:
             sql_op = {"eq": "=", "ne": "IS DISTINCT FROM", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}[op]
-            params[f"v{i}"] = _convert(value, cat, cond["column"])
+            params[f"v{i}"] = _convert(value, cat, cond["column"], context)
             cast = {"num": "numeric", "bool": "boolean", "text": "text"}[cat]
             where.append(f"{expr} {sql_op} CAST(:v{i} AS {cast})")
 

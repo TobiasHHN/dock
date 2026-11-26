@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import ROLE_NAMES, CurrentUser, create_access_token, current_user, hash_password, verify_password
 from app.db.session import get_session
-from app.domain import queries
+from app.domain import forms, queries
 from app.domain.ids import new_id
 from app.ops.errors import PipelineError
 from app.ops.pipeline import apply_batch
@@ -181,8 +181,12 @@ async def get_document_markdown(doc: str, user: User, run: str | None = None,
 
 
 @documents.post("/documents/{doc}/blocks/{block}/validate", response_model=A.FormValidateResult, tags=["forms"])
-async def validate_form(doc: str, block: str, user: User):  # 3.5
-    return A.FormValidateResult(ok=True, warnings=[])
+async def validate_form(doc: str, block: str, user: User, session: AsyncSession = Depends(get_session)):
+    """Prüfung aus L 5.7 (Daten) für ein Formular: Warnungen mit Block und Feld, z. B. Tippfehler in Ausdrücken."""
+    try:
+        return await forms.validate_form_in_db(session, doc, block)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 # ── Tabellen (1.3, 3.1) ──────────────────────────────────────────────────────
@@ -204,10 +208,11 @@ async def get_table(table: str, user: User, session: AsyncSession = Depends(get_
 
 @tables.post("/tables/{table}/rows/query", response_model=RowsPage)
 async def query_rows(table: str, body: A.RowsQuery, user: User, session: AsyncSession = Depends(get_session)):
-    """Einfache Feldfilter und Sortierung (L 3.4); Ausdrücke `{{ }}` in Filterwerten werden mit 422 abgelehnt."""
+    """Einfache Feldfilter und Sortierung (L 3.4); Ausdrücke `{{ }}` in Filterwerten (`user`, `now`, `today`) werden ausgewertet, Fehler daran sind 422."""
     try:
         return await queries.query_rows(session, table, [f.model_dump() for f in body.filter],
-                                        [x.model_dump() for x in body.sort], body.limit, body.offset)
+                                        [x.model_dump() for x in body.sort], body.limit, body.offset,
+                                        context={"user": {"id": user.id, "name": user.name}})
     except PipelineError as exc:
         raise _http(exc) from exc
 

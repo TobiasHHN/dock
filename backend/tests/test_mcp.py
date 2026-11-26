@@ -169,7 +169,7 @@ def _stub_reads(monkeypatch):
     async def fetch_table(s, ref):
         return table(ref).model_dump()
 
-    async def query_rows(s, ref, filters, sorts, limit=100, offset=0):
+    async def query_rows(s, ref, filters, sorts, limit=100, offset=0, context=None):
         t = table(ref)
         rows = D.ROWS.get(t.id, [])
         return {"table": t.id, "rows": [r.model_dump() for r in rows], "total": len(rows)}
@@ -202,6 +202,12 @@ def _stub_reads(monkeypatch):
                      ("fetch_document", fetch_document), ("fetch_document_markdown", fetch_document_markdown),
                      ("list_documents", list_documents)]:
         monkeypatch.setattr(queries, name, fn)
+
+    async def validate_form_in_db(s, doc_id, block):
+        return {"ok": True, "warnings": []}
+
+    from app.domain import forms
+    monkeypatch.setattr(forms, "validate_form_in_db", validate_form_in_db)
 
 
 @pytest.fixture(autouse=True)
