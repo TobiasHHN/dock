@@ -107,9 +107,9 @@ describe("Filter", () => {
     expect(overlayRows(["r2", "gone", "r1"], live)).toEqual([live[1], live[0]]);
   });
 
-  it("erklärt den 422 bei Ausdrücken im Filter", () => {
+  it("meldet den 422 bei Ausdrücken im Filter mit dem Grund des Servers", () => {
     const withExpr = [{ column: "c1", op: "eq" as const, value: "{{ run.id }}" }];
-    expect(queryErrorText(422, "x", withExpr)).toMatch(/Task 3\.2/);
+    expect(queryErrorText(422, "x", withExpr)).toBe("Der Filter oder sein Ausdruck ist ungültig: x");
     expect(queryErrorText(422, "Spalte unbekannt", [{ column: "c1", op: "eq", value: 1 }])).toBe("Der Filter ist ungültig: Spalte unbekannt");
     expect(queryErrorText(500, "kaputt", [])).toMatch(/kaputt/);
   });

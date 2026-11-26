@@ -195,7 +195,7 @@ export function opsFor(type: Json): FilterOp[] {
 export const hasExpression = (v: Json): boolean =>
   (typeof v === "string" && v.includes("{{")) || (Array.isArray(v) && v.some(hasExpression));
 
-/** Eingabefeld des Filters (Text) → Wert für die Abfrage. Ausdrücke `{{ }}` bleiben unverändert (Server, ab 3.2). */
+/** Eingabefeld des Filters (Text) → Wert für die Abfrage. Ausdrücke `{{ }}` bleiben unverändert (der Server wertet sie aus). */
 export function filterValue(op: FilterOp, text: string, type: Json): Json {
   if (op === "is_null") return null;
   if (hasExpression(text)) return text;
@@ -226,10 +226,9 @@ export function overlayRows(serverIds: string[], live: TRow[]): TRow[] {
   return serverIds.flatMap((id) => (map.has(id) ? [map.get(id)!] : []));
 }
 
-/** Fehlermeldung bei scheiternder Abfrage (422 bis Task 3.2, wenn der Filter einen Ausdruck enthält). */
+/** Fehlermeldung bei scheiternder Abfrage. 422 = Filter ungültig, auch ein nicht auswertbarer Ausdruck `{{ }}` (der Server nennt den Grund). */
 export function queryErrorText(status: number, message: string, conds: FilterCond[]): string {
-  if (status === 422 && conds.some((c) => hasExpression(c.value)))
-    return "Ausdrücke wie {{ … }} im Filter wertet der Server noch nicht aus (kommt mit Task 3.2). Nimm den Ausdruck heraus oder filtere nach einem festen Wert.";
+  if (status === 422 && conds.some((c) => hasExpression(c.value))) return `Der Filter oder sein Ausdruck ist ungültig: ${message}`;
   if (status === 422) return `Der Filter ist ungültig: ${message}`;
   return `Die Zeilen konnten nicht gefiltert werden: ${message}`;
 }

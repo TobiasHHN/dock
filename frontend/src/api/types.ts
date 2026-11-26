@@ -172,7 +172,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Validate Form */
+        /**
+         * Validate Form
+         * @description Prüfung aus L 5.7 (Daten) für ein Formular: Warnungen mit Block und Feld, z. B. Tippfehler in Ausdrücken.
+         */
         post: operations["validate_form_api_documents__doc__blocks__block__validate_post"];
         delete?: never;
         options?: never;
@@ -225,7 +228,7 @@ export interface paths {
         put?: never;
         /**
          * Query Rows
-         * @description Einfache Feldfilter und Sortierung (L 3.4); Ausdrücke `{{ }}` in Filterwerten werden mit 422 abgelehnt.
+         * @description Einfache Feldfilter und Sortierung (L 3.4); Ausdrücke `{{ }}` in Filterwerten (`user`, `now`, `today`) werden ausgewertet, Fehler daran sind 422.
          */
         post: operations["query_rows_api_tables__table__rows_query_post"];
         delete?: never;
@@ -403,7 +406,10 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Import Xlsx */
+        /**
+         * Import Xlsx
+         * @description Bereitet einen Excel-Import vor (schreibt noch nichts). Kaputte oder zu große Dateien: 422 bzw. 413.
+         */
         post: operations["import_xlsx_api_imports_xlsx_post"];
         delete?: never;
         options?: never;
@@ -2511,6 +2517,13 @@ export interface components {
              * @default []
              */
             notifications: {
+                [key: string]: unknown;
+            }[];
+            /**
+             * Drafts
+             * @default []
+             */
+            drafts: {
                 [key: string]: unknown;
             }[];
         };

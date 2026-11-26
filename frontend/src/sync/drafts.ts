@@ -44,8 +44,8 @@ function applyOne(state: Json, op: Json): Json {
       return updateDraft(state, op, (v) => {
         const items = sortedItems(v[op.key]);
         if (items.some((x) => x.id === op.item.id)) return v;
-        const found = op.after ? items.findIndex((x) => x.id === op.after) : -1;
-        const at = found >= 0 ? found : items.length - 1; // ohne (bekanntes) `after` ans Ende
+        // Wie der Server (handlers/forms.py): ohne `after` ans Ende, `"^"` an den Anfang, unbekanntes `after` ignoriert der Client (Server lehnt ab)
+        const at = op.after === "^" ? -1 : op.after ? (items.findIndex((x) => x.id === op.after) >= 0 ? items.findIndex((x) => x.id === op.after) : items.length - 1) : items.length - 1;
         const prev = at >= 0 ? items[at].position : null;
         const next = at + 1 < items.length ? items[at + 1].position : null;
         const item = { ...op.item, values: op.item.values ?? {}, position: op.item.position ?? between(prev, next) };

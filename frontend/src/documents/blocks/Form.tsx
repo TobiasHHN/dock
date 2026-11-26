@@ -27,9 +27,10 @@ export function FormBlock({ block }: { block: FlatBlock }) {
   const [errors, setErrorsState] = useState<FormErrors>(noErrors());
   const [busy, setBusy] = useState<string | null>(null);
 
-  const step: string | null = docCh?.view?.documents?.[0]?.owner?.step ?? null;
+  const owner = docCh?.view?.document?.owner ?? null; // { workflow, step } bei Schritt-Dokumenten (Snapshot `doc:<id>`)
+  const step: string | null = owner?.step ?? null;
   const state = formState({
-    me, readOnly: doc.readOnly, run: doc.run, step,
+    me, readOnly: doc.readOnly, run: doc.run, step, owner,
     info: doc.run ? { loading: !runCh || runCh.status === "loading", run: runCh?.view?.run, task: runCh?.view?.task } : undefined,
   });
   const inputs = useMemo(() => inputBlocks(doc.blocks, block.id), [doc.blocks, block.id]);
@@ -51,6 +52,7 @@ export function FormBlock({ block }: { block: FlatBlock }) {
       const ack = await submit([submitOp(block.id, button.id, newId("sub"), doc.run)]);
       const failed = errorsOf(ack.results);
       if (failed) setErrorsState(splitErrors(failed, keys));
+      else if (ack.results?.["0"]?.duplicate) toast(`${button.label}: war schon abgesendet`);
       else toast(`${button.label}: gespeichert`);
     } catch (e) {
       const err = e instanceof BatchRejected ? e.error : { message: (e as Error).message };

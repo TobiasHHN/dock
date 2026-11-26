@@ -43,6 +43,22 @@ describe("Aufbau", () => {
   });
 });
 
+describe("Fehlerpfade des Servers (Task 3.3)", () => {
+  it("ordnet Feld, Zeilenliste, Zeile.Spalte und actions.* zu", () => {
+    const e = splitErrors({
+      name: "Pflicht", artikel: "mindestens 1", "artikel[2].preis": "keine Zahl", "actions.order.values.col_x": "Spalte unbekannt", button: "unbekannter Button",
+    }, new Set(["name", "artikel"]));
+    expect(e.fields).toEqual({ name: "Pflicht", artikel: "mindestens 1" });
+    expect(e.items).toEqual({ artikel: { 2: { preis: "keine Zahl" } } });
+    expect(e.general).toEqual(["actions.order.values.col_x: Spalte unbekannt", "button: unbekannter Button"]);
+  });
+
+  it("liest details.errors einer abgelehnten Antwort", () => {
+    expect(errorsOf({ code: "VALIDATION", message: "m", details: { errors: { name: "x" } } })).toEqual({ name: "x" });
+    expect(errorsOf({ code: "FORBIDDEN", message: "m", details: { form_block: "f" } })).toBeNull();
+  });
+});
+
 describe("Sichtbarkeit (L 4.3)", () => {
   const buttons: ButtonDef[] = [{ id: "save", label: "Speichern" }];
   const task = { id: "tsk_1", step: "erfassen", status: "open", candidate_users: ["usr_anna"], candidate_roles: [] };
@@ -52,6 +68,12 @@ describe("Sichtbarkeit (L 4.3)", () => {
     expect(visibleButtons(buttons, formState({ me: BEN })).length).toBe(1);
     expect(visibleButtons(buttons, formState({ me: null }))).toEqual([]);
     expect(visibleButtons(buttons, formState({ me: BEN, readOnly: true }))).toEqual([]);
+  });
+
+  it("Schritt-Dokument außerhalb eines Runs: ausfüllbar, aber keine Buttons (wie buttons_allowed im Server)", () => {
+    const st = formState({ me: BEN, owner: { workflow: "wf_1", step: "erfassen" } });
+    expect(st).toMatchObject({ fillable: true, buttons: false });
+    expect(visibleButtons(buttons, st)).toEqual([]);
   });
 
   it("im Run: nur der Zuständige im aktuellen Schritt eines aktiven Runs", () => {

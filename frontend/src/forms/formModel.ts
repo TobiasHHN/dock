@@ -63,7 +63,7 @@ export function canAct(task: Json, me: Me): boolean {
   return users.includes(me.id) || roles.some((r) => me.roles.includes(r));
 }
 
-export type FormState = { fillable: boolean; reason: string | null };
+export type FormState = { fillable: boolean; reason: string | null; /** Buttons anzeigen (Server: `visible_buttons`). */ buttons: boolean };
 
 /**
  * Darf der Nutzer das Formular ausfüllen (und damit: Buttons sehen)?
@@ -71,24 +71,28 @@ export type FormState = { fillable: boolean; reason: string | null };
  * Im Run: Status aktiv, aktueller Schritt = Schritt dieses Dokuments, Nutzer darf die offene Aufgabe erledigen,
  * kein wartender Sub-Run. Fehlt dem Client eine Angabe (Server liefert sie noch nicht), gilt sie als erfüllt, der Server prüft ohnehin.
  */
-export function formState(opts: { me: Me; readOnly?: boolean; run?: string; info?: RunInfo; step?: string | null }): FormState {
-  const { me, readOnly, run, info, step } = opts;
-  if (!me) return { fillable: false, reason: "Bitte anmelden." };
-  if (readOnly) return { fillable: false, reason: "Dieses Dokument ist schreibgeschützt." };
-  if (!run) return { fillable: true, reason: null };
-  if (!info || info.loading) return { fillable: false, reason: null };
+export function formState(opts: {
+  me: Me; readOnly?: boolean; run?: string; info?: RunInfo; step?: string | null; /** Dokument gehört einem Workflow-Schritt (`document.owner`). */ owner?: Json;
+}): FormState {
+  const { me, readOnly, run, info, step, owner } = opts;
+  const no = (reason: string | null): FormState => ({ fillable: false, reason, buttons: false });
+  if (!me) return no("Bitte anmelden.");
+  if (readOnly) return no("Dieses Dokument ist schreibgeschützt.");
+  // Wie `buttons_allowed` im Server: ein Schritt-Dokument ist nur im Run absendbar, außerhalb gibt es keine Buttons
+  if (!run) return owner ? { fillable: true, reason: "Schritt-Dokument eines Workflows: Absenden geht nur in einem laufenden Ablauf.", buttons: false } : { fillable: true, reason: null, buttons: true };
+  if (!info || info.loading) return no(null);
   const r = info.run;
-  if (r?.status && r.status !== "active") return { fillable: false, reason: "Dieser Ablauf ist abgeschlossen." };
+  if (r?.status && r.status !== "active") return no("Dieser Ablauf ist abgeschlossen.");
   const current = r?.current_step ?? r?.current?.step ?? info.task?.step;
-  if (current && step && current !== step) return { fillable: false, reason: "Dieser Schritt ist nicht (mehr) aktuell." };
-  if (r?.waiting_subrun || r?.waiting_for) return { fillable: false, reason: "Der Ablauf wartet auf einen Unter-Ablauf." };
-  if (info.task && !canAct(info.task, me)) return { fillable: false, reason: "Du bist für diese Aufgabe nicht zuständig, das Formular ist schreibgeschützt." };
-  if (!info.task && r) return { fillable: false, reason: "Es gibt keine offene Aufgabe." };
-  return { fillable: true, reason: null };
+  if (current && step && current !== step) return no("Dieser Schritt ist nicht (mehr) aktuell.");
+  if (r?.waiting_subrun || r?.waiting_for) return no("Der Ablauf wartet auf einen Unter-Ablauf.");
+  if (info.task && !canAct(info.task, me)) return no("Du bist für diese Aufgabe nicht zuständig, das Formular ist schreibgeschützt.");
+  if (!info.task && r) return no("Es gibt keine offene Aufgabe.");
+  return { fillable: true, reason: null, buttons: true };
 }
 
-/** Sichtbare Buttons: nur wenn das Formular ausfüllbar ist. */
-export const visibleButtons = (buttons: ButtonDef[], state: FormState): ButtonDef[] => (state.fillable ? buttons : []);
+/** Sichtbare Buttons: nur wenn das Formular ausfüllbar ist und der Server sie zulässt (L 4.3). */
+export const visibleButtons = (buttons: ButtonDef[], state: FormState): ButtonDef[] => (state.buttons ? buttons : []);
 
 // ── Eingabefelder ────────────────────────────────────────────────────────────
 
