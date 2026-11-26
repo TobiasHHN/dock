@@ -7,6 +7,7 @@ import type { Actor } from "../api";
 import { canEditStructure, useAuth } from "../api/client";
 import { submit, sync, useChannel, useSync } from "../sync/store";
 import { Avatar, actorLabel, useUsers } from "../ui/actors";
+import { confirmDialog } from "../ui/confirm";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import {
@@ -78,7 +79,12 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
     );
 
   const deleteDocument = async () => {
-    if (!window.confirm(`Dokument „${doc.title || "Ohne Titel"}“ löschen?`)) return;
+    const ok = await confirmDialog({
+      title: `Dokument „${doc.title || "Ohne Titel"}“ löschen?`,
+      message: "Das Dokument mit allen Blöcken wird entfernt. Wird es noch verwendet, ist das Löschen nicht möglich.",
+      confirmLabel: "Dokument löschen", danger: true,
+    });
+    if (!ok) return;
     try {
       await submit([{ op: "doc.delete", doc: docId } as never]);
       toast("Dokument gelöscht");

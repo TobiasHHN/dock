@@ -4,6 +4,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { App } from "./App";
 import "./styles.css";
+import { ConfirmHost } from "./ui/confirm";
 import { Toasts } from "./ui/toasts";
 
 const queryClient = new QueryClient({ defaultOptions: { queries: { staleTime: 30_000, retry: 1 } } });
@@ -14,6 +15,7 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <App />
         <Toasts />
+        <ConfirmHost />
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>,

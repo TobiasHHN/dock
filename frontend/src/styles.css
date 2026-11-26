@@ -786,3 +786,15 @@ table.grid .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 .warnings ul { list-style: disc; padding-left: 18px; gap: 3px; }
 .page-drop-over { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius-lg); background: var(--accent-soft); }
 .card h2 .card-action { margin-left: auto; }
+
+/* Bestätigungsdialog (ui/confirm.tsx) */
+.modal-confirm { width: min(420px, 100%); }
+.confirm-body { display: flex; gap: 12px; align-items: flex-start; }
+.confirm-body h2 { margin: 0 0 4px; font-size: 1.05rem; }
+.confirm-body p { margin: 0; }
+.confirm-icon {
+  flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+  background: var(--danger-soft); color: var(--danger);
+}
+button.btn-danger { background: var(--danger); border-color: var(--danger); color: #fff; }
+button.btn-danger:hover:not(:disabled) { filter: brightness(0.92); }

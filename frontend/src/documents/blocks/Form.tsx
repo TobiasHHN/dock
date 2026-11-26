@@ -11,6 +11,7 @@ import {
 } from "../../forms/formModel";
 import { useDraft } from "../../forms/useDraft";
 import { BatchRejected, newId, submit, useChannel } from "../../sync/store";
+import { confirmDialog } from "../../ui/confirm";
 import { Icon } from "../../ui/icons";
 import { toast } from "../../ui/toasts";
 import type { FlatBlock } from "../blockOps";
@@ -40,7 +41,7 @@ export function FormBlock({ block }: { block: FlatBlock }) {
 
   const click = async (button: ButtonDef) => {
     if (busy) return;
-    if (button.confirm && !window.confirm(button.confirm)) return;
+    if (button.confirm && !(await confirmDialog({ title: button.confirm, confirmLabel: button.label }))) return;
     const local = validateLocal(inputs, draft.values, button);
     if (hasErrors(local)) {
       setErrorsState(local);

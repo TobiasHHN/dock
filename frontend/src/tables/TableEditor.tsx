@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { canEditStructure, useAuth } from "../api/client";
 import { newId, submit } from "../sync/store";
 import { useUsers } from "../ui/actors";
+import { confirmDialog } from "../ui/confirm";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import { TableGrid, useNewRows, useTableData } from "./TableGrid";
@@ -55,13 +56,22 @@ export function TableEditor({ tableId }: { tableId: string }) {
     setSort(cur === undefined ? [{ column: col.id, dir: "asc" }] : cur === "asc" ? [{ column: col.id, dir: "desc" }] : []);
   };
 
-  const deleteColumn = (col: Col) => {
-    if (!window.confirm(`Spalte „${col.name}“ löschen? Die Werte gehen verloren.`)) return;
+  const deleteColumn = async (col: Col) => {
+    const ok = await confirmDialog({
+      title: `Spalte „${col.name}“ löschen?`, message: "Die Werte dieser Spalte gehen verloren.",
+      confirmLabel: "Spalte löschen", danger: true,
+    });
+    if (!ok) return;
     submit([{ op: "column.delete", table: table.id, column: col.id } as never]).catch(() => undefined);
   };
 
   const deleteTable = async () => {
-    if (!window.confirm(`Tabelle „${table.name}“ mit allen ${total} Einträgen löschen?`)) return;
+    const ok = await confirmDialog({
+      title: `Tabelle „${table.name}“ löschen?`,
+      message: `Die Tabelle und ${total === 1 ? "ihr Eintrag" : `alle ${total} Einträge`} werden entfernt. Wird sie noch verwendet, ist das Löschen nicht möglich.`,
+      confirmLabel: "Tabelle löschen", danger: true,
+    });
+    if (!ok) return;
     try {
       await submit([{ op: "table.delete", table: table.id } as never]);
       toast(`Tabelle „${table.name}“ gelöscht`);
