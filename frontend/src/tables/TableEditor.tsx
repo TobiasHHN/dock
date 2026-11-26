@@ -1,6 +1,5 @@
 // Tabellen-Editor (Task 3.1, F5, L 2, L 3.4): Spalten und Typen anlegen, Zeilen hinzufügen und löschen, Zellen sofort
 // speichern, Filter und Sortierung, neue Zeilen kurz hervorheben. Alles Live über den Kanal `table:<id>`.
-import { EmbedInDocumentButton } from "../documents/SheetBar";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { canEditStructure, useAuth } from "../api/client";
@@ -110,7 +109,6 @@ export function TableEditor({ tableId, embedded = false }: { tableId: string; em
               <Icon name="plus" size={14} />Spalte
             </button>
           )}
-          {!embedded && <EmbedInDocumentButton sheet={{ kind: "table", id: table.id }} />}
           {mayStructure && (
             <button className="ghost quiet-danger" onClick={deleteTable}>
               <Icon name="trash" size={14} />Tabelle löschen

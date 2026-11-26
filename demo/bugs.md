@@ -48,6 +48,8 @@ Sortiert nach Priorität.
 | B25 | Beim Ausfüllen von Dokumenten zu viele Kästen in Kästen | UX | Frontend, Formulare | Mittel | 3.F5 (Browser) | P2 | behoben | `task/3.F5-bugfixes`, `0a0d19e` |
 | B26 | Viele Dokumente erscheinen live und sind nach dem Neuladen weg | Bug | Echtzeit, Backend | Hoch | 3.F5 (Browser) | P1 | behoben | `task/3.F5-test-db` |
 | B27 | Home listet Dokumente willkürlich; gewünscht ist ein Baum je Workflow (Übersichtsdokument, darunter aufklappbar die Schritt-Dokumente, wie in Confluence) | Feature | Backend, Frontend, MCP | Mittel | 3.F5 (Browser) | P1 + P2 | behoben | `task/3.F5-home-workflows` |
+| B28 | Workflows lassen sich nicht löschen | Feature | Frontend, MCP | Mittel | 3.F5 (Browser) | P2 + P5 | behoben | `task/3.F5-workflow-delete` |
+| B29 | Die Workflow-Seite ist kein Dokument; man soll dort wie in jedem Dokument Inhalte ergänzen können, der Workflow ist nur ein Teil davon | UX | Frontend | Mittel | 3.F5 (Browser) | P2 | behoben | `task/3.F5-workflow-delete` |
 
 ## Details
 
@@ -150,7 +152,7 @@ Sortiert nach Priorität.
 Alle Fixes per Unit-Tests geprüft (Backend 396 grün, Frontend 392 grün), **noch nicht im Browser**. Offen bzw. nachzuprüfen:
 
 - **B5:** „Neue Tabelle“ im Einbetten-Dialog legt die Tabelle sofort an. Bricht man danach ab, bleibt eine ungenutzte Tabelle übrig. Ob das Backend die neuen `table_view`- und `workflow`-Props annimmt, ist im Browser zu prüfen.
-- **B8:** Getroffene Entscheidungen: Workflows bekommen ein eigenes Blatt mit Graph. Eine Tabelle hat keinen Besitzer und erscheint in jedem Dokument, das sie einbettet. Nicht eingebettete Tabellen (z. B. nach dem Import) sind über `/tables/:id` erreichbar und bieten „In Dokument einbetten …“ an. Der Hinweis „Eingebettet in: …“ fehlt, weil es keine API für die Rückwärtssuche gibt.
+- **B8:** Getroffene Entscheidungen: Workflows bekommen ein eigenes Blatt mit Graph. Eine Tabelle hat keinen Besitzer und erscheint in jedem Dokument, das sie einbettet. Nicht eingebettete Tabellen (z. B. nach dem Import) sind über `/tables/:id` erreichbar (der Button „In Dokument einbetten …“ dort wurde mit B28 wieder entfernt; einbetten geht über „Block hinzufügen“ im Dokument). Der Hinweis „Eingebettet in: …“ fehlt, weil es keine API für die Rückwärtssuche gibt.
 - **B10:** In der mobilen Tab-Leiste bleibt „Home“, weil das Logo dort nicht sichtbar ist.
 - **B11:** Zusätzlich sucht `_read_upload` eine nicht gefundene Datei per Dateiname in `demo/`. Der Backend-Container muss neu gestartet werden, damit der Mount `./demo:/srv/demo:ro` greift.
 - **B12:** Agenten holen Op- und Blockfelder jetzt über das neue Tool `describe_schema`. **Annas Agent-Flow (3.F1) neu proben.**
@@ -187,6 +189,16 @@ Unit-Tests grün (Backend 397, Frontend 398), Typecheck sauber. **Noch nicht im 
 - **Wunsch:** Jeder neue Workflow (auch über MCP) bekommt als Erstes ein Dokument, das nur eine Beschreibung und den Workflow enthält. Darunter hängen die Dokumente des Workflows. Auf Home lässt sich das je Workflow aufklappen.
 - **Fix:** Die Pipeline ergänzt nach `workflow.create` ein `doc.create` für das Übersichtsdokument `doc_ov_<…>` (Titel = Name, `owner = { workflow, step: null }`, Absatz aus dem neuen optionalen Feld `description` + `workflow`-Block). Legt der Batch selbst ein Dokument mit `step: null` an, entfällt das (so in `demo/fallback_batch.json`: `doc_einkauf`). Vor `workflow.delete` löscht die Pipeline das Übersichtsdokument mit. Der Workspace-Snapshot liefert jetzt `owner` je Dokument und `documents` (Schritt-Dokumente) je Workflow. Home gruppiert in `frontend/src/home/homeModel.ts`, Aufklappzustand pro Browser in `localStorage`, Standard zugeklappt.
 - **Rest:** Bestehende Workflows in der Demo-DB haben noch kein Übersichtsdokument. Home zeigt sie trotzdem als Gruppe (Klick führt dann auf die Workflow-Seite). Sauber wird es mit frischer DB + Seed + Fallback.
+
+### B28: Workflows löschen
+
+- **Fix:** Button „Workflow löschen“ auf der Workflow-Seite und im Übersichtsdokument (statt „Dokument löschen“). Ein Batch: `workflow.delete`, danach `doc.delete` für alle Schritt-Dokumente mit `owner.workflow`; das Übersichtsdokument ergänzt die Pipeline (B27). Bestätigungsdialog nennt die betroffenen Dokumente. Neues MCP-Tool `delete_workflow(workflow, delete_documents=true)`.
+- **Grenzen:** Mit aktiven Runs oder `workflow`-Blöcken in anderen Dokumenten lehnt der Server ab (IN_USE, Meldung im Toast). Abgeschlossene Runs gehen mit. Nur für `einkauf`.
+
+### B29: Workflow-Seite als Dokument
+
+- **Fix:** `/workflows/:id` leitet auf das Übersichtsdokument des Workflows um (B27). Dort ist der Workflow ein Block (Startknopf, Abläufe) und ein eigenes Blatt (Graph); alles andere lässt sich wie in jedem Dokument hinzufügen. Workflows ohne Übersichtsdokument (vor B27 angelegt) zeigen die alte Ansicht mit „Als Dokument anlegen“ (`doc_ov_<…>`, `owner = { workflow, step: null }`). „Workflow löschen“ steht nur noch in der Dokument-Leiste bzw. der alten Ansicht, nicht im eingebetteten Blatt.
+- **Rechte:** Wie bei Schritt-Dokumenten darf nur `einkauf` das Übersichtsdokument bearbeiten.
 
 <!-- Vorlage für neue Details:
 

@@ -413,6 +413,20 @@ async def publish_workflow(workflow: str, ctx: Context | None = None) -> Any:
     return await _ops(ctx, [{"op": "workflow.publish", "workflow": workflow}])
 
 
+@mcp.tool()
+async def delete_workflow(workflow: str, delete_documents: bool = True, ctx: Context | None = None) -> Any:
+    """Löscht einen Workflow (ID oder Key, op `workflow.delete`) samt Übersichtsdokument. Mit
+    `delete_documents` (Standard) auch die Schritt-Dokumente, die ihm gehören (`owner.workflow`). Nicht möglich
+    bei aktiven Runs oder `workflow`-Blöcken in anderen Dokumenten (IN_USE). Abgeschlossene Runs gehen mit."""
+    wf = await _request(ctx, "GET", f"/api/workflows/{workflow}")
+    ops: list[dict[str, Any]] = [{"op": "workflow.delete", "workflow": wf["id"]}]
+    if delete_documents:
+        docs = await _request(ctx, "GET", "/api/documents")
+        ops += [{"op": "doc.delete", "doc": d["id"]} for d in docs
+                if d.get("owner") and d["owner"].get("step") and d["owner"]["workflow"] in (wf["id"], wf["key"])]
+    return await _ops(ctx, ops)
+
+
 # ── Runs ─────────────────────────────────────────────────────────────────────
 
 @mcp.tool()
