@@ -26,7 +26,12 @@ from app.schemas.tables import ColumnIn, ColumnPatch, FilterCondition, SortSpec
 from app.schemas.workflows import Assignee, WorkflowDefinition
 
 # host 0.0.0.0: kein DNS-Rebinding-Schutz auf localhost-Hosts (Zugriff aus Docker/LAN); Pfad "/" wegen Mount unter /mcp.
-mcp = FastMCP("dock", host="0.0.0.0", streamable_http_path="/")
+# Der Titel steht in der Oberfläche immer als Kopf über dem Dokument; ein Titel-Block darunter wäre doppelt.
+TITLE_HINT = ("Der Dokumenttitel (`title`) wird in der Oberfläche automatisch als Überschrift über dem Dokument angezeigt. "
+              "Den Titel deshalb NICHT als erste Überschrift oder ersten Absatz in Inhalt/Markdown wiederholen: "
+              "der Inhalt beginnt direkt mit dem eigentlichen Text.")
+
+mcp = FastMCP("dock", instructions=TITLE_HINT, host="0.0.0.0", streamable_http_path="/")
 
 
 # Schlanke Beschreibungen statt des kompletten Op-/Block-Schemas im Tool-Schema (B12); Details: describe_schema.
@@ -257,7 +262,9 @@ async def create_document(title: str, markdown: str | None = None,
                           blocks: Annotated[list[dict[str, Any]], Field(description=BLOCKS_HINT)] | None = None,
                           owner: dict[str, str] | None = None, ctx: Context | None = None) -> Any:
     """Legt ein Dokument an (op `doc.create`) aus Markdown (Syntax wie `get_document`, Server parst in Blöcke) ODER
-    aus `blocks` (Blockbaum, Aufbau: `describe_schema`). Bevorzugt Markdown. Actions und Buttons von Formularen stehen nicht im Markdown, sondern werden mit `block.update`
+    aus `blocks` (Blockbaum, Aufbau: `describe_schema`). Bevorzugt Markdown. Der Titel wird
+    automatisch über dem Dokument angezeigt: NICHT noch einmal als erste Überschrift oder erster Absatz in `markdown`/`blocks`
+    schreiben, der Inhalt beginnt direkt mit dem Text. Actions und Buttons von Formularen stehen nicht im Markdown, sondern werden mit `block.update`
     (edit_document / apply_ops) gesetzt. `owner` = {"workflow": …, "step": …} macht es zum Schritt-Dokument."""
     if (markdown is None) == (blocks is None):
         raise ToolError("VALIDATION at markdown|blocks: genau eines von beiden angeben")
@@ -276,7 +283,8 @@ async def create_document(title: str, markdown: str | None = None,
 async def edit_document(doc: str, ops: Annotated[list[dict[str, Any]], Field(description=OPS_HINT)],
                         base_version: dict[str, int] | None = None, ctx: Context | None = None) -> Any:
     """Bearbeitet ein Dokument mit `block.insert|update|move|delete`, `text.edit` und `doc.update`
-    (Felder je Op: `describe_schema`).
+    (Felder je Op: `describe_schema`). Der Dokumenttitel steht schon als Kopf über dem Dokument: keinen Block einfügen,
+    der den Titel wiederholt (kein erster Block mit dem Titel als Überschrift). Titel ändern: `doc.update`.
     `base_version` = {block_id: zuletzt gelesene Version}; bei veraltetem Stand kommt CONFLICT, dann neu lesen
     (get_document format=json). BLOCK_IN_USE: ein Mensch tippt gerade im Block, später erneut versuchen."""
     allowed = ("block.", "text.edit", "doc.update")
