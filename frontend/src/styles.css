@@ -445,21 +445,6 @@ main.page:focus { outline: none; } /* nur Sprungziel des Skip-Links, nicht inter
 .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 12px 8px; }
 .panel-head a { font-size: 0.875rem; font-weight: 500; }
 .panel > .skeleton-list, .panel > .empty { padding-left: 12px; padding-right: 12px; }
-.task-list { list-style: none; margin: 0; padding: 0; }
-.task-row {
-  display: flex; align-items: center; gap: 14px;
-  padding: 12px; border-radius: var(--radius); color: var(--text);
-}
-.task-row:hover { background: var(--surface-hover); color: var(--text); }
-.task-icon {
-  width: 36px; height: 36px; border-radius: 9px; flex: none;
-  display: inline-flex; align-items: center; justify-content: center;
-  color: var(--muted); background: var(--surface-2);
-}
-.task-icon.warn { color: var(--warning-text); background: var(--warning-soft); }
-.task-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
-.task-title { font-size: 0.9rem; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.task-meta { font-size: 0.8rem; color: var(--muted); }
 
 .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; }
 .card {

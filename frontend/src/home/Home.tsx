@@ -1,11 +1,10 @@
 // Home (Task 2.6, B8): nur Dokumente live aus dem Kanal `workspace` (L 7.2); Tabellen und Workflows sind Blätter der Dokumente, „Neues Dokument“,
 // Baum wie in Confluence: je Workflow das Übersichtsdokument, darunter aufklappbar seine Schritt-Dokumente (homeModel.ts),
 // Zähler für Aufgaben und Benachrichtigungen. Neue Einträge erscheinen ohne Neuladen und werden kurz hervorgehoben.
-// Oben „Wartet auf dich“: die offenen Aufgaben aus `user:<id>` als Kurzliste (die volle Ansicht baut Task 4.5).
+// Aufgaben stehen nicht auf Home, dafür gibt es die eigene Seite /inbox/tasks.
 import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { canEditDocument, canEditStructure, useAuth } from "../api/client";
-import { type InboxTask, useInbox } from "../layout/AppShell";
 import type { WorkspaceData } from "../sync/core";
 import { newId, submit, useChannel } from "../sync/store";
 import { Icon, relativeTime } from "../ui/icons";
@@ -129,54 +128,6 @@ function DocumentTree({ docs, workflows, empty, onImport }: {
   );
 }
 
-function isDueSoon(t: InboxTask): boolean {
-  if (!t.due_at) return false;
-  return Date.parse(t.due_at) - Date.now() < 24 * 3600 * 1000;
-}
-
-function WaitingForYou() {
-  const { loading, openTasks } = useInbox();
-  const shown = openTasks.slice(0, 4);
-  return (
-    <section className="panel" aria-labelledby="waiting">
-      <div className="panel-head">
-        <h2 id="waiting">Wartet auf dich</h2>
-        {openTasks.length > 0 && <Link to="/inbox/tasks">Alle Aufgaben</Link>}
-      </div>
-      {loading ? (
-        <div className="skeleton-list"><span /><span /></div>
-      ) : shown.length === 0 ? (
-        <p className="empty empty-done">
-          <span className="empty-icon"><Icon name="check" size={18} strokeWidth={2.4} /></span>
-          Alles erledigt, keine offenen Aufgaben.
-        </p>
-      ) : (
-        <ul className="task-list">
-          {shown.map((t) => {
-            const due = isDueSoon(t);
-            return (
-              <li key={t.id}>
-                <Link to={t.run_id ? `/runs/${t.run_id}` : "/inbox/tasks"} className="task-row">
-                  <span className={`task-icon ${due ? "warn" : ""}`}><Icon name={due ? "clock" : "file"} size={18} strokeWidth={1.8} /></span>
-                  <span className="task-body">
-                    <span className="task-title">Schritt „{t.step ?? "Aufgabe"}“</span>
-                    <span className="task-meta">{relativeTime(t.created_at) ?? "offen"}</span>
-                  </span>
-                  {t.due_at ? (
-                    <span className={`pill ${due ? "pill-warn" : ""}`}>fällig {relativeTime(t.due_at)}</span>
-                  ) : (
-                    <span className="pill">Offen</span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-    </section>
-  );
-}
-
 export function Home() {
   const user = useAuth((s) => s.user);
   const ws = useChannel("workspace");
@@ -254,7 +205,6 @@ export function Home() {
       {ws?.status === "error" && (
         <p className="alert" role="alert"><Icon name="alert" />Arbeitsbereich nicht verfügbar: {ws.error?.message}. Lade die Seite neu.</p>
       )}
-      <WaitingForYou />
       <div className="home-grid">
         <DocumentTree
           docs={data?.documents as HomeDoc[] | undefined}
