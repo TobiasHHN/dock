@@ -962,3 +962,22 @@ button.ghost.quiet-danger:focus-visible { background: var(--danger-soft); color:
 .embed-group { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
 .embed-group legend { padding: 0; margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; color: var(--text-2); }
 .embed-cols { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+
+/* B6: Editor ruhiger (Notion-artig): begrenzte Lesebreite, Griff zum Ziehen, Einfügemarke */
+.page > .doc-toolbar, .page > .doc-head, .page > .doc-body, .page > .readonly-hint, .page > .doc-skeleton { max-width: 860px; margin-left: auto; margin-right: auto; }
+.page > .doc-toolbar { margin-bottom: 12px; }
+.page > .doc-body { background: transparent; border-color: transparent; box-shadow: none; padding-top: 12px; padding-right: 4px; }
+.page > .doc-body > .block + .block, .page > .doc-body > .block + .add-block { margin-top: 6px; }
+.block > .gutter.open { opacity: 1; }
+.gutter button.grip { cursor: grab; }
+.gutter button.grip:active { cursor: grabbing; }
+.block.dragging { opacity: 0.4; }
+.block.drop-before::before, .block.drop-after::after {
+  content: ""; position: absolute; left: 68px; right: 0; height: 3px; border-radius: 2px;
+  background: var(--accent); pointer-events: none; z-index: 5;
+}
+.block.drop-before::before { top: -3px; }
+.block.drop-after::after { bottom: -3px; }
+.block-menu { left: 0; top: 30px; min-width: 160px; }
+.block-menu button:disabled { opacity: 0.5; }
+.insert-menu button.quiet-danger-item:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }

@@ -13,7 +13,7 @@ import { confirmDialog } from "../ui/confirm";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import {
-  type FlatBlock, type NewBlock, childrenOf, deleteBlock, firstTextId, insertBlock, moveBlock, renameDocument,
+  type FlatBlock, type NewBlock, childrenOf, deleteBlock, firstTextId, insertBlock, moveBlock, moveByDrop, renameDocument,
   templatesFor, updateBlock,
 } from "./blockOps";
 import "./blocks"; // trägt die Blocktypen aus P3/P4 in BLOCK_COMPONENTS ein
@@ -367,6 +367,42 @@ function useFlashOnForeignChange(block: FlatBlock): boolean {
   return flash;
 }
 
+/** Gerade gezogener Block (Drag & Drop, B6). Verschieben geht nur unter demselben Elternblock. */
+let blockDrag: { id: string; parent: string | null } | null = null;
+
+/** Kleines Menü am Griff: Aktionen für den Block. Schließt bei Klick daneben oder Esc. */
+function BlockMenu({ items, onClose }: {
+  items: { label: string; icon: "arrowUp" | "arrowDown" | "trash"; run: () => void; danger?: boolean; disabled?: boolean }[];
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node) && !(e.target as Element).closest(".grip")) onClose();
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [onClose]);
+  return (
+    <div className="insert-menu block-menu" role="menu" ref={ref}>
+      {items.map((it) => (
+        <button
+          key={it.label} role="menuitem" disabled={it.disabled} className={it.danger ? "quiet-danger-item" : ""}
+          onClick={() => {
+            onClose();
+            it.run();
+          }}
+        ><Icon name={it.icon} size={14} />{it.label}</button>
+      ))}
+    </div>
+  );
+}
+
 /** Rahmen eines Blocks: Gutter (einfügen, verschieben, löschen), Sperre durch Präsenz, Autor, Hervorhebung. */
 function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode }) {
   const ctx = useDoc();
@@ -376,19 +412,89 @@ function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode
   const locked = ctx.lockedBy(block.id);
   const author = ctx.authors[block.id];
   const parentType = ctx.blocks.find((b) => b.id === block.parent_id)?.type ?? null;
+  const parent = block.parent_id ?? null;
+  const [grip, setGrip] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dropSide, setDropSide] = useState<"before" | "after" | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
+
+  // Abgebrochenes Ziehen (Esc, außerhalb losgelassen): Einfügemarke wieder ausblenden
+  useEffect(() => {
+    if (!dropSide) return;
+    const reset = () => setDropSide(null);
+    window.addEventListener("block-drag-end", reset);
+    return () => window.removeEventListener("block-drag-end", reset);
+  }, [dropSide]);
+
+  const canDropHere = () => !!ctx.editable && !!blockDrag && blockDrag.parent === parent && blockDrag.id !== block.id;
+  const onDragOver = (e: React.DragEvent) => {
+    if (!canDropHere()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect();
+    const side = e.clientY < r.top + r.height / 2 ? "before" : "after";
+    if (side !== dropSide) setDropSide(side);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    if (!canDropHere()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const dragged = ctx.blocks.find((b) => b.id === blockDrag!.id);
+    const side = dropSide ?? "after";
+    setDropSide(null);
+    if (dragged) moveByDrop(ctx.blocks, dragged, block, side)?.catch(fail("Nicht verschoben"));
+  };
 
   return (
-    <div id={block.id} className={`block ${locked ? "shared" : ""} ${flash ? "flash" : ""}`}>
-      <div className="gutter">
+    <div
+      id={block.id}
+      ref={frame}
+      className={`block ${locked ? "shared" : ""} ${flash ? "flash" : ""} ${dragging ? "dragging" : ""} ${dropSide ? `drop-${dropSide}` : ""}`}
+      onDragOver={onDragOver}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropSide(null);
+      }}
+      onDrop={onDrop}
+    >
+      <div className={`gutter ${menu || grip ? "open" : ""}`}>
         {ctx.editable && (
           <>
             <button className="ghost" title="Block darunter einfügen" aria-label="Block darunter einfügen" aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name="plus" size={14} /></button>
-            <button className="ghost" title="Nach oben" aria-label="Block nach oben verschieben" onClick={() => moveBlock(ctx.blocks, block, -1)?.catch(fail("Nicht verschoben"))}><Icon name="arrowUp" size={14} /></button>
-            <button className="ghost" title="Nach unten" aria-label="Block nach unten verschieben" onClick={() => moveBlock(ctx.blocks, block, 1)?.catch(fail("Nicht verschoben"))}><Icon name="arrowDown" size={14} /></button>
-            <button className="ghost danger" title="Löschen" aria-label="Block löschen" disabled={!!locked} onClick={() => deleteBlock(block.id).catch(fail("Nicht gelöscht"))}><Icon name="trash" size={14} /></button>
+            <button
+              className="ghost grip"
+              title="Ziehen zum Verschieben, Klicken für Menü"
+              aria-label="Block verschieben oder löschen"
+              aria-haspopup="menu"
+              aria-expanded={grip}
+              draggable
+              onClick={() => setGrip(!grip)}
+              onDragStart={(e) => {
+                blockDrag = { id: block.id, parent };
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", block.id);
+                if (frame.current) e.dataTransfer.setDragImage(frame.current, 0, 0);
+                setGrip(false);
+                setDragging(true);
+              }}
+              onDragEnd={() => {
+                blockDrag = null;
+                setDragging(false);
+                window.dispatchEvent(new Event("block-drag-end"));
+              }}
+            ><Icon name="grip" size={14} /></button>
           </>
         )}
       </div>
+      {grip && (
+        <BlockMenu
+          onClose={() => setGrip(false)}
+          items={[
+            { label: "Nach oben", icon: "arrowUp", run: () => moveBlock(ctx.blocks, block, -1)?.catch(fail("Nicht verschoben")) },
+            { label: "Nach unten", icon: "arrowDown", run: () => moveBlock(ctx.blocks, block, 1)?.catch(fail("Nicht verschoben")) },
+            { label: "Löschen", icon: "trash", danger: true, disabled: !!locked, run: () => deleteBlock(block.id).catch(fail("Nicht gelöscht")) },
+          ]}
+        />
+      )}
       <div className="content">{children}</div>
       {locked ? (
         <span className="lock-badge">{locked} bearbeitet</span>
