@@ -108,7 +108,7 @@ export function TableEditor({ tableId }: { tableId: string }) {
             </button>
           )}
           {mayStructure && (
-            <button className="danger" onClick={deleteTable}>
+            <button className="ghost quiet-danger" onClick={deleteTable}>
               <Icon name="trash" size={14} />Tabelle löschen
             </button>
           )}
@@ -152,7 +152,7 @@ export function TableEditor({ tableId }: { tableId: string }) {
 
 // ── Filter ───────────────────────────────────────────────────────────────────
 
-function FilterPanel({ columns, rows, onChange }: { columns: Col[]; rows: FilterRow[]; onChange: (r: FilterRow[]) => void }) {
+export function FilterPanel({ columns, rows, onChange }: { columns: Col[]; rows: FilterRow[]; onChange: (r: FilterRow[]) => void }) {
   const set = (i: number, patch: Partial<FilterRow>) => onChange(rows.map((r, j) => (j === i ? { ...r, ...patch } : r)));
   return (
     <div className="panel filter-panel">

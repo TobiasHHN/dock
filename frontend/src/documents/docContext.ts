@@ -18,6 +18,10 @@ export type DocContextValue = {
   /** Wer den Block gerade bearbeitet (nicht man selbst), sonst null (L 7.5). Textblöcke bleiben trotzdem
    *  bearbeitbar (gleichzeitiges Tippen per text.edit); Code-Blöcke und Löschen sind dann gesperrt. */
   lockedBy: (blockId: string) => string | null;
+  /** Wer den Block gerade bearbeitet (nicht man selbst) als Akteur, für Farbe und Avatar am Block. */
+  editorOf?: (blockId: string) => Actor | null;
+  /** Ist das erste Laden abgeschlossen? Blöcke, die danach erscheinen, wurden live eingefügt (sanftes Einblenden). */
+  isSettled?: () => boolean;
   /** Meldet `editing` für den Block (oder null beim Verlassen). */
   setEditing: (blockId: string | null) => void;
   /** Run-Kontext (für P3/P4: Formulare, Ausdrücke im Workflow-Schritt). */

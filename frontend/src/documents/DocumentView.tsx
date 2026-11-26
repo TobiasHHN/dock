@@ -1,7 +1,7 @@
 // Dokument-Ansicht (Task 2.4, L 3): Blockbaum aus dem Kanal `doc:<id>`, Blöcke einfügen/verschieben/löschen,
 // Kennzeichnung des Autors (Mensch, Agent „im Auftrag von“, Workflow), Präsenz-Avatare (2.5).
 // `DocumentView` ist eigenständig nutzbar (z. B. als Schritt-Dokument in der Run-Ansicht, Task 4.6).
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Actor } from "../api";
@@ -13,13 +13,26 @@ import { confirmDialog } from "../ui/confirm";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import {
-  type FlatBlock, type NewBlock, childrenOf, deleteBlock, firstTextId, insertBlock, moveBlock, renameDocument,
+  type FlatBlock, type NewBlock, childrenOf, deleteBlock, firstTextId, insertBlock, moveBlock, moveByDrop, renameDocument,
   templatesFor, updateBlock,
 } from "./blockOps";
 import "./blocks"; // trägt die Blocktypen aus P3/P4 in BLOCK_COMPONENTS ein
 import { BLOCK_COMPONENTS } from "./blocks/registry";
 import { DocContext, type DocContextValue, requestFocus, useDoc } from "./docContext";
+import { EmbedDialog } from "./EmbedDialog";
+import { EMBED_TYPES, type EmbedKind } from "./embedModel";
+import { actorColor, scrollCorrection } from "./presenceModel";
 import { TextBlock } from "./TextBlock";
+
+/** Erster (weitgehend) sichtbarer Block der obersten Ebene samt Abstand zum Fensterrand. */
+function pickAnchor(): { id: string; top: number } | null {
+  const topbar = 72;
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(".doc-body > .block"))) {
+    const r = el.getBoundingClientRect();
+    if (r.bottom > topbar) return { id: el.id, top: r.top };
+  }
+  return null;
+}
 
 const fail = (what: string) => (e: Error) => toast(`${what}: ${e.message}`, "error");
 
@@ -120,10 +133,52 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
         const entry = presence.find((p) => p.state?.editing === blockId && !(p.actor.type === "user" && p.actor.id === me?.id));
         return entry ? actorLabel(entry.actor, users) : null;
       },
+      editorOf: (blockId) =>
+        presence.find((p) => p.state?.editing === blockId && !(p.actor.type === "user" && p.actor.id === me?.id))?.actor ?? null,
+      isSettled: () => settled.current,
       setEditing: (blockId) => sync.sendPresence(channel, { editing: blockId }),
     }),
     [docId, channel, blocks, mayEdit, readOnly, me, users, ch?.authors, presence],
   );
+
+  // Erstes Laden abgeschlossen: danach neu erscheinende Blöcke blenden sanft ein
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!doc) return;
+    const t = setTimeout(() => (settled.current = true), 300);
+    return () => clearTimeout(t);
+  }, [!!doc]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keine Sprünge: Ändert sich der Blockbaum über dem sichtbaren Bereich (z. B. fügt jemand anderes oben etwas ein),
+  // bleibt der erste sichtbare Block an derselben Bildschirmposition.
+  const anchor = useRef<{ id: string; top: number } | null>(null);
+  useEffect(() => {
+    let raf = 0;
+    const record = () => {
+      raf = 0;
+      anchor.current = pickAnchor();
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(record);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    record();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    const a = anchor.current;
+    const el = a ? document.getElementById(a.id) : null;
+    if (a && el) {
+      const by = scrollCorrection(a.top, el.getBoundingClientRect().top, window.scrollY);
+      if (by) window.scrollBy(0, by);
+    }
+    anchor.current = pickAnchor();
+  }, [blocks]);
 
   // Sprungmarke #blk_… (z. B. aus der Suche)
   useEffect(() => {
@@ -173,7 +228,7 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
         <span className="spacer" />
         {mayEdit && <SaveState />}
         {mayEdit && (
-          <button className="danger" onClick={deleteDocument}>
+          <button className="ghost quiet-danger" onClick={deleteDocument}>
             <Icon name="trash" size={14} />Dokument löschen
           </button>
         )}
@@ -279,9 +334,21 @@ function pickAndInsert(docId: string, parent: string | null, after: string | und
 function AddBlockButton() {
   const { docId, blocks } = useDoc();
   const [open, setOpen] = useState(false);
+  const [embed, setEmbed] = useState<EmbedKind | null>(null);
   const top = childrenOf(blocks, null);
+  const after = top[top.length - 1]?.id;
   return (
     <div className="add-block" style={{ position: "relative" }}>
+      {embed && (
+        <EmbedDialog
+          kind={embed}
+          onClose={() => setEmbed(null)}
+          onInsert={(nb) => {
+            setEmbed(null);
+            pickAndInsert(docId, null, after, nb);
+          }}
+        />
+      )}
       <button className="ghost" onClick={() => setOpen(!open)} aria-expanded={open}>
         <Icon name="plus" size={14} />Block hinzufügen
       </button>
@@ -290,9 +357,13 @@ function AddBlockButton() {
           parentType={null}
           style={{ left: 0 }}
           onClose={() => setOpen(false)}
+          onEmbed={(k) => {
+            setOpen(false);
+            setEmbed(k);
+          }}
           onPick={(nb) => {
             setOpen(false);
-            pickAndInsert(docId, null, top[top.length - 1]?.id, nb);
+            pickAndInsert(docId, null, after, nb);
           }}
         />
       )}
@@ -300,8 +371,9 @@ function AddBlockButton() {
   );
 }
 
-function InsertMenu({ parentType, onPick, onClose, style }: {
-  parentType: string | null; onPick: (b: NewBlock) => void; onClose: () => void; style?: React.CSSProperties;
+/** Einfüge-Menü: Abschnitt „Text“ (Vorlagen aus blockOps) und, auf oberster Ebene, „Einbetten“ (EMBED_TYPES). */
+function InsertMenu({ parentType, onPick, onEmbed, onClose, style }: {
+  parentType: string | null; onPick: (b: NewBlock) => void; onEmbed?: (k: EmbedKind) => void; onClose: () => void; style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -313,9 +385,18 @@ function InsertMenu({ parentType, onPick, onClose, style }: {
   }, [onClose]);
   return (
     <div className="insert-menu" ref={ref} style={style}>
+      <div className="insert-section">Text</div>
       {templatesFor(parentType).map((t) => (
         <button key={t.key} onClick={() => onPick(t.make())}>{t.label}</button>
       ))}
+      {parentType === null && onEmbed && (
+        <>
+          <div className="insert-section">Einbetten</div>
+          {EMBED_TYPES.map((t) => (
+            <button key={t.kind} onClick={() => onEmbed(t.kind)}><Icon name={t.icon} size={14} />{t.label}</button>
+          ))}
+        </>
+      )}
     </div>
   );
 }
@@ -339,30 +420,143 @@ function useFlashOnForeignChange(block: FlatBlock): boolean {
   return flash;
 }
 
+/** Gerade gezogener Block (Drag & Drop, B6). Verschieben geht nur unter demselben Elternblock. */
+let blockDrag: { id: string; parent: string | null } | null = null;
+
+/** Kleines Menü am Griff: Aktionen für den Block. Schließt bei Klick daneben oder Esc. */
+function BlockMenu({ items, onClose }: {
+  items: { label: string; icon: "arrowUp" | "arrowDown" | "trash"; run: () => void; danger?: boolean; disabled?: boolean }[];
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node) && !(e.target as Element).closest(".grip")) onClose();
+    };
+    const key = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", key);
+    };
+  }, [onClose]);
+  return (
+    <div className="insert-menu block-menu" role="menu" ref={ref}>
+      {items.map((it) => (
+        <button
+          key={it.label} role="menuitem" disabled={it.disabled} className={it.danger ? "quiet-danger-item" : ""}
+          onClick={() => {
+            onClose();
+            it.run();
+          }}
+        ><Icon name={it.icon} size={14} />{it.label}</button>
+      ))}
+    </div>
+  );
+}
+
 /** Rahmen eines Blocks: Gutter (einfügen, verschieben, löschen), Sperre durch Präsenz, Autor, Hervorhebung. */
 function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode }) {
   const ctx = useDoc();
   const [menu, setMenu] = useState(false);
+  const [embed, setEmbed] = useState<EmbedKind | null>(null);
   const flash = useFlashOnForeignChange(block);
   const locked = ctx.lockedBy(block.id);
+  const editor = ctx.editorOf?.(block.id) ?? null;
+  const enter = useRef(ctx.isSettled?.() ?? false).current; // live eingefügt: sanft einblenden
   const author = ctx.authors[block.id];
   const parentType = ctx.blocks.find((b) => b.id === block.parent_id)?.type ?? null;
+  const parent = block.parent_id ?? null;
+  const [grip, setGrip] = useState(false);
+  const [dragging, setDragging] = useState(false);
+  const [dropSide, setDropSide] = useState<"before" | "after" | null>(null);
+  const frame = useRef<HTMLDivElement>(null);
+
+  // Abgebrochenes Ziehen (Esc, außerhalb losgelassen): Einfügemarke wieder ausblenden
+  useEffect(() => {
+    if (!dropSide) return;
+    const reset = () => setDropSide(null);
+    window.addEventListener("block-drag-end", reset);
+    return () => window.removeEventListener("block-drag-end", reset);
+  }, [dropSide]);
+
+  const canDropHere = () => !!ctx.editable && !!blockDrag && blockDrag.parent === parent && blockDrag.id !== block.id;
+  const onDragOver = (e: React.DragEvent) => {
+    if (!canDropHere()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const r = e.currentTarget.getBoundingClientRect();
+    const side = e.clientY < r.top + r.height / 2 ? "before" : "after";
+    if (side !== dropSide) setDropSide(side);
+  };
+  const onDrop = (e: React.DragEvent) => {
+    if (!canDropHere()) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const dragged = ctx.blocks.find((b) => b.id === blockDrag!.id);
+    const side = dropSide ?? "after";
+    setDropSide(null);
+    if (dragged) moveByDrop(ctx.blocks, dragged, block, side)?.catch(fail("Nicht verschoben"));
+  };
 
   return (
-    <div id={block.id} className={`block ${locked ? "shared" : ""} ${flash ? "flash" : ""}`}>
-      <div className="gutter">
+    <div
+      id={block.id}
+      ref={frame}
+      className={`block ${locked ? "shared" : ""} ${flash ? "flash" : ""} ${dragging ? "dragging" : ""} ${dropSide ? `drop-${dropSide}` : ""} ${enter ? "enter" : ""}`}
+      style={editor ? ({ "--presence": actorColor(`${editor.type}:${editor.id}`) } as React.CSSProperties) : undefined}
+      onDragOver={onDragOver}
+      onDragLeave={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropSide(null);
+      }}
+      onDrop={onDrop}
+    >
+      <div className={`gutter ${menu || grip ? "open" : ""}`}>
         {ctx.editable && (
           <>
             <button className="ghost" title="Block darunter einfügen" aria-label="Block darunter einfügen" aria-expanded={menu} onClick={() => setMenu(!menu)}><Icon name="plus" size={14} /></button>
-            <button className="ghost" title="Nach oben" aria-label="Block nach oben verschieben" onClick={() => moveBlock(ctx.blocks, block, -1)?.catch(fail("Nicht verschoben"))}><Icon name="arrowUp" size={14} /></button>
-            <button className="ghost" title="Nach unten" aria-label="Block nach unten verschieben" onClick={() => moveBlock(ctx.blocks, block, 1)?.catch(fail("Nicht verschoben"))}><Icon name="arrowDown" size={14} /></button>
-            <button className="ghost danger" title="Löschen" aria-label="Block löschen" disabled={!!locked} onClick={() => deleteBlock(block.id).catch(fail("Nicht gelöscht"))}><Icon name="trash" size={14} /></button>
+            <button
+              className="ghost grip"
+              title="Ziehen zum Verschieben, Klicken für Menü"
+              aria-label="Block verschieben oder löschen"
+              aria-haspopup="menu"
+              aria-expanded={grip}
+              draggable
+              onClick={() => setGrip(!grip)}
+              onDragStart={(e) => {
+                blockDrag = { id: block.id, parent };
+                e.dataTransfer.effectAllowed = "move";
+                e.dataTransfer.setData("text/plain", block.id);
+                if (frame.current) e.dataTransfer.setDragImage(frame.current, 0, 0);
+                setGrip(false);
+                setDragging(true);
+              }}
+              onDragEnd={() => {
+                blockDrag = null;
+                setDragging(false);
+                window.dispatchEvent(new Event("block-drag-end"));
+              }}
+            ><Icon name="grip" size={14} /></button>
           </>
         )}
       </div>
+      {grip && (
+        <BlockMenu
+          onClose={() => setGrip(false)}
+          items={[
+            { label: "Nach oben", icon: "arrowUp", run: () => moveBlock(ctx.blocks, block, -1)?.catch(fail("Nicht verschoben")) },
+            { label: "Nach unten", icon: "arrowDown", run: () => moveBlock(ctx.blocks, block, 1)?.catch(fail("Nicht verschoben")) },
+            { label: "Löschen", icon: "trash", danger: true, disabled: !!locked, run: () => deleteBlock(block.id).catch(fail("Nicht gelöscht")) },
+          ]}
+        />
+      )}
       <div className="content">{children}</div>
       {locked ? (
-        <span className="lock-badge">{locked} bearbeitet</span>
+        <span className="lock-badge" role="status">
+          {editor && <Avatar actor={editor} users={ctx.users} />}
+          {locked} bearbeitet
+        </span>
       ) : (
         author && <span className={`author-badge ${author.type}`}>{actorLabel(author, ctx.users)}</span>
       )}
@@ -370,8 +564,22 @@ function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode
         <InsertMenu
           parentType={parentType}
           onClose={() => setMenu(false)}
+          onEmbed={(k) => {
+            setMenu(false);
+            setEmbed(k);
+          }}
           onPick={(nb) => {
             setMenu(false);
+            pickAndInsert(ctx.docId, block.parent_id ?? null, block.id, nb);
+          }}
+        />
+      )}
+      {embed && (
+        <EmbedDialog
+          kind={embed}
+          onClose={() => setEmbed(null)}
+          onInsert={(nb) => {
+            setEmbed(null);
             pickAndInsert(ctx.docId, block.parent_id ?? null, block.id, nb);
           }}
         />

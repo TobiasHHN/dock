@@ -284,6 +284,9 @@ input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; accen
 }
 .brand::before { content: ""; width: 22px; height: 22px; border-radius: 7px; background: var(--text); }
 a.brand:hover { color: var(--text); }
+a.brand { padding: 4px 8px; margin-left: -8px; border-radius: var(--radius-sm); transition: background 0.15s; }
+a.brand:hover { background: var(--surface-2); }
+a.brand:focus-visible { background: var(--surface-2); }
 
 .topnav { display: flex; align-items: center; gap: 2px; }
 .topnav a {
@@ -949,3 +952,60 @@ a.btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--a
 .react-flow__controls-button:hover:not(:disabled) { background: var(--surface-2); color: var(--text); }
 .react-flow__controls-button svg { fill: currentColor; color: var(--text); }
 /* --- Ende 3.F5 B3 --- */
+
+/* B9: Löschen unauffällig, rot erst beim Hover/Fokus */
+button.ghost.quiet-danger { color: var(--subtle); font-weight: 400; }
+button.ghost.quiet-danger:hover:not(:disabled),
+button.ghost.quiet-danger:focus-visible { background: var(--danger-soft); color: var(--danger); }
+
+/* B5: Einfüge-Menü mit Abschnitten, Einbetten-Dialog */
+.insert-menu { max-height: min(70vh, 460px); overflow-y: auto; }
+.insert-section { padding: 8px 10px 4px; font-size: 0.72rem; font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase; color: var(--subtle); }
+.insert-section:first-child { padding-top: 4px; }
+.embed-dialog { width: min(640px, 100%); }
+.embed-sub { margin: 4px 0 0; font-size: 0.85rem; color: var(--muted); font-weight: 600; }
+.embed-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; max-height: 240px; overflow-y: auto; }
+.embed-list button { width: 100%; justify-content: flex-start; }
+.embed-new { display: flex; gap: 8px; }
+.embed-new input { flex: 1; min-width: 0; }
+.embed-group { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.embed-group legend { padding: 0; margin-bottom: 6px; font-size: 0.85rem; font-weight: 600; color: var(--text-2); }
+.embed-cols { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+
+/* B6: Editor ruhiger (Notion-artig): begrenzte Lesebreite, Griff zum Ziehen, Einfügemarke */
+.page > .doc-toolbar, .page > .doc-head, .page > .doc-body, .page > .readonly-hint, .page > .doc-skeleton { max-width: 860px; margin-left: auto; margin-right: auto; }
+.page > .doc-toolbar { margin-bottom: 12px; }
+.page > .doc-body { background: transparent; border-color: transparent; box-shadow: none; padding-top: 12px; padding-right: 4px; }
+.page > .doc-body > .block + .block, .page > .doc-body > .block + .add-block { margin-top: 6px; }
+.block > .gutter.open { opacity: 1; }
+.gutter button.grip { cursor: grab; }
+.gutter button.grip:active { cursor: grabbing; }
+.block.dragging { opacity: 0.4; }
+.block.drop-before::before, .block.drop-after::after {
+  content: ""; position: absolute; left: 68px; right: 0; height: 3px; border-radius: 2px;
+  background: var(--accent); pointer-events: none; z-index: 5;
+}
+.block.drop-before::before { top: -3px; }
+.block.drop-after::after { bottom: -3px; }
+.block-menu { left: 0; top: 30px; min-width: 160px; }
+.block-menu button:disabled { opacity: 0.5; }
+.insert-menu button.quiet-danger-item:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
+
+/* B7: Live-Änderungen ruhig. Fremde Änderung: kurzes, weiches Aufleuchten; Präsenz: farbiger Rand + kleiner Hinweis am Block */
+@keyframes remote-flash { 0% { background-color: var(--accent-soft); } 100% { background-color: transparent; } }
+@keyframes block-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.block.flash > .content { animation: remote-flash 1.8s ease-out; }
+.block.enter { animation: block-enter 260ms var(--ease); }
+.block.shared > .content, .block.locked > .content {
+  background: transparent; box-shadow: inset 2px 0 0 var(--presence, var(--accent));
+  transition: box-shadow 200ms var(--ease), background-color 200ms var(--ease);
+}
+.lock-badge {
+  display: inline-flex; align-items: center; gap: 6px; top: -9px;
+  background: var(--surface); color: var(--muted); font-weight: 400;
+  border: 1px solid var(--border); box-shadow: none; padding: 0 8px 0 2px;
+  animation: block-enter 200ms var(--ease);
+}
+.lock-badge .avatar { width: 14px; height: 14px; font-size: 0.5rem; box-shadow: none; background: var(--presence, var(--accent)); }
+.lock-badge .avatar[class*="agent"] { background: var(--presence, var(--agent)); }
+@media (prefers-reduced-motion: reduce) { .block.enter, .lock-badge { animation: none; } }

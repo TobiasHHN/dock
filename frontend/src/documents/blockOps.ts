@@ -74,4 +74,29 @@ export function moveBlock(blocks: FlatBlock[], block: FlatBlock, dir: -1 | 1) {
   return submit([{ op: "block.move", block: block.id, parent: block.parent_id ?? null, after } as Op]);
 }
 
+/**
+ * Ziel von „Block per Drag & Drop verschieben“. `slot` ist die Einfügemarke in der aktuellen Geschwisterliste
+ * (0 = vor dem ersten, n = hinter dem letzten). Liefert den `after`-Wert für `block.move` ("^" = ganz nach vorn,
+ * sonst die ID des Vorgängers) oder null, wenn der Block dadurch an seinem Platz bliebe. Die Fractional-Index-
+ * Position vergibt `block.move` selbst (sync/apply.ts, domain/positions.py).
+ */
+export function dropAfter(sibs: { id: string }[], dragged: string, slot: number): string | null {
+  const from = sibs.findIndex((s) => s.id === dragged);
+  if (from < 0) return null;
+  const rest = sibs.filter((s) => s.id !== dragged);
+  const to = slot > from ? slot - 1 : slot;
+  if (to === from) return null;
+  return to <= 0 ? "^" : rest[Math.min(to, rest.length) - 1].id;
+}
+
+/** Block vor oder hinter einen Geschwisterblock ziehen (side = Hälfte des Zielblocks, über der die Maus liegt). */
+export function moveByDrop(blocks: FlatBlock[], dragged: FlatBlock, target: FlatBlock, side: "before" | "after") {
+  const sibs = childrenOf(blocks, dragged.parent_id ?? null);
+  const t = sibs.findIndex((s) => s.id === target.id);
+  if (t < 0) return;
+  const after = dropAfter(sibs, dragged.id, t + (side === "after" ? 1 : 0));
+  if (after === null) return;
+  return submit([{ op: "block.move", block: dragged.id, parent: dragged.parent_id ?? null, after } as Op]);
+}
+
 export const renameDocument = (doc: string, title: string) => submit([{ op: "doc.update", doc, title } as Op]);
