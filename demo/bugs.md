@@ -40,6 +40,11 @@ Sortiert nach Priorität.
 | B12 | MCP-Tool-Schemas von `apply_ops`, `edit_document`, `create_document` sind sehr groß (je mehrere zehn KB) | UX | MCP/Agent | Mittel | 3.F1-Probe | P5 | behoben | `task/3.F5-backend-mcp`, `2152670` |
 | B9 | Löschen-Button bei Dokumenten und Tabellen ist zu präsent | UX | Frontend | Niedrig | 2.I2 (Browser) | P3 | behoben | `task/3.F5-frontend-docs`, `ac6f93d` |
 | B10 | „Home“ aus der Topbar entfernen, Klick auf das Logo „dock“ führt schon nach Home | UX | Frontend | Niedrig | 2.I2 (Browser) | P2 | behoben | `task/3.F5-frontend-docs`, `b3a456f` |
+| B13 | Sonderzeichen wie ß kaputt („anschlieÃŸend“) | Bug | Demo-Daten | Blocker | 3.F5 (Browser) | P5 | behoben | Code-Fix = B2. Alte Daten in der DB: frische DB + Seed + Fallback nötig |
+| B14 | Alle Rollen sollen Dokumente erstellen können | Feature | Backend, Frontend | Hoch | 3.F5 (Browser) | P1 | behoben | `task/3.F5-bugfixes` |
+| B15 | Absende-Button „Einreichen“ statt „Eingereicht“ | UX | Workflow, Demo-Daten | Mittel | 3.F5 (Browser) | P4 | behoben | `task/3.F5-bugfixes` |
+| B16 | Verlauf eines Runs unter dem Schritt-Dokument statt daneben | UX | Workflow | Mittel | 3.F5 (Browser) | P4 | behoben | `task/3.F5-bugfixes` |
+| B17 | Tabellen-Editor mehr wie Excel | UX | Tabellen | Mittel | 3.F5 (Browser) | P3 | behoben | `task/3.F5-bugfixes` |
 
 ## Details
 
@@ -146,6 +151,14 @@ Alle Fixes per Unit-Tests geprüft (Backend 396 grün, Frontend 392 grün), **no
 - **B10:** In der mobilen Tab-Leiste bleibt „Home“, weil das Logo dort nicht sichtbar ist.
 - **B11:** Zusätzlich sucht `_read_upload` eine nicht gefundene Datei per Dateiname in `demo/`. Der Backend-Container muss neu gestartet werden, damit der Mount `./demo:/srv/demo:ro` greift.
 - **B12:** Agenten holen Op- und Blockfelder jetzt über das neue Tool `describe_schema`. **Annas Agent-Flow (3.F1) neu proben.**
+
+### B13–B17 (Rückmeldung nach 3.F5)
+
+- **B13 ß/Umlaute:** In der Datenbank stehen noch Texte, die vor dem B2-Fix falsch eingelesen wurden (z. B. `anschlieÃŸend`, `auslÃ¶sen`). Der Code ist korrekt, die Daten müssen neu angelegt werden: `docker compose down -v && docker compose up -d`, dann `python demo/seed.py` und `python demo/fallback.py`.
+- **B14 Dokumente für alle Rollen:** Freie Dokumente (ohne `owner_workflow`) dürfen alle Rollen anlegen und bearbeiten (`doc.*`, `block.*`, `text.edit`). Schritt-Dokumente, neue Tabellen, Import und Workflows bleiben bei `einkauf`. Prüfung in `_check_permission` (`backend/app/ops/pipeline.py`), im Frontend `canEditDocument`.
+- **B15 „Einreichen“:** Label des Buttons `submit` in `demo/fallback_batch.json`, `demo/prompts.md` und Beispiel in `anwendungslogik.md`. Im Verlauf steht jetzt „Einreichen“, die Entscheidungen bleiben als Ergebnis formuliert. Wirkt erst nach neuem Fallback (siehe B13).
+- **B16 Verlauf unten:** `.run-layout` einspaltig.
+- **B17 Excel-Optik:** Zeilennummern, Spaltenbuchstaben, Gitterlinien, fixierte Kopfzeile und Zeilennummern, aktive Zelle mit Rahmen. Pfeiltasten und Enter wechseln die Zelle, mehrere Zellen aus Excel/Sheets lassen sich einfügen (überzählige Zeilen werden angehängt). Logik in `tables/tableModel.ts` (`pasteOps`, `gridMove`, `parseClipboard`, `columnLetter`), getestet.
 
 <!-- Vorlage für neue Details:
 
