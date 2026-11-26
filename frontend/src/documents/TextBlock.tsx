@@ -22,7 +22,7 @@ import {
 } from "./tiptap";
 
 const PRESENCE_EVERY = 20_000;
-/** Fremder Text ab dieser Länge wird „getippt“; kürzere Edits (anderer Mensch tippt Zeichen für Zeichen) erscheinen sofort. */
+/** Fremder Text ab dieser Länge wird weich eingeblendet; kürzere Edits (anderer Mensch tippt Zeichen für Zeichen) erscheinen sofort. */
 const TYPE_MIN = 24;
 /** Live eingefügte Blöcke, die schon getippt wurden (Neu-Rendern/Verschieben soll nicht erneut tippen). */
 const typedBlocks = new Set<string>();
@@ -130,7 +130,7 @@ export function TextBlock({ block }: { block: FlatBlock }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, block.id, ctx.channel]);
 
-  // Fremd live eingefügter Block: Text tippen lassen statt einblenden
+  // Fremd live eingefügter Block: Text weich einblenden
   useEffect(() => {
     if (!editor || !liveForeign || typedBlocks.has(block.id)) return;
     const len = editorUnits(editor).length;
