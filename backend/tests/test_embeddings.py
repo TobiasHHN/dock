@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from app.search import chunking
 from app.search.embeddings import reembed_source
 
-DB_URL = os.environ.get("DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
+DB_URL = os.environ.get("DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock_test")
 
 
 # ── Hilfen ───────────────────────────────────────────────────────────────────

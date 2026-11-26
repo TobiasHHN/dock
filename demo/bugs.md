@@ -46,6 +46,7 @@ Sortiert nach Priorität.
 | B16 | Verlauf eines Runs unter dem Schritt-Dokument statt daneben | UX | Workflow | Mittel | 3.F5 (Browser) | P4 | behoben | `task/3.F5-bugfixes` |
 | B17 | Tabellen-Editor mehr wie Excel | UX | Tabellen | Mittel | 3.F5 (Browser) | P3 | behoben | `task/3.F5-bugfixes` |
 | B25 | Beim Ausfüllen von Dokumenten zu viele Kästen in Kästen | UX | Frontend, Formulare | Mittel | 3.F5 (Browser) | P2 | behoben | `task/3.F5-bugfixes`, `0a0d19e` |
+| B26 | Viele Dokumente erscheinen live und sind nach dem Neuladen weg | Bug | Echtzeit, Backend | Hoch | 3.F5 (Browser) | P1 | behoben | `task/3.F5-test-db` |
 
 ## Details
 
@@ -172,6 +173,13 @@ Alle Fixes per Unit-Tests geprüft (Backend 396 grün, Frontend 392 grün), **no
 - **B24 Tabellen:** Spaltenbuchstaben (A, B, C …) entfernt, nur noch der Spaltenname.
 
 Unit-Tests grün (Backend 397, Frontend 398), Typecheck sauber. **Noch nicht im Browser geprüft.**
+
+### B26: Geister-Dokumente
+
+- **Symptom:** In der Dokumentliste erscheinen plötzlich viele Dokumente (z. B. „ZZ37 Formular“), nach dem Neuladen sind sie weg.
+- **Ursache (geprüft):** Die Backend-Tests liefen gegen die Demo-Datenbank `dock`. Sie legen über die echte Pipeline Dokumente an (Op-Log + `pg_notify`), offene Browser bekommen diese live über den Kanal `workspace`. Danach löschen die Tests ihre Daten, der Snapshot beim Neuladen enthält sie nicht mehr.
+- **Fix:** `backend/tests/conftest.py` setzt `TEST_DATABASE_URL`/`DATABASE_URL` auf eine eigene Datenbank `dock_test`, legt sie bei Bedarf aus `db/init.sql` an und erzeugt sie neu, wenn sich `init.sql` ändert. Bricht ab, falls jemand die Tests auf `dock` richtet.
+- **Rest:** Im Op-Log der Demo-DB stehen noch alte Test-Einträge. Ein Browser, der mit alter `seq` neu verbindet, kann sie einmal nachgeholt bekommen. Sauber wird es mit frischer DB (`docker compose down -v`, Seed).
 
 <!-- Vorlage für neue Details:
 

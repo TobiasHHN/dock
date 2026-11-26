@@ -21,7 +21,7 @@ from app.ops.handlers import HANDLERS, load_handlers
 from app.schemas.common import Actor
 from app.schemas.ops import OpBatch
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
+DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock_test")
 ANNA = Actor(type="user", id="usr_zz33anna", name="Anna")
 BEN = Actor(type="user", id="usr_zz33ben", name="Ben")
 
