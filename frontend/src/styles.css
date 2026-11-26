@@ -1010,6 +1010,23 @@ button.ghost.quiet-danger:focus-visible { background: var(--danger-soft); color:
 .lock-badge .avatar[class*="agent"] { background: var(--presence, var(--agent)); }
 @media (prefers-reduced-motion: reduce) { .block.enter, .lock-badge { animation: none; } }
 
+/* 3.F5: Tipp-Effekt für fremd eingefügten Text. Rest verborgen (Layout bleibt stehen), frische Wörter blenden weich ein,
+   der Cursor an der Kante leuchtet leicht und klingt am Ende aus. */
+.text-block .tw-hidden { visibility: hidden; }
+.text-block .tw-fresh { animation: tw-word 640ms var(--ease) both; }
+@keyframes tw-word { from { opacity: 0; filter: blur(3px); } 60% { filter: blur(0); } to { opacity: 1; filter: none; } }
+.text-block .tw-caret { display: inline-block; position: relative; width: 0; height: 1em; pointer-events: none; }
+.text-block .tw-caret::after {
+  content: ""; position: absolute; left: 1px; top: -0.08em; width: 2px; height: 1.16em; border-radius: 2px;
+  background: var(--accent); box-shadow: 0 0 10px 1px var(--accent-ring);
+  animation: tw-caret-in 220ms var(--ease) both, tw-caret-breathe 1.2s ease-in-out 220ms infinite;
+}
+.text-block .tw-caret.out::after { animation: tw-caret-out 700ms var(--ease) both; }
+@keyframes tw-caret-in { from { opacity: 0; transform: scaleY(0.4); } to { opacity: 1; transform: none; } }
+@keyframes tw-caret-breathe { 50% { opacity: 0.55; } }
+@keyframes tw-caret-out { from { opacity: 1; } to { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .text-block .tw-fresh, .text-block .tw-caret::after { animation: none; } }
+
 /* B8: Arbeitsmappe, Blatt-Leiste unten wie in Excel */
 .sheet-bar {
   position: sticky; bottom: 0; z-index: 5; display: flex; align-items: stretch; gap: 8px;

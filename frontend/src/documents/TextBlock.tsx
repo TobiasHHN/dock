@@ -12,15 +12,20 @@ import { useEffect, useLayoutEffect, useRef } from "react";
 import type { Op } from "../api";
 import { TEXT_TYPES } from "../sync/apply";
 import { newId, submit, sync } from "../sync/store";
-import { type Unit, fromUnits } from "../sync/textOt";
+import { type Unit, diffUnits, fromUnits } from "../sync/textOt";
 import { type FlatBlock, childrenOf } from "./blockOps";
 import { requestFocus, takeFocusRequest, useDoc } from "./docContext";
 import { TextSync } from "./textSync";
+import { TypewriterExtension, cancelTyping, typeIn } from "./typewriter";
 import {
   appendUnits, applyUnitsEdit, editorUnits, inlineToDoc, posToUnit, setEditorUnits, textExtensions, unitToPos,
 } from "./tiptap";
 
 const PRESENCE_EVERY = 20_000;
+/** Fremder Text ab dieser Länge wird „getippt“; kürzere Edits (anderer Mensch tippt Zeichen für Zeichen) erscheinen sofort. */
+const TYPE_MIN = 24;
+/** Live eingefügte Blöcke, die schon getippt wurden (Neu-Rendern/Verschieben soll nicht erneut tippen). */
+const typedBlocks = new Set<string>();
 
 const PLACEHOLDER: Record<string, string> = {
   heading: "Überschrift",
@@ -45,12 +50,15 @@ export function TextBlock({ block }: { block: FlatBlock }) {
   ctxRef.current = ctx;
   const blockRef = useRef(block);
   blockRef.current = block;
+  const liveForeign = useRef(
+    !!ctx.isSettled?.() && !!ctx.authors[block.id] && !(ctx.authors[block.id].type === "user" && ctx.authors[block.id].id === ctx.me?.id),
+  ).current;
   const textSync = useRef<TextSync | null>(null);
   const heartbeat = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const editor = useEditor(
     {
-      extensions: textExtensions(PLACEHOLDER[block.type] ?? ""),
+      extensions: [...textExtensions(PLACEHOLDER[block.type] ?? ""), TypewriterExtension],
       content: inlineToDoc((ctx.channel ? sync.confirmedBlock(ctx.channel, block.id)?.props?.content : undefined) ?? block.props.content),
       editable: ctx.editable,
       shouldRerenderOnTransaction: false,
@@ -91,10 +99,18 @@ export function TextBlock({ block }: { block: FlatBlock }) {
     ts.attach({
       getUnits: () => editorUnits(editor),
       applyRemote: (edit, expected) => {
-        applyUnitsEdit(editor, edit, expected.slice(edit.from, edit.from + Array.from(edit.insert ?? "").length));
+        const inserted = Array.from(edit.insert ?? "").length;
+        applyUnitsEdit(editor, edit, expected.slice(edit.from, edit.from + inserted));
         if (JSON.stringify(fromUnits(editorUnits(editor))) !== JSON.stringify(fromUnits(expected))) setEditorUnits(editor, expected);
+        else if (inserted >= TYPE_MIN && mayType()) typeIn(editor, block.id, edit.from, edit.from + inserted);
       },
-      setUnits: (units) => setEditorUnits(editor, units),
+      setUnits: (units) => {
+        const cur = editorUnits(editor);
+        const diff = diffUnits(cur, units);
+        setEditorUnits(editor, units);
+        const inserted = diff ? units.length - cur.length + (diff.to - diff.from) : 0;
+        if (diff && inserted >= TYPE_MIN && mayType()) typeIn(editor, block.id, diff.from, diff.from + inserted);
+      },
     });
     textSync.current = ts;
     openBlocks.set(block.id, {
@@ -114,6 +130,16 @@ export function TextBlock({ block }: { block: FlatBlock }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editor, block.id, ctx.channel]);
 
+  // Fremd live eingefügter Block: Text tippen lassen statt einblenden
+  useEffect(() => {
+    if (!editor || !liveForeign || typedBlocks.has(block.id)) return;
+    const len = editorUnits(editor).length;
+    if (len > 0 && typeIn(editor, block.id, 0, len)) typedBlocks.add(block.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor]);
+
+  useEffect(() => () => cancelTyping(block.id), [block.id]);
+
   useEffect(() => {
     if (!editor || ctx.channel) return;
     editor.commands.setContent(inlineToDoc(block.props.content), false);
@@ -129,6 +155,11 @@ export function TextBlock({ block }: { block: FlatBlock }) {
     const at = takeFocusRequest(block.id);
     if (at !== null) focusAt(at);
   });
+
+  /** Tippen nur, wenn der Nutzer nicht gerade selbst in diesem Block ist und das Dokument fertig geladen ist. */
+  function mayType() {
+    return !!editor && !editor.isFocused && !!ctxRef.current.isSettled?.();
+  }
 
   function blockStillExists() {
     return !!sync.confirmedBlock(ctxRef.current.channel, block.id);
