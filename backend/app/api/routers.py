@@ -301,11 +301,6 @@ async def read_notification(notification: str, user: User):
 # ── Import (3.6–3.8) ─────────────────────────────────────────────────────────
 imports = APIRouter(prefix="/api/imports", tags=["imports"])
 
-_STUB_PLAN = A.ImportPlan(  # Word-Import: Task 3.7
-    import_id="imp_stub",
-    created={"tables": [{"id": "tbl_best", "key": "bestellungen", "columns": ["name", "kostenstelle"]}]},
-    warnings=["Stub: Import ist noch nicht implementiert"],
-)
 _UPLOAD_CHUNK = 1024 * 1024
 
 
@@ -354,8 +349,21 @@ async def import_xlsx(user: User, file: UploadFile = File(...), sheet: str | Non
 @imports.post("/docx", response_model=A.ImportPlan)
 async def import_docx(user: User, file: UploadFile = File(...), title: str | None = Form(None),
                       owner: str | None = Form(None), bind_table: str | None = Form(None),
-                      apply: bool = Form(False)):
-    return _STUB_PLAN
+                      apply: bool = Form(False), session: AsyncSession = Depends(get_session)):
+    """Bereitet einen Word-Import vor (schreibt noch nichts). `owner` = `workflow:schritt` oder JSON
+    `{"workflow":…,"step":…}`. Kaputte oder zu große Dateien: 422 bzw. 413."""
+    from app.imports.docx import parse_docx
+    from app.imports.xlsx import ImportFileError
+
+    data = await _read_upload(file)
+    existing = await queries.list_tables(session)  # für bind_table und gegen Key-Kollisionen
+    await session.commit()  # beendet die lesende Transaktion, `_prepare_import` öffnet eine eigene
+    try:
+        result = await run_in_threadpool(parse_docx, data, title or None, owner or None, bind_table or None,
+                                         existing, file.filename)
+    except ImportFileError as exc:
+        raise HTTPException(422, str(exc)) from exc
+    return await _prepare_import("docx", result, user, session, apply)
 
 
 # ── Suche (5.2) ──────────────────────────────────────────────────────────────

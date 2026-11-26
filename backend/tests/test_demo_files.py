@@ -1,5 +1,5 @@
 """Prüft die Demo-Dateien aus demo/ (demo/make_demo_files.py, demo/prompts.md §3).
-Strukturtests laufen immer. Import-Tests werden übersprungen, solange die Parser Stubs sind (Tasks 3.6/3.7)."""
+Strukturtests laufen immer. Import-Tests laufen mit den Parsern aus 3.6/3.7."""
 import datetime as dt
 import re
 from dataclasses import asdict, is_dataclass
@@ -132,12 +132,17 @@ def test_xlsx_imports_without_warnings():
 
 
 def test_docx_imports_with_single_warning():
-    try:
-        result = parse_docx(DOCX.read_bytes())
-    except NotImplementedError:
-        result = None
-    if result is None:
-        pytest.skip("parse_docx noch nicht implementiert (Task 3.7)")
-    warnings = _as_dict(result)["warnings"]
+    result = _as_dict(parse_docx(DOCX.read_bytes()))
+    warnings = result["warnings"]
     assert len(warnings) == 1
     assert "Formular schreibt nirgends hin" in warnings[0]
+    doc = result["ops"][-1]
+    assert doc["title"] == "Bestellformular"
+    form = next(b for b in doc["blocks"] if b["type"] == "form")
+    kinds = [(c["type"], c["props"]["key"]) for c in form["children"]]
+    assert kinds == [("field", "name"), ("field", "kostenstelle"), ("line_items", "artikelname"),
+                     ("field", "bemerkung")]
+    assert [c["props"]["required"] for c in form["children"] if c["type"] == "field"] == [True, True, False]
+    items = form["children"][2]["props"]["columns"]
+    assert [(c["key"], c["input"]) for c in items] == [
+        ("artikelname", "text"), ("artikelnummer", "text"), ("preis", "currency"), ("anzahl", "integer")]

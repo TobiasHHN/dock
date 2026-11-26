@@ -116,6 +116,9 @@ class _EmptySession:
     async def execute(self, *args, **kwargs):
         return _EmptyResult()
 
+    async def commit(self):
+        pass
+
 
 async def _empty_session():
     yield _EmptySession()
