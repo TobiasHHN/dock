@@ -48,6 +48,7 @@ Sortiert nach Priorität.
 | B25 | Beim Ausfüllen von Dokumenten zu viele Kästen in Kästen | UX | Frontend, Formulare | Mittel | 3.F5 (Browser) | P2 | behoben | `task/3.F5-bugfixes`, `0a0d19e` |
 | B26 | Viele Dokumente erscheinen live und sind nach dem Neuladen weg | Bug | Echtzeit, Backend | Hoch | 3.F5 (Browser) | P1 | behoben | `task/3.F5-test-db` |
 | B27 | Home listet Dokumente willkürlich; gewünscht ist ein Baum je Workflow (Übersichtsdokument, darunter aufklappbar die Schritt-Dokumente, wie in Confluence) | Feature | Backend, Frontend, MCP | Mittel | 3.F5 (Browser) | P1 + P2 | behoben | `task/3.F5-home-workflows` |
+| B28 | Workflows lassen sich nicht löschen | Feature | Frontend, MCP | Mittel | 3.F5 (Browser) | P2 + P5 | behoben | `task/3.F5-workflow-delete` |
 
 ## Details
 
@@ -187,6 +188,11 @@ Unit-Tests grün (Backend 397, Frontend 398), Typecheck sauber. **Noch nicht im 
 - **Wunsch:** Jeder neue Workflow (auch über MCP) bekommt als Erstes ein Dokument, das nur eine Beschreibung und den Workflow enthält. Darunter hängen die Dokumente des Workflows. Auf Home lässt sich das je Workflow aufklappen.
 - **Fix:** Die Pipeline ergänzt nach `workflow.create` ein `doc.create` für das Übersichtsdokument `doc_ov_<…>` (Titel = Name, `owner = { workflow, step: null }`, Absatz aus dem neuen optionalen Feld `description` + `workflow`-Block). Legt der Batch selbst ein Dokument mit `step: null` an, entfällt das (so in `demo/fallback_batch.json`: `doc_einkauf`). Vor `workflow.delete` löscht die Pipeline das Übersichtsdokument mit. Der Workspace-Snapshot liefert jetzt `owner` je Dokument und `documents` (Schritt-Dokumente) je Workflow. Home gruppiert in `frontend/src/home/homeModel.ts`, Aufklappzustand pro Browser in `localStorage`, Standard zugeklappt.
 - **Rest:** Bestehende Workflows in der Demo-DB haben noch kein Übersichtsdokument. Home zeigt sie trotzdem als Gruppe (Klick führt dann auf die Workflow-Seite). Sauber wird es mit frischer DB + Seed + Fallback.
+
+### B28: Workflows löschen
+
+- **Fix:** Button „Workflow löschen“ auf der Workflow-Seite und im Übersichtsdokument (statt „Dokument löschen“). Ein Batch: `workflow.delete`, danach `doc.delete` für alle Schritt-Dokumente mit `owner.workflow`; das Übersichtsdokument ergänzt die Pipeline (B27). Bestätigungsdialog nennt die betroffenen Dokumente. Neues MCP-Tool `delete_workflow(workflow, delete_documents=true)`.
+- **Grenzen:** Mit aktiven Runs oder `workflow`-Blöcken in anderen Dokumenten lehnt der Server ab (IN_USE, Meldung im Toast). Abgeschlossene Runs gehen mit. Nur für `einkauf`.
 
 <!-- Vorlage für neue Details:
 

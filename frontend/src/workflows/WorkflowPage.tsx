@@ -4,7 +4,8 @@ import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Op } from "../api";
-import { useAuth, workflowApi } from "../api/client";
+import { canEditStructure, useAuth, workflowApi } from "../api/client";
+import { deleteWorkflow } from "./deleteWorkflow";
 import { formatCandidates, resultLabel, runStatusLabel, useChannelInvalidate } from "../inbox/inboxModel";
 import { BatchRejected, newId, submit, useChannel } from "../sync/store";
 import { Icon, relativeTime } from "../ui/icons";
@@ -98,6 +99,14 @@ export function WorkflowDetail({ workflowId, embedded = false }: { workflowId: s
           <p className="muted small">Key: <span translate="no">{wf.key}</span> · {wf.draft.steps.length} Schritte</p>
         </div>
         <div className="actions">
+          {canEditStructure(me) && (
+            <button
+              type="button" className="ghost quiet-danger"
+              onClick={async () => { if (await deleteWorkflow(wf)) navigate("/"); }}
+            >
+              <Icon name="trash" size={14} />Workflow löschen
+            </button>
+          )}
           {!embedded && <EmbedInDocumentButton sheet={{ kind: "workflow", id: wf.id }} />}
           {mayStart && (
             <button type="button" className="primary" disabled={starting} aria-busy={starting} onClick={startRun}>

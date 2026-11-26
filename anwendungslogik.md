@@ -923,6 +923,7 @@ Der MCP-Server ist eine dünne Schicht über den Operationen aus Abschnitt 6. Al
 | Workflows | `list_workflows`, `get_workflow`, `create_workflow`, `update_workflow` | Definition |
 | | `validate_workflow(workflow)` | 5.7 |
 | | `publish_workflow(workflow)` | `workflow.publish` |
+| | `delete_workflow(workflow, delete_documents=true)` | `workflow.delete` + `doc.delete` der Schritt-Dokumente mit `owner.workflow` (Übersichtsdokument löscht die Pipeline) |
 | Runs | `start_run(workflow, input?)` | `run.start` |
 | | `list_runs(workflow?, started_by? = "me", status?)` | „Meine Anträge“ und Übersicht |
 | | `get_run(run)` | Statusansicht aus 5.10 inkl. Events |

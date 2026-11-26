@@ -24,6 +24,7 @@ import { EMBED_TYPES, type EmbedKind } from "./embedModel";
 import { actorColor, scrollCorrection } from "./presenceModel";
 import { SheetBar, type SheetLabel } from "./SheetBar";
 import { WorkflowDetail } from "../workflows/WorkflowPage";
+import { deleteWorkflow } from "../workflows/deleteWorkflow";
 import { TableEditor } from "../tables/TableEditor";
 import { type Sheet, activeSheet, collectSheets, sheetOfBlock, sheetParam } from "./workbookModel";
 import { TextBlock } from "./TextBlock";
@@ -225,7 +226,15 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
       </div>
     );
 
+  // Übersichtsdokument eines Workflows (owner.step null): Löschen heißt den ganzen Workflow löschen (B28)
+  const overviewOf = doc.owner && !doc.owner.step ? (doc.owner.workflow as string) : null;
   const deleteDocument = async () => {
+    if (overviewOf) {
+      const workflows = (sync.store.getState().channels.workspace?.view?.workflows ?? []) as { id: string; key?: string; name?: string }[];
+      const wf = workflows.find((w) => w.id === overviewOf || w.key === overviewOf) ?? { id: overviewOf, name: doc.title };
+      if (await deleteWorkflow(wf)) navigate("/");
+      return;
+    }
     const ok = await confirmDialog({
       title: `Dokument „${doc.title || "Ohne Titel"}“ löschen?`,
       message: "Das Dokument mit allen Blöcken wird entfernt. Wird es noch verwendet, ist das Löschen nicht möglich.",
@@ -255,7 +264,7 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
         {mayEdit && <SaveState />}
         {mayEdit && (
           <button className="ghost quiet-danger" onClick={deleteDocument}>
-            <Icon name="trash" size={14} />Dokument löschen
+            <Icon name="trash" size={14} />{overviewOf ? "Workflow löschen" : "Dokument löschen"}
           </button>
         )}
         {others.length > 0 && (

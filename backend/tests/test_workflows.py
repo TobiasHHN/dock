@@ -612,6 +612,17 @@ async def test_create_adds_overview_document_and_delete_removes_it(engine):
     assert await q(engine, "SELECT 1 FROM documents WHERE id = :d", d=overview) == []
 
 
+async def test_delete_workflow_with_its_documents_in_one_batch(engine):
+    ex = example()
+    i = ex["ids"]
+    await run(*ex["ops"], {"op": "workflow.publish", "workflow": i["wf"]})
+    await run({"op": "workflow.delete", "workflow": i["wf"]},
+              *({"op": "doc.delete", "doc": i[s]} for s in ("s1", "s2", "s3")))
+    ids = [pipeline.overview_doc_id(i["wf"]), i["s1"], i["s2"], i["s3"]]
+    assert await q(engine, "SELECT id FROM documents WHERE id = ANY(:ids)", ids=ids) == []
+    assert await q(engine, "SELECT 1 FROM workflows WHERE id = :i", i=i["wf"]) == []
+
+
 async def test_batch_with_own_overview_document_gets_no_second_one(engine):
     ex = example()
     i = ex["ids"]
