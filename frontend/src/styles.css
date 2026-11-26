@@ -919,7 +919,7 @@ a.btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--a
 .wf-dot-pending { background: var(--subtle); }
 .wf-handle { width: 7px; height: 7px; background: var(--border-strong); border: none; }
 
-.run-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; } /* Verlauf unter dem Schritt-Dokument, nicht daneben */
+.run-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; } /* Reihenfolge untereinander: Schritt-Dokument, Ablauf-Graph, Verlauf */
 .run-step-panel { padding: 8px 14px 18px; }
 .doc-embedded-body { padding: 18px 20px 18px 0; }
 

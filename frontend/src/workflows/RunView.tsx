@@ -196,30 +196,6 @@ export function RunView({ runId }: { runId: string }) {
         )}
       </div>
 
-      <section className="panel wf-graph-panel" aria-label="Ablauf-Graph">
-        <div className="panel-head">
-          <h2>Ablauf</h2>
-          <div className="wf-legend small muted">
-            <span><i className="wf-dot wf-dot-done" /> Erledigt</span>
-            <span><i className="wf-dot wf-dot-active" /> Aktuell</span>
-            <span><i className="wf-dot wf-dot-pending" /> Offen</span>
-          </div>
-        </div>
-
-        {workflow ? (
-          <WorkflowGraph
-            definition={workflow.draft}
-            steps={run.steps}
-            current={run.current}
-            runStatus={run.status}
-            selectedStep={selectedStep}
-            onSelectStep={setSelectedStep}
-          />
-        ) : (
-          <div className="skeleton-list" style={{ padding: "16px" }}><span /><span /></div>
-        )}
-      </section>
-
       <div className="run-layout">
         <section className="panel run-step-panel" aria-label={currentStepDef?.name ?? "Schritt-Dokument"}>
           {currentStepDef ? (
@@ -231,10 +207,33 @@ export function RunView({ runId }: { runId: string }) {
               readOnly={!stepEditable}
             />
           ) : (
-            <p className="empty">Wähle einen Schritt im Graph aus.</p>
+            <p className="empty">Wähle unten im Ablauf einen Schritt aus.</p>
           )}
         </section>
 
+        <section className="panel wf-graph-panel" aria-label="Ablauf-Graph">
+          <div className="panel-head">
+            <h2>Ablauf</h2>
+            <div className="wf-legend small muted">
+              <span><i className="wf-dot wf-dot-done" /> Erledigt</span>
+              <span><i className="wf-dot wf-dot-active" /> Aktuell</span>
+              <span><i className="wf-dot wf-dot-pending" /> Offen</span>
+            </div>
+          </div>
+
+          {workflow ? (
+            <WorkflowGraph
+              definition={workflow.draft}
+              steps={run.steps}
+              current={run.current}
+              runStatus={run.status}
+              selectedStep={selectedStep}
+              onSelectStep={setSelectedStep}
+            />
+          ) : (
+            <div className="skeleton-list" style={{ padding: "16px" }}><span /><span /></div>
+          )}
+        </section>
         <RunTimeline runId={runId} events={run.events} />
       </div>
     </div>
