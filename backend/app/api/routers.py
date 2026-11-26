@@ -166,6 +166,8 @@ async def list_documents(user: User, session: AsyncSession = Depends(get_session
 async def get_document_json(doc: str, user: User, run: str | None = None,
                             session: AsyncSession = Depends(get_session)):
     try:
+        if run is not None:
+            return await queries.fetch_document(session, doc, run=run, user=user)
         return await queries.fetch_document(session, doc)
     except PipelineError as exc:
         raise _http(exc) from exc
@@ -174,8 +176,10 @@ async def get_document_json(doc: str, user: User, run: str | None = None,
 @documents.get("/documents/{doc}/markdown", response_model=DocumentMarkdown)
 async def get_document_markdown(doc: str, user: User, run: str | None = None,
                                 session: AsyncSession = Depends(get_session)):
-    """Markdown mit Block-IDs (L 8.2); Actions und Buttons nur im JSON. Der Parameter `run` folgt mit den Runs."""
+    """Markdown mit Block-IDs (L 8.2); Actions und Buttons nur im JSON. Mit `run` im Kontext eines Runs ausgewertet."""
     try:
+        if run is not None:
+            return await queries.fetch_document_markdown(session, doc, run=run, user=user)
         return await queries.fetch_document_markdown(session, doc)
     except PipelineError as exc:
         raise _http(exc) from exc

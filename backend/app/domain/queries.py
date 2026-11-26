@@ -64,8 +64,136 @@ def _preorder(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-async def fetch_document(s: AsyncSession, doc_id: str) -> dict[str, Any]:
-    """`{"document": …, "blocks": […]}`, Blöcke flach in Dokumentreihenfolge (Eltern vor Kindern)."""
+async def _check_run_access(s: AsyncSession, user: Any, run_id: str, definition: Any, run_dict: dict[str, Any]) -> None:
+    if user is None:
+        return
+    from app.domain import tasks as T
+    from app.realtime import access
+
+    try:
+        await access.check_read(s, user, f"run:{run_id}")
+    except PipelineError as exc:
+        if exc.error.code != "FORBIDDEN":
+            raise
+        actor = getattr(user, "actor", user)
+        ctx_stub = type("_Ctx", (), {"session": s, "workspace_id": DEFAULT_WORKSPACE})()
+        if not await T.is_manager(ctx_stub, definition, run_dict, actor):
+            raise
+
+
+def _format_inline_value(val: Any) -> str:
+    if val is None:
+        return ""
+    if isinstance(val, bool):
+        return "true" if val else "false"
+    if isinstance(val, float) and val.is_integer():
+        return str(int(val))
+    return str(val)
+
+
+def _collect_run_exprs(blocks: list[dict[str, Any]]) -> list[str]:
+    exprs: list[str] = []
+    for b in blocks:
+        props = b.get("props") or {}
+        if b.get("type") in ("heading", "paragraph", "list_item"):
+            for part in props.get("content") or []:
+                if isinstance(part, dict) and part.get("t") == "value" and isinstance(part.get("expr"), str):
+                    exprs.append(part["expr"])
+        elif b.get("type") == "table_view":
+            for cond in props.get("filter") or []:
+                val = cond.get("value") if isinstance(cond, dict) else None
+                if isinstance(val, str) and "{{" in val:
+                    exprs.append(val)
+    return exprs
+
+
+def _evaluate_blocks_for_run(blocks: list[dict[str, Any]], expr_ctx: dict[str, Any],
+                             *, for_markdown: bool) -> list[dict[str, Any]]:
+    out = json.loads(json.dumps(blocks))
+    for b in out:
+        props = b.get("props") or {}
+        if b.get("type") in ("heading", "paragraph", "list_item") and isinstance(props.get("content"), list):
+            new_content = []
+            for part in props["content"]:
+                if isinstance(part, dict) and part.get("t") == "value" and isinstance(part.get("expr"), str):
+                    try:
+                        val = expressions.evaluate(part["expr"], expr_ctx)
+                    except expressions.ExpressionError:
+                        new_content.append(part)
+                        continue
+                    if for_markdown:
+                        new_content.append({"t": "text", "text": _format_inline_value(val)})
+                    else:
+                        new_content.append({**part, "value": val})
+                else:
+                    new_content.append(part)
+            props["content"] = new_content
+        elif b.get("type") == "table_view" and isinstance(props.get("filter"), list):
+            for cond in props["filter"]:
+                if isinstance(cond, dict) and isinstance(cond.get("value"), str) and "{{" in cond["value"]:
+                    try:
+                        cond["value"] = expressions.evaluate(cond["value"], expr_ctx)
+                    except expressions.ExpressionError:
+                        pass
+    return out
+
+
+async def _fetch_document_in_run(s: AsyncSession, doc_id: str, run_id: str, user: Any,
+                                 *, for_markdown: bool) -> dict[str, Any]:
+    from app.domain import workflows as W
+    from app.schemas.workflows import WorkflowDefinition
+
+    ctx_stub = type("_Ctx", (), {"session": s, "workspace_id": DEFAULT_WORKSPACE})()
+    row = (await s.execute(
+        text("""SELECT r.*, v.definition AS wf_def, v.documents AS wf_docs
+                FROM runs r
+                JOIN workflows w ON w.id = r.workflow_id
+                JOIN workflow_versions v ON v.workflow_id = r.workflow_id AND v.version = r.version
+                WHERE r.id = :id AND w.workspace_id = :ws"""),
+        {"id": run_id, "ws": DEFAULT_WORKSPACE})).mappings().first()
+    if row is None:
+        raise PipelineError("NOT_FOUND", f"Run '{run_id}' wurde nicht gefunden")
+    run_dict = {**dict(row)}
+    for col in ("result", "input", "steps", "started_by"):
+        run_dict[col] = json.loads(run_dict[col]) if isinstance(run_dict[col], str) else run_dict[col]
+    raw_def = run_dict.pop("wf_def")
+    definition = WorkflowDefinition.model_validate(json.loads(raw_def) if isinstance(raw_def, str) else raw_def)
+    raw_docs = run_dict.pop("wf_docs")
+    frozen_docs = (json.loads(raw_docs) if isinstance(raw_docs, str) else raw_docs) or {}
+
+    await _check_run_access(s, user, run_id, definition, run_dict)
+
+    docs = await _all(s, """SELECT id, title, owner_workflow, owner_step, version, updated_at FROM documents
+                            WHERE id = :id AND workspace_id = :ws""", id=doc_id, ws=DEFAULT_WORKSPACE)
+    if doc_id in frozen_docs:
+        blocks = json.loads(json.dumps(frozen_docs[doc_id]))
+        step_def = next((st for st in definition.steps if st.document == doc_id), None)
+        if docs:
+            doc_meta = _document(docs[0])
+        else:
+            owner = {"workflow": run_dict["workflow_id"], "step": step_def.key} if step_def else None
+            doc_meta = {"id": doc_id, "title": step_def.name if step_def else doc_id,
+                        "owner": owner, "version": 1, "updated_at": None}
+    else:
+        if not docs:
+            raise PipelineError("NOT_FOUND", f"Dokument '{doc_id}' wurde nicht gefunden")
+        doc_meta = _document(docs[0])
+        blocks = await _all(s, """SELECT id, doc_id, parent_id, position, type, props, version FROM blocks
+                                  WHERE doc_id = :id""", id=doc_id)
+
+    actor = getattr(user, "actor", user) if user is not None else None
+    expr_ctx = await W.build_run_expr_context(ctx_stub, run_dict, actor=actor,
+                                              lookup_exprs=_collect_run_exprs(blocks))
+    evaluated = _evaluate_blocks_for_run(blocks, expr_ctx, for_markdown=for_markdown)
+    return {"document": doc_meta, "blocks": _preorder(evaluated)}
+
+
+async def fetch_document(s: AsyncSession, doc_id: str, *, run: str | None = None,
+                         user: Any = None) -> dict[str, Any]:
+    """`{"document": …, "blocks": […]}`, Blöcke flach in Dokumentreihenfolge (Eltern vor Kindern).
+    Mit `run`: eingefrorener Stand aus der Workflow-Version und Ausdrücke im Run-Kontext ausgewertet."""
+    if run is not None:
+        return await _fetch_document_in_run(s, doc_id, run, user, for_markdown=False)
     docs = await _all(s, """SELECT id, title, owner_workflow, owner_step, version, updated_at FROM documents
                             WHERE id = :id AND workspace_id = :ws""", id=doc_id, ws=DEFAULT_WORKSPACE)
     if not docs:
@@ -126,9 +254,13 @@ def humanize_props(block_type: str, props: dict[str, Any], tables: dict[str, str
     return out
 
 
-async def fetch_document_markdown(s: AsyncSession, doc_id: str) -> dict[str, Any]:
+async def fetch_document_markdown(s: AsyncSession, doc_id: str, *, run: str | None = None,
+                                  user: Any = None) -> dict[str, Any]:
     """`{"document": …, "markdown": …}` mit Block-IDs und lesbaren Tabellen-/Spalten-Keys (L 8.2)."""
-    found = await fetch_document(s, doc_id)
+    if run is not None:
+        found = await _fetch_document_in_run(s, doc_id, run, user, for_markdown=True)
+    else:
+        found = await fetch_document(s, doc_id)
     maps = await _key_maps(s)
     blocks = [{**b, "props": humanize_props(b["type"], b["props"], *maps)} for b in found["blocks"]]
     return {"document": found["document"], "markdown": M.blocks_to_markdown(blocks)}

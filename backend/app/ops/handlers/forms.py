@@ -29,15 +29,38 @@ async def _target(ctx: OpContext, form_block: str, scope: dict[str, str]) -> tup
     if len(scope) != 1 or next(iter(scope)) not in ("run", "user"):
         raise _invalid("scope", "erwartet {\"run\": <id>} oder {\"user\": <id>}")
     kind, id_ = next(iter(scope.items()))
-    form = await F.load_form(ctx.session, form_block, ctx.workspace_id)
     if kind == "user":
+        form = await F.load_form(ctx.session, form_block, ctx.workspace_id)
         member = ctx.actor.on_behalf_of or ctx.actor.id
         if ctx.actor.type != "system" and id_ != member:
             raise PipelineError("FORBIDDEN", "Ein Nutzer-Entwurf gehört dem jeweiligen Nutzer", {"scope": scope})
     else:
-        found = (await ctx.session.execute(text("SELECT 1 FROM runs WHERE id = :id"), {"id": id_})).first()
-        if found is None:
-            raise PipelineError("NOT_FOUND", f"Run '{id_}' wurde nicht gefunden")
+        from app.domain import tasks as T
+
+        form, run_dict, _, step_key, _, open_task = await F.load_run_form(
+            ctx.session, id_, form_block, ctx.workspace_id)
+        if run_dict["status"] != "active" or run_dict["current_step"] != step_key:
+            raise PipelineError("FORBIDDEN", "Formulare in abgeschlossenen oder inaktiven Schritten sind schreibgeschützt",
+                                {"run": id_, "step": step_key})
+        if open_task is None:
+            raise PipelineError("TASK_DONE", f"Für Schritt '{step_key}' gibt es keine offene Aufgabe",
+                                {"run": id_, "step": step_key})
+        if ctx.actor.type != "system":
+            task_model = T.task_from_row(open_task)
+            roles = await T.actor_role_refs(ctx, ctx.actor)
+            if not T.can_act(ctx.actor, roles, task_model):
+                who = T.effective_id(ctx.actor)
+                if who in task_model.excluded:
+                    raise PipelineError("FORBIDDEN", "Vier-Augen-Prinzip: Sie sind für diese Aufgabe ausgeschlossen",
+                                        {"task": task_model.id})
+                is_cand = who in task_model.candidates.users or bool(set(roles) & set(task_model.candidates.roles))
+                if is_cand and task_model.claimed_by is not None:
+                    raise PipelineError(
+                        "TASK_CLAIMED",
+                        f"Aufgabe wird bereits von {task_model.claimed_by.name or task_model.claimed_by.id} bearbeitet",
+                        {"claimed_by": task_model.claimed_by.model_dump(mode="json", exclude_none=True)},
+                    )
+                raise PipelineError("FORBIDDEN", "Sie sind für diese Aufgabe nicht zuständig", {"task": task_model.id})
     await ctx.lock_channel(f"{kind}:{id_}")
     return f"{kind}:{id_}", form
 

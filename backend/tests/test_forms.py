@@ -354,7 +354,7 @@ async def test_values_override_the_draft_and_unknown_fields_are_rejected(engine)
 async def test_rights_and_context(engine):
     w = await make_world(engine)
     await fill(w)
-    assert (await err(submit(w, run="run_x"))).error.code == "VALIDATION"  # Run-Kontext: Task 4.3
+    assert (await err(submit(w, run="run_x"))).error.code == "NOT_FOUND"
     assert (await err({**submit(w), "form_block": w.f_name})).error.code == "VALIDATION"
     assert (await err({**submit(w), "form_block": "blk_gibtsnicht"})).error.code == "NOT_FOUND"
     # Formular ohne Buttons: nichts zu senden
