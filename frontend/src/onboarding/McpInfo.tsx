@@ -40,8 +40,9 @@ export function McpInfoHost() {
           <button className="icon-button" onClick={close} aria-label="Schließen"><Icon name="close" size={16} /></button>
         </div>
         <p className="muted">
-          Dock lässt sich auch über <strong>MCP</strong> bedienen. Verbinde einen Assistenten wie Claude oder ChatGPT, dann
-          erledigt er Aufgaben für dich, mit genau deinen Rechten.
+          Dock ist darauf ausgelegt, gemeinsam mit KI-Assistenten zu arbeiten, etwa beim Aufbau von Workflows, die ein
+          Assistent für dich entwirft und anlegt. Verbinde dafür einen Assistenten wie Claude oder ChatGPT über{" "}
+          <strong>MCP</strong>. Er erledigt Aufgaben für dich, mit genau deinen Rechten.
         </p>
         <ul className="mcp-list">
           <li><Icon name="file" size={16} />Dokumente, Tabellen und Abläufe anlegen und ändern</li>
