@@ -166,6 +166,7 @@
       ] },
 
     { "op": "doc.create", "id": "doc_einkauf", "title": "Einkauf",
+      "owner": { "workflow": "wf_best", "step": null },
       "blocks": [
         { "id": "blk_e_h", "type": "heading", "props": { "level": 1, "content": [{ "t": "text", "text": "Einkauf" }] } },
         { "id": "blk_e_p", "type": "paragraph", "props": { "content": [{ "t": "text", "text": "Hier neue Bestellungen starten und den Stand der eigenen Bestellungen verfolgen." }] } },

@@ -1132,3 +1132,17 @@ table.grid.sheet .col-actions { padding: 0 6px; }
 /* Platzhalter (z. B. Feld außerhalb eines Formulars): kein gestrichelter Kasten, nur ein Hinweis. */
 .placeholder-block { border: 0; background: transparent; padding: 4px 0; }
 /* --- Ende Dokumente ausfüllen --- */
+
+/* Home: Dokumentbaum (Workflow-Übersicht, darunter aufklappbar die Schritt-Dokumente) */
+.card-actions { display: inline-flex; gap: 4px; margin-left: auto; }
+.card li a .item-title { display: inline-flex; align-items: center; gap: 8px; }
+.card li a .item-title .icon { flex: none; color: var(--subtle); }
+.tree-row { display: flex; align-items: center; gap: 2px; }
+.tree-row > a { flex: 1; min-width: 0; padding-left: 4px !important; }
+.tree-toggle { flex: none; width: 28px; height: 28px; padding: 0; display: inline-flex; align-items: center; justify-content: center; }
+.tree-toggle:disabled { visibility: hidden; }
+.tree-chevron { display: inline-flex; color: var(--subtle); transition: transform var(--dur) var(--ease); }
+.tree-chevron.open { transform: rotate(90deg); }
+.card ul.tree-children { margin: 0 0 4px 0; padding-left: 30px; border-left: 1px solid var(--border); margin-left: 21px; }
+.doc-tree > li:not(.tree-group) > a { padding-left: 38px; }
+@media (prefers-reduced-motion: reduce) { .tree-chevron { transition: none; } }
