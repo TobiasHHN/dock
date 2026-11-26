@@ -4,6 +4,7 @@
 import { useEffect } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { authApi, useAuth } from "../api/client";
+import { TourButton, TourHost } from "../onboarding/Tour";
 import { NotificationBell, useNotificationToasts } from "../inbox/Notifications";
 import { SearchBox } from "../search/SearchBox";
 import { sync, useChannel } from "../sync/store";
@@ -94,6 +95,7 @@ function AppShell() {
         </nav>
         <SearchBox />
         <span className="spacer" />
+        <TourButton />
         <NotificationBell />
         {user && (
           <span className="profile">
@@ -108,6 +110,7 @@ function AppShell() {
           <Icon name="logout" size={18} strokeWidth={1.8} />
         </button>
       </header>
+      <TourHost />
       <main className="page" id="main" tabIndex={-1}>
         <div key={location.pathname} className="page-enter">
           <Outlet />
