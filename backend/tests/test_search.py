@@ -20,7 +20,7 @@ from app.schemas.common import Actor
 from app.search import search as search_mod
 from app.search.embeddings import _vec, reembed_source
 
-DB_URL = os.environ.get("DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
+DB_URL = os.environ.get("DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock_test")
 ANNA = Actor(type="user", id="usr_zz52anna", name="Anna")
 
 TOPICS = ["bestell", "urlaub", "reise"]

@@ -150,4 +150,6 @@ export const workflowApi = {
     api<Notification[]>(`/api/notifications${unread ? "?unread=true" : ""}`),
   markNotificationRead: (id: string) =>
     api<Notification>(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "POST" }),
+  deleteNotification: (id: string) =>
+    api<null>(`/api/notifications/${encodeURIComponent(id)}`, { method: "DELETE" }),
 };

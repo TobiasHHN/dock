@@ -76,6 +76,16 @@ export function NotificationBell() {
     navigate(n.run_id ? `/runs/${n.run_id}` : "/inbox/tasks");
   }
 
+  async function remove(n: Notification) {
+    try {
+      await workflowApi.deleteNotification(n.id);
+      qc.setQueryData<Notification[]>(["notifications"], (old) => old?.filter((x) => x.id !== n.id));
+      if (me) sync.requestSnapshot(`user:${me.id}`);
+    } catch (e) {
+      toast(`Konnte nicht entfernt werden: ${(e as Error).message}`, "error");
+    }
+  }
+
   async function markAllRead() {
     if (!items || markingAll) return;
     const unread = items.filter((n) => !n.read_at);
@@ -113,7 +123,7 @@ export function NotificationBell() {
             <strong>Benachrichtigungen</strong>
             {unreadCount > 0 && (
               <button type="button" className="ghost small" disabled={markingAll} onClick={markAllRead}>
-                Alle gelesen
+                Als gelesen markieren
               </button>
             )}
           </div>
@@ -128,15 +138,20 @@ export function NotificationBell() {
               {items.slice(0, 20).map((n) => {
                 const { title, detail } = formatNotification(n);
                 return (
-                  <li key={n.id}>
-                    <button
-                      type="button"
-                      className={`notif-item ${!n.read_at ? "unread" : ""}`}
-                      onClick={() => markOne(n)}
-                    >
+                  <li key={n.id} className={`notif-row ${!n.read_at ? "unread" : ""}`}>
+                    <button type="button" className="notif-item" onClick={() => markOne(n)}>
                       <span className="notif-item-title">{title}</span>
                       {detail && <span className="notif-item-detail">{detail}</span>}
                       <span className="notif-item-time">{relativeTime(n.created_at) ?? "gerade eben"}</span>
+                    </button>
+                    <button
+                      type="button"
+                      className="notif-remove"
+                      aria-label={`Benachrichtigung „${title}“ entfernen`}
+                      title="Entfernen"
+                      onClick={() => void remove(n)}
+                    >
+                      <Icon name="close" size={14} />
                     </button>
                   </li>
                 );

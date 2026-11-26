@@ -45,6 +45,8 @@ Sortiert nach Priorität.
 | B15 | Absende-Button „Einreichen“ statt „Eingereicht“ | UX | Workflow, Demo-Daten | Mittel | 3.F5 (Browser) | P4 | behoben | `task/3.F5-bugfixes` |
 | B16 | Verlauf eines Runs unter dem Schritt-Dokument statt daneben | UX | Workflow | Mittel | 3.F5 (Browser) | P4 | behoben | `task/3.F5-bugfixes` |
 | B17 | Tabellen-Editor mehr wie Excel | UX | Tabellen | Mittel | 3.F5 (Browser) | P3 | behoben | `task/3.F5-bugfixes` |
+| B25 | Beim Ausfüllen von Dokumenten zu viele Kästen in Kästen | UX | Frontend, Formulare | Mittel | 3.F5 (Browser) | P2 | behoben | `task/3.F5-bugfixes`, `0a0d19e` |
+| B26 | Viele Dokumente erscheinen live und sind nach dem Neuladen weg | Bug | Echtzeit, Backend | Hoch | 3.F5 (Browser) | P1 | behoben | `task/3.F5-test-db` |
 
 ## Details
 
@@ -159,6 +161,25 @@ Alle Fixes per Unit-Tests geprüft (Backend 396 grün, Frontend 392 grün), **no
 - **B15 „Einreichen“:** Label des Buttons `submit` in `demo/fallback_batch.json`, `demo/prompts.md` und Beispiel in `anwendungslogik.md`. Im Verlauf steht jetzt „Einreichen“, die Entscheidungen bleiben als Ergebnis formuliert. Wirkt erst nach neuem Fallback (siehe B13).
 - **B16 Verlauf unten:** `.run-layout` einspaltig.
 - **B17 Excel-Optik:** Zeilennummern, Spaltenbuchstaben, Gitterlinien, fixierte Kopfzeile und Zeilennummern, aktive Zelle mit Rahmen. Pfeiltasten und Enter wechseln die Zelle, mehrere Zellen aus Excel/Sheets lassen sich einfügen (überzählige Zeilen werden angehängt). Logik in `tables/tableModel.ts` (`pasteOps`, `gridMove`, `parseClipboard`, `columnLetter`), getestet.
+
+### B18–B24 (UI-Feinschliff nach 3.F5, Branch `task/3.F5-ui-feinschliff`)
+
+- **B18 Anmelden-Button:** Schrift saß oben, weil die Dokument-Klasse `.block` (`display:flex; align-items:flex-start`) auch `button.block` traf. Klasse heißt jetzt `full`.
+- **B19 Schritt mehrfach angezeigt:** Aufgabenleiste „Aktueller Schritt“, Kopf über dem Schritt-Dokument, eingebetteter Dokumenttitel und Schritt-Buttons unter dem Graph entfernt. Zuständig, Frist, „Übernehmen“/„Freigeben“ und „Ablauf abbrechen“ stehen im Seitenkopf. Im Schritt-Block steht nur noch das Dokument.
+- **B20 Verlauf:** schlanke Zeitleiste (Punkt + Linie, keine Kästen), Kommentar als unauffällige Zeile mit rundem Senden-Knopf, der erst bei Text erscheint.
+- **B21 Benachrichtigungen:** neuer Endpunkt `DELETE /api/notifications/{id}` (nur eigene, 204/403/404), Entfernen-Knopf je Eintrag, „Alle gelesen“ heißt „Als gelesen markieren“.
+- **B22 Button-Labels:** Buttons als Aufforderung („Genehmigen“, „Ablehnen“, „Bestellung abschließen“) in `demo/fallback_batch.json`, Doku und Plan. Status und Verlauf zeigen über `resultLabel` das Ergebnis („Genehmigt“, „Abgelehnt“, „Bestellt“). Bestehende Workflows behalten ihre Labels bis zum Neu-Anlegen bzw. Neu-Veröffentlichen.
+- **B23 Blatt-Leiste:** schwebende, runde Leiste fest am unteren Bildschirmrand (auch bei kurzen Dokumenten), aktives Blatt dunkel hervorgehoben.
+- **B24 Tabellen:** Spaltenbuchstaben (A, B, C …) entfernt, nur noch der Spaltenname.
+
+Unit-Tests grün (Backend 397, Frontend 398), Typecheck sauber. **Noch nicht im Browser geprüft.**
+
+### B26: Geister-Dokumente
+
+- **Symptom:** In der Dokumentliste erscheinen plötzlich viele Dokumente (z. B. „ZZ37 Formular“), nach dem Neuladen sind sie weg.
+- **Ursache (geprüft):** Die Backend-Tests liefen gegen die Demo-Datenbank `dock`. Sie legen über die echte Pipeline Dokumente an (Op-Log + `pg_notify`), offene Browser bekommen diese live über den Kanal `workspace`. Danach löschen die Tests ihre Daten, der Snapshot beim Neuladen enthält sie nicht mehr.
+- **Fix:** `backend/tests/conftest.py` setzt `TEST_DATABASE_URL`/`DATABASE_URL` auf eine eigene Datenbank `dock_test`, legt sie bei Bedarf aus `db/init.sql` an und erzeugt sie neu, wenn sich `init.sql` ändert. Bricht ab, falls jemand die Tests auf `dock` richtet.
+- **Rest:** Im Op-Log der Demo-DB stehen noch alte Test-Einträge. Ein Browser, der mit alter `seq` neu verbindet, kann sie einmal nachgeholt bekommen. Sauber wird es mit frischer DB (`docker compose down -v`, Seed).
 
 <!-- Vorlage für neue Details:
 

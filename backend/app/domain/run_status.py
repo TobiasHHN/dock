@@ -626,6 +626,21 @@ async def list_notifications(s: AsyncSession, viewer: Actor, *, unread: bool = F
     ]
 
 
+async def delete_notification(s: AsyncSession, notification_id: str, viewer: Actor) -> None:
+    """Entfernt eine Benachrichtigung der eigenen Person (3.F5, B21)."""
+    who = T.effective_id(viewer)
+    row = (await s.execute(
+        text("SELECT recipient_id FROM notifications WHERE id = :id"),
+        {"id": notification_id})).mappings().first()
+    if row is None:
+        raise PipelineError("NOT_FOUND", f"Benachrichtigung '{notification_id}' wurde nicht gefunden")
+    if viewer.type != "system" and row["recipient_id"] != who:
+        raise PipelineError("FORBIDDEN", "Diese Benachrichtigung gehört einer anderen Person",
+                            {"notification": notification_id})
+    await s.execute(text("DELETE FROM notifications WHERE id = :id"), {"id": notification_id})
+    await s.commit()
+
+
 async def mark_notification_read(s: AsyncSession, notification_id: str, viewer: Actor) -> Notification:
     who = T.effective_id(viewer)
     row = (await s.execute(

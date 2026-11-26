@@ -95,6 +95,24 @@ export function runStatusLabel(status: "active" | "completed" | "cancelled"): st
   }
 }
 
+/** Gängige Outcomes als Ergebnis formuliert. Buttons heißen „Genehmigen“, der Status danach „Genehmigt“. */
+const OUTCOME_LABELS: Record<string, string> = {
+  approved: "Genehmigt",
+  rejected: "Abgelehnt",
+  ordered: "Bestellt",
+  submitted: "Eingereicht",
+  done: "Erledigt",
+  completed: "Erledigt",
+  accepted: "Angenommen",
+  declined: "Abgelehnt",
+};
+
+/** Lesbares Ergebnis eines Runs oder Schritts: bekanntes Outcome, sonst das Button-Label. */
+export function resultLabel(result: { outcome?: string | null; label?: string | null } | null | undefined): string {
+  if (!result) return "";
+  return (result.outcome && OUTCOME_LABELS[result.outcome]) || result.label || "";
+}
+
 export function canClaimTask(item: TaskListItem): boolean {
   return item.task.status === "open" && !item.task.claimed_by && item.can_act;
 }

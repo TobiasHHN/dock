@@ -7,7 +7,7 @@ import type { Op } from "../api";
 import { useAuth, workflowApi } from "../api/client";
 import { DocumentView } from "../documents/DocumentView";
 import { canAct } from "../forms/formModel";
-import { formatCandidates, formatDue, runStatusLabel, useChannelInvalidate } from "../inbox/inboxModel";
+import { formatCandidates, formatDue, resultLabel, runStatusLabel, useChannelInvalidate } from "../inbox/inboxModel";
 import { BatchRejected, submit, useChannel } from "../sync/store";
 import { actorLabel, useUsers } from "../ui/actors";
 import { confirmDialog } from "../ui/confirm";
@@ -84,7 +84,6 @@ export function RunView({ runId }: { runId: string }) {
   const openTask = runCh?.view?.task;
   const activeStep = run.current?.step ?? null;
   const currentStepDef = workflow?.draft.steps.find((s) => s.key === selectedStep);
-  const currentStepStatus = run.steps.find((s) => s.step === selectedStep);
   const stepEditable = run.status === "active" && !!selectedStep && selectedStep === activeStep;
 
   const mayCancel = canCancelRun(run, workflow?.draft, me, wsRoles);
@@ -140,7 +139,7 @@ export function RunView({ runId }: { runId: string }) {
     run.status === "completed" ? "pill-success" : run.status === "cancelled" ? "pill-danger" : "pill-accent";
   const statusText =
     run.status === "completed"
-      ? run.result?.label || "Abgeschlossen"
+      ? resultLabel(run.result) || "Abgeschlossen"
       : run.status === "cancelled"
         ? "Abgebrochen"
         : run.current?.label || runStatusLabel(run.status);
@@ -162,37 +161,24 @@ export function RunView({ runId }: { runId: string }) {
             <span className={`pill ${statusTone}`}>{statusText}</span>
             {wfVersion && <span className="chip">v{wfVersion}</span>}
           </div>
-          <p className="muted small">
-            Gestartet von <strong>{actorLabel(run.started_by, users)}</strong> · {relativeTime(run.started_at) ?? "gerade eben"}
-          </p>
-        </div>
-        {mayCancel && (
-          <div className="actions">
-            <button type="button" className="danger" disabled={busyOp !== null} onClick={cancelRun}>
-              Abbrechen
-            </button>
-          </div>
-        )}
-      </div>
-
-      {run.status === "active" && run.current && (
-        <div className="panel run-task-bar">
-          <div className="run-task-info">
-            <strong>Aktueller Schritt: {run.current.label || run.current.step}</strong>
-            <span className="muted small">
-              {run.current.claimed_by
-                ? `In Bearbeitung von ${run.current.claimed_by.name ?? run.current.claimed_by.id}`
-                : `Zuständig: ${formatCandidates(run.current.candidates) || "Niemand"}`}
-            </span>
-            {due && (
-              <span className={`pill ${due.tone === "danger" ? "pill-danger" : due.tone === "warn" ? "pill-warn" : ""}`}>
-                {due.text}
+          <p className="run-meta">
+            <span>Gestartet von {actorLabel(run.started_by, users)} · {relativeTime(run.started_at) ?? "gerade eben"}</span>
+            {run.status === "active" && run.current && (
+              <span>
+                {run.current.claimed_by
+                  ? `In Bearbeitung von ${run.current.claimed_by.name ?? run.current.claimed_by.id}`
+                  : `Zuständig: ${formatCandidates(run.current.candidates) || "Niemand"}`}
               </span>
             )}
-          </div>
-          <div className="inbox-actions">
+            {run.status === "active" && due && (
+              <span className={due.tone === "danger" ? "error-text" : due.tone === "warn" ? "warn-text" : undefined}>{due.text}</span>
+            )}
+          </p>
+        </div>
+        {(mayCancel || canClaim || canRelease) && (
+          <div className="actions">
             {canClaim && (
-              <button type="button" disabled={busyOp !== null} onClick={() => doTaskOp("task.claim")}>
+              <button type="button" className="primary" disabled={busyOp !== null} onClick={() => doTaskOp("task.claim")}>
                 Übernehmen
               </button>
             )}
@@ -201,9 +187,14 @@ export function RunView({ runId }: { runId: string }) {
                 Freigeben
               </button>
             )}
+            {mayCancel && (
+              <button type="button" className="ghost quiet-danger" disabled={busyOp !== null} onClick={cancelRun}>
+                Ablauf abbrechen
+              </button>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       <section className="panel wf-graph-panel" aria-label="Ablauf-Graph">
         <div className="panel-head">
@@ -227,40 +218,10 @@ export function RunView({ runId }: { runId: string }) {
         ) : (
           <div className="skeleton-list" style={{ padding: "16px" }}><span /><span /></div>
         )}
-
-        <div className="wf-step-tabs" role="tablist" aria-label="Schritte">
-          {run.steps.map((s) => (
-            <button
-              key={s.step}
-              type="button"
-              role="tab"
-              aria-selected={selectedStep === s.step}
-              className={`wf-step-tab wf-step-tab-${s.state} ${selectedStep === s.step ? "active" : ""}`}
-              onClick={() => setSelectedStep(s.step)}
-            >
-              {s.name}
-            </button>
-          ))}
-        </div>
       </section>
 
       <div className="run-layout">
-        <section className="panel run-step-panel" aria-label="Schritt-Dokument">
-          <div className="panel-head">
-            <div>
-              <h2>{currentStepStatus?.name ?? currentStepDef?.name ?? selectedStep ?? "Schritt"}</h2>
-              {currentStepStatus?.state === "done" && (
-                <p className="muted small">
-                  Erledigt{currentStepStatus.label ? `: ${currentStepStatus.label}` : ""}
-                  {currentStepStatus.by ? ` · von ${currentStepStatus.by}` : ""}
-                  {currentStepStatus.at ? ` · ${relativeTime(currentStepStatus.at)}` : ""}
-                </p>
-              )}
-              {currentStepStatus?.state === "active" && <p className="muted small">Aktueller Schritt</p>}
-              {currentStepStatus?.state === "pending" && <p className="muted small">Noch nicht erreicht (schreibgeschützt)</p>}
-            </div>
-          </div>
-
+        <section className="panel run-step-panel" aria-label={currentStepDef?.name ?? "Schritt-Dokument"}>
           {currentStepDef ? (
             <DocumentView
               key={`${runId}:${currentStepDef.document}:${selectedStep}`}

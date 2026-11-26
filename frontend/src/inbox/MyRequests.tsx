@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useAuth, workflowApi } from "../api/client";
 import { Icon, relativeTime } from "../ui/icons";
-import { formatCandidates, runStatusLabel, useChannelInvalidate } from "./inboxModel";
+import { formatCandidates, resultLabel, runStatusLabel, useChannelInvalidate } from "./inboxModel";
 
 type ScopeFilter = "me" | "any";
 type StatusFilter = "all" | "active" | "completed" | "cancelled";
@@ -95,7 +95,7 @@ export function InboxRequestsPage() {
                 run.status === "active"
                   ? run.status_label || runStatusLabel(run.status)
                   : run.status === "completed"
-                    ? run.result?.label || runStatusLabel(run.status)
+                    ? resultLabel(run.result) || runStatusLabel(run.status)
                     : runStatusLabel(run.status);
 
               return (

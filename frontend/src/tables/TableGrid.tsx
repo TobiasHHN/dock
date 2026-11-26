@@ -7,7 +7,7 @@ import type { Json } from "../sync/tableRules";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import {
-  type Col, type FilterCond, type SortSpec, type TRow, columnLetter, deleteRowOp, displayValue, fieldErrors, gridMove, inputText,
+  type Col, type FilterCond, type SortSpec, type TRow, deleteRowOp, displayValue, fieldErrors, gridMove, inputText,
   insertRowOp, insertedRowIds, isMultiCellPaste, overlayRows, parseClipboard, parseInput, pasteOps, sortRows, sortedColumns,
   sortedRows, updateCellOp,
 } from "./tableModel";
@@ -254,9 +254,8 @@ export function TableGrid({ tableId, columns, allColumns, rows, users, editable,
         <thead>
           <tr>
             {sheet && <th className="row-num" aria-label="Zeilennummer" />}
-            {columns.map((c, ci) => (
+            {columns.map((c) => (
               <th key={c.id} scope="col">
-                {sheet && <span className="col-letter" aria-hidden>{columnLetter(ci)}</span>}
                 <span className="th-inner">
                   <span>{c.name}{c.required ? <span className="req" title="Pflichtfeld"> *</span> : null}</span>
                   {headerExtra?.(c)}

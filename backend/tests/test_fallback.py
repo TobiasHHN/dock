@@ -20,7 +20,7 @@ from sqlalchemy.pool import NullPool
 from app.ops import pipeline
 from app.schemas.common import Actor
 
-DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock")
+DB_URL = os.environ.get("TEST_DATABASE_URL", "postgresql+asyncpg://dock:dock@localhost:5433/dock_test")
 PATH = Path(__file__).resolve().parents[2] / "demo" / "fallback.py"
 ANNA = Actor(type="user", id="usr_zz56anna", name="Anna zz56")
 
