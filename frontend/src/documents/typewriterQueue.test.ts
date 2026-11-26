@@ -54,7 +54,7 @@ describe("Typewriter", () => {
     let ms = 0;
     while (tw.tick(16)) ms += 16;
     expect(done).toBe(true);
-    expect(ms).toBeLessThan(7500);
+    expect(ms).toBeLessThan(10500);
   });
 
   it("bricht ab, wenn onStep false liefert, und flush zeigt alles", () => {

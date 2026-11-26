@@ -2,10 +2,10 @@
 // Text erscheint wortweise, nacheinander über alle Blöcke (eine globale Warteschlange), mit kleinen Pausen an
 // Satzzeichen und zwischen Blöcken. Bei langem Rückstau wird schneller, damit alles in MAX_SECONDS fertig ist.
 
-/** Grundtempo in Zeichen pro Sekunde (ruhig, etwa 11 Wörter/s). */
-export const BASE_CPS = 70;
+/** Grundtempo in Zeichen pro Sekunde (ruhig, etwa 6 Wörter/s). */
+export const BASE_CPS = 40;
 /** Obergrenze für die Gesamtdauer aller wartenden Texte; darüber hinaus wird das Tempo erhöht. */
-export const MAX_SECONDS = 7;
+export const MAX_SECONDS = 10;
 /** Pause zwischen zwei Blöcken. */
 export const BLOCK_GAP_MS = 140;
 
