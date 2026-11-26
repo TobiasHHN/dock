@@ -1210,7 +1210,7 @@ export interface components {
             /** Workflow */
             workflow: string;
             /** Step */
-            step: string;
+            step?: string | null;
         };
         /** DocumentSummary */
         DocumentSummary: {
