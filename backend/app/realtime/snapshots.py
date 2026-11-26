@@ -21,7 +21,9 @@ from app.ops.context import DEFAULT_WORKSPACE
 from app.ops.errors import PipelineError
 from app.realtime.access import load_roles, parse_channel
 
-_JSON_COLUMNS = {"props", "values", "type", "default", "result", "input", "steps", "started_by", "claimed_by",
+# Nur jsonb-Spalten der hier gelesenen Tabellen. NICHT "type": in run_events, notifications und blocks ist
+# das Text ("run_started", ...); columns.type (jsonb) liest `queries` selbst (2.I2-Bug).
+_JSON_COLUMNS = {"props", "values", "default", "result", "input", "steps", "started_by", "claimed_by",
                  "completed_by", "actor", "payload", "draft", "created_by", "updated_by"}
 
 

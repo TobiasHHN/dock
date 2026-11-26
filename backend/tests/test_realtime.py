@@ -493,3 +493,11 @@ async def test_publish_with_seq_notifies_and_without_goes_local(env):
     msg = await c.recv_type("ops")
     assert msg["seq"] == 2 and msg["batch_id"] == "b_zz15pub" and msg["actor"]["id"] == "scheduler"
     await c.disconnect()
+
+
+def test_snapshot_row_keeps_text_type_columns():
+    """2.I2: run_events.type / notifications.type sind Text, kein JSON (sonst scheitern user:/run:-Snapshots)."""
+    from app.realtime.snapshots import _row
+
+    out = _row({"type": "task_created", "payload": '{"run": "run_1"}', "text": "Hallo"})
+    assert out == {"type": "task_created", "payload": {"run": "run_1"}, "text": "Hallo"}

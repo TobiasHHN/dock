@@ -1,5 +1,5 @@
-"""Stub-Router (Task 0.4): liefern Beispieldaten, damit das Frontend ohne Backend-Logik bauen kann.
-Phase 1: Jeder Owner ersetzt die Stubs seines Bereichs durch echte Implementierungen (Task-IDs in den Kommentaren)."""
+"""REST-Router. Seit Phase 1 echte Implementierungen (Task-IDs in den Kommentaren); keine Stub-Daten mehr
+(`stub_data.py` dient nur noch als Testdaten in `tests/test_mcp.py`)."""
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile

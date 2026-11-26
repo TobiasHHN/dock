@@ -27,7 +27,7 @@ Stack, Bibliotheken, Ordnerstruktur, Schema und Betrieb stehen in `technische-um
 
 - Demo-Rollen: `einkauf`, `mitarbeiter`, `chef`. Demo-Nutzer: Anna (`einkauf`), Ben (`mitarbeiter`), Chef (`chef`), siehe `demo/prompts.md`.
 - Anmeldung (Task 1.1): `POST /api/auth/signup|login` liefert ein Bearer-JWT; `current_user` und `require_role` in `backend/app/auth.py` lesen den Nutzer samt Rollen aus Token und DB. Der frühere Header `X-Demo-User` existiert nicht mehr.
-- Alle REST-Endpunkte sind Stubs mit Beispieldaten (`backend/app/api/routers.py`, `stub_data.py`), bis der jeweilige Task sie ersetzt. Die Stub-Schnittstellen in `domain/`, `ops/`, `realtime/`, `imports/`, `search/` und `mcp/` haben leere Rümpfe mit Task-Verweis im Docstring.
+- Alle REST-Endpunkte und internen Schnittstellen (`domain/`, `ops/`, `realtime/`, `imports/`, `search/`, `mcp/`) sind seit Phase 1 echt implementiert (`backend/app/api/routers.py`). `stub_data.py` dient nur noch als Testdaten (`tests/test_mcp.py`).
 - Gemeinsame Testfälle für Backend und Frontend liegen in `spec/fixtures/` (Format: `spec/fixtures/README.md`). Neue Fälle immer dort ergänzen.
 - `db/init.sql` ist die Quelle der Wahrheit für das Schema. `db/models.py` und `db/migrations/` aus `technische-umsetzung.md` 2.2 gibt es bewusst noch nicht (entstehen mit Task 1.2, falls nötig; Schemaänderung = `init.sql` + `docker compose down -v`).
 - `mcp` ist auf `<2` gepinnt, weil `technische-umsetzung.md` die `FastMCP`-API voraussetzt. Embedding-Dimension 384 (`db/init.sql`, `backend/app/config.py`).
