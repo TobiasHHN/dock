@@ -367,13 +367,17 @@ async def get_workflow(workflow: str, ctx: Context | None = None) -> Any:
 
 
 @mcp.tool()
-async def create_workflow(key: str, name: str, definition: WorkflowDefinition, ctx: Context | None = None) -> Any:
+async def create_workflow(key: str, name: str, definition: WorkflowDefinition, description: str | None = None,
+                          ctx: Context | None = None) -> Any:
     """Legt einen Workflow-Entwurf an (op `workflow.create`). Erst `list_roles` aufrufen, um gültige Rollen für die
     Zuständigen zu kennen. Besser: zusammen mit Dokumenten in EINEM `apply_ops`-Batch anlegen, dann
-    `validate_workflow`, dann `publish_workflow`."""
+    `validate_workflow`, dann `publish_workflow`. Das Backend legt automatisch ein Übersichtsdokument an
+    (`description` + Workflow-Block, Owner `{workflow, step: null}`); die Schritt-Dokumente erscheinen darunter."""
     wf_id = new_id("wf")
     op = {"op": "workflow.create", "id": wf_id, "key": key, "name": name, "definition": _dump(definition)}
-    return {"id": wf_id, "result": await _ops(ctx, [op])}
+    if description:
+        op["description"] = description
+    return {"id": wf_id, "overview_doc": f"doc_ov_{wf_id.removeprefix('wf_')}", "result": await _ops(ctx, [op])}
 
 
 @mcp.tool()

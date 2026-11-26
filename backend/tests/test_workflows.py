@@ -589,6 +589,40 @@ async def test_delete_rules(engine):
                    i=i["wf"]) == []
 
 
+async def test_create_adds_overview_document_and_delete_removes_it(engine):
+    ex = example()
+    i = ex["ids"]
+    ops = [dict(o) for o in ex["ops"]]
+    wf_op = next(o for o in ops if o["op"] == "workflow.create")
+    wf_op["description"] = "Bestellungen erfassen und freigeben."
+    await run(*ops)
+    overview = pipeline.overview_doc_id(i["wf"])
+    doc = (await q(engine, "SELECT title, owner_workflow, owner_step FROM documents WHERE id = :d", d=overview))[0]
+    assert (doc["owner_workflow"], doc["owner_step"]) == (i["wf"], None)
+    blocks = await q(engine, "SELECT type, props FROM blocks WHERE doc_id = :d ORDER BY position", d=overview)
+    assert [b["type"] for b in blocks] == ["paragraph", "workflow"]
+    assert blocks[0]["props"]["content"][0]["text"] == "Bestellungen erfassen und freigeben."
+    assert blocks[1]["props"]["workflow"] == i["wf"]
+    # erscheint im Op-Log des Workspace, damit Home es live sieht
+    logged = await q(engine, "SELECT ops FROM oplog WHERE channel = 'workspace' ORDER BY seq DESC LIMIT 1")
+    assert any(o["op"] == "doc.create" and o["id"] == overview for o in logged[0]["ops"])
+
+    # Workflow löschen nimmt das Übersichtsdokument mit (sonst IN_USE wegen des Workflow-Blocks)
+    await run({"op": "workflow.delete", "workflow": i["wf"]})
+    assert await q(engine, "SELECT 1 FROM documents WHERE id = :d", d=overview) == []
+
+
+async def test_batch_with_own_overview_document_gets_no_second_one(engine):
+    ex = example()
+    i = ex["ids"]
+    own = zid("doc")
+    await run(*ex["ops"], {"op": "doc.create", "id": own, "title": "Einkauf",
+                           "owner": {"workflow": i["wf_key"], "step": None}})
+    assert await q(engine, "SELECT 1 FROM documents WHERE id = :d", d=pipeline.overview_doc_id(i["wf"])) == []
+    assert len(await q(engine, "SELECT 1 FROM documents WHERE owner_workflow = :w AND owner_step IS NULL",
+                       w=i["wf"])) == 1
+
+
 # ── REST ─────────────────────────────────────────────────────────────────────
 
 

@@ -1161,7 +1161,7 @@ export interface components {
             /** Workflow */
             workflow: string;
             /** Step */
-            step: string;
+            step?: string | null;
         };
         /** DocUpdate */
         DocUpdate: {
@@ -3164,6 +3164,8 @@ export interface components {
             /** Name */
             name: string;
             definition: components["schemas"]["WorkflowDefinition"];
+            /** Description */
+            description?: string | null;
         };
         /** WorkflowDefinition */
         WorkflowDefinition: {

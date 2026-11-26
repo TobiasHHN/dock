@@ -66,6 +66,10 @@ export function relevantOps(channel: string, state: Json, ops: Json[]): { ops: J
   return { ops: out, unknown };
 }
 
+/** Schritt-Dokumente einer Workflow-Definition (wie `documents` im Workspace-Snapshot). */
+const stepDocs = (definition: Json): string[] =>
+  [...new Set<string>((definition?.steps ?? []).map((st: Json) => st.document).filter(Boolean))];
+
 function applyWorkspace(state: WorkspaceData, ops: Json[]): WorkspaceData {
   const s: WorkspaceData = {
     documents: [...state.documents], tables: [...state.tables], workflows: [...state.workflows], roles: [...state.roles],
@@ -97,7 +101,10 @@ function applyWorkspace(state: WorkspaceData, ops: Json[]): WorkspaceData {
         break;
       case "workflow.create":
         if (!s.workflows.some((w) => w.id === op.id))
-          s.workflows.push({ id: op.id, key: op.key, name: op.name, latest_version: null });
+          s.workflows.push({ id: op.id, key: op.key, name: op.name, latest_version: null, documents: stepDocs(op.definition) });
+        break;
+      case "workflow.update":
+        s.workflows = upd(s.workflows, op.workflow, { documents: stepDocs(op.definition) });
         break;
       case "workflow.delete":
         s.workflows = del(s.workflows, op.workflow);

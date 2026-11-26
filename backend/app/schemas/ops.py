@@ -91,7 +91,7 @@ class RowDelete(Strict):
 
 class DocOwnerIn(Strict):
     workflow: str
-    step: str
+    step: str | None = None  # None = Übersichtsdokument des Workflows (Beschreibung + Workflow-Block)
 
 
 class DocCreate(Strict):
@@ -213,6 +213,7 @@ class WorkflowCreate(Strict):
     key: str
     name: str
     definition: WorkflowDefinition
+    description: str | None = None  # landet im automatisch angelegten Übersichtsdokument
 
 
 class WorkflowUpdate(Strict):
