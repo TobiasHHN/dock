@@ -104,12 +104,12 @@ def make_tokens(users: dict[str, dict], now: datetime | None = None) -> dict[str
 def write_files(tokens: dict[str, dict], tokens_path: Path | None = None, mcp_paths: dict[str, Path] | None = None) -> None:
     tokens_path = tokens_path or OUT_TOKENS
     mcp_paths = mcp_paths or OUT_MCP
-    tokens_path.write_text(json.dumps(tokens, indent=2, ensure_ascii=False) + "\n")
+    tokens_path.write_text(json.dumps(tokens, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     for key, path in mcp_paths.items():
         path.parent.mkdir(parents=True, exist_ok=True)
         cfg = {"mcpServers": {"dock": {"type": "http", "url": MCP_URL,
                                        "headers": {"Authorization": f"Bearer {tokens[key]['agent_token']}"}}}}
-        path.write_text(json.dumps(cfg, indent=2) + "\n")
+        path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
     for p in (tokens_path, *mcp_paths.values()):
         os.chmod(p, 0o600)
 

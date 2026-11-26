@@ -6,7 +6,7 @@ import asyncio, json, sys, uuid
 import httpx, websockets
 
 BASE = "http://localhost:8000/api"
-T = json.load(open(sys.argv[1] if len(sys.argv) > 1 else "demo/.tokens.json"))
+T = json.load(open(sys.argv[1] if len(sys.argv) > 1 else "demo/.tokens.json", encoding="utf-8"))
 F1, F2, F3 = "blk_01M8BNNHZQ5EVC85FBJKV35YPQ", "blk_s2_form", "blk_s3_form"
 ORDERS = "tbl_01M8BNNHWR0WSE3N076QJRXNNV"
 bugs, ok = [], []
