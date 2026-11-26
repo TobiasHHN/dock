@@ -152,7 +152,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 | ID | Task | Done wenn | Abhängig von |
 |---|---|---|---|
 | 3.1 | **F5** `table_view` im Dokument und eigener Tabellen-Editor: Spalten und Typen anlegen, Zeilen hinzufügen/löschen, Zellen sofort speichern, Filter und Sortierung, neue Zeilen kurz hervorheben | Edit in einer Zelle erscheint im zweiten Browser, Filter mit Ausdruck funktioniert | 2.3 (Schnittstelle aus 0.4) |
-| 3.2 | **F7** Ausdrücke: Pfade, Funktionen `sum`, `count`, `concat`, `coalesce`, `lookup`, Typ bleibt erhalten, Fehler bei unbekannten Pfaden (L 4.5, T 2.1) | alle Fälle aus den Fixtures grün | 0.9 |
+| 3.2 ✅ | **F7** Ausdrücke: Pfade, Funktionen `sum`, `count`, `concat`, `coalesce`, `lookup`, Typ bleibt erhalten, Fehler bei unbekannten Pfaden (L 4.5, T 2.1) | alle Fälle aus den Fixtures grün | 0.9 |
 | 3.3 | **F6** Formulare im Backend: Sichtbarkeit der Buttons, Entwürfe (`draft.*`), Absenden mit Prüfung, Aktionen in einer Transaktion, Ergebnisse unter `results`, Doppelabsendung wird erkannt (L 4.3, L 4.4, L 4.6) | Absenden schreibt Bestellung und Artikel gemeinsam oder gar nicht | 1.2, 1.3, 3.2 |
 | 3.4 | **F6** Formulare im Frontend: Feld, Zeilenliste, Buttons mit Ladezustand, Pflichtfelder und Fehler am Feld, Entwurf live für alle im selben Kontext, Sichtbarkeit wie in L 4.3 | Formular lässt sich ausfüllen und absenden, Fehler stehen am richtigen Feld | 2.3 (Schnittstelle aus 0.4) |
 | 3.5 | Formularprüfung (`validate_form`): Warnungen bei Tippfehlern in Ausdrücken, nicht befüllten Pflichtspalten, unbekannten Spalten (L 5.7 Daten) | Prüfung liefert lesbare Meldungen mit Block und Feld | 3.2 |
@@ -217,9 +217,9 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 - **Nachholen:** Ist `since` älter als 1000 Ops (`CATCHUP_LIMIT`) oder hat das Log Lücken, kommt ein Snapshot statt der Ops.
 - **Präsenz:** `editing` verfällt nach 30 s (`EDITING_TTL`). Das Frontend schickt beim Tippen spätestens alle 25 s erneut `presence` mit `editing`. In `doc:` und `run:` entsteht der Präsenz-Eintrag beim Abonnieren automatisch.
 
-**3.1 Tabellen-Editor (P3):** `GET` für gefilterte Zeilen kennt die Operatoren `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, `in` und `is_null` sowie `limit` und `offset` (`backend/app/domain/queries.py`). Ausdrücke `{{ }}` in Filterwerten liefern 422, bis 3.2 fertig ist.
+**3.1 Tabellen-Editor (P3):** `GET` für gefilterte Zeilen kennt die Operatoren `eq`, `ne`, `gt`, `gte`, `lt`, `lte`, `contains`, `in` und `is_null` sowie `limit` und `offset` (`backend/app/domain/queries.py`). Ausdrücke `{{ }}` in Filterwerten werden seit 3.2 ausgewertet (Fehler: 422).
 
-**3.2 Ausdrücke (P3):** Wenn `domain/expressions` steht, die Filterauswertung in `domain/queries.py` daran anschließen (dort ist die 422-Stelle).
+**3.2 Ausdrücke (P3, fertig, Branch `task/3.2-expressions`):** `domain/expressions.py` mit `evaluate`, `evaluate_deep`, `find_paths`, `lookup_tables`, `syntax_errors`. Unbekannte Pfade sind Fehler, nur in `coalesce` zählen sie als leer. `lookup` liest `context["tables"]` (Key → Zeilen mit Spalten-Keys). Filterwerte mit `{{ }}` in `domain/queries.py` werden mit `user`, `now`, `today` ausgewertet, Fehler sind 422. Das Gegenstück im Frontend (`sync/expressions.ts`) gehört zu 2.3.
 
 **3.3 Formulare (P3):**
 
