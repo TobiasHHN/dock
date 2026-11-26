@@ -1,0 +1,179 @@
+{
+  "batch_id": "b_fallback_bestellprozess",
+  "ops": [
+    { "op": "import.include", "import_id": "$xlsx" },
+
+    { "op": "column.add", "table": "$tbl.bestellungen", "column": { "id": "col_b_status", "key": "status", "name": "Status",
+      "type": { "kind": "select", "options": [
+        { "id": "eingereicht", "label": "Eingereicht" },
+        { "id": "genehmigt", "label": "Genehmigt" },
+        { "id": "abgelehnt", "label": "Abgelehnt" },
+        { "id": "bestellt", "label": "Bestellt" } ] },
+      "default": "eingereicht" } },
+    { "op": "column.add", "table": "$tbl.bestellungen", "column": { "id": "col_b_by", "key": "besteller", "name": "Besteller", "type": { "kind": "user" }, "default": "{{user.id}}" } },
+    { "op": "column.add", "table": "$tbl.bestellungen", "column": { "id": "col_b_bem", "key": "bemerkung", "name": "Bemerkung", "type": { "kind": "long_text" } } },
+    { "op": "column.add", "table": "$tbl.bestellungen", "column": { "id": "col_b_gen", "key": "genehmigt_von", "name": "Genehmigt von", "type": { "kind": "user" } } },
+    { "op": "column.add", "table": "$tbl.bestellungen", "column": { "id": "col_b_komm", "key": "kommentar", "name": "Kommentar", "type": { "kind": "long_text" } } },
+    { "op": "column.add", "table": "$tbl.bestellungen", "column": { "id": "col_b_lnr", "key": "lieferanten_nr", "name": "Bestellnr. Lieferant", "type": { "kind": "text" } } },
+    { "op": "column.add", "table": "$tbl.bestellungen", "column": { "id": "col_b_lt", "key": "liefertermin", "name": "Liefertermin", "type": { "kind": "date" } } },
+    { "op": "column.add", "table": "$tbl.bestellungen", "column": { "id": "col_b_run", "key": "run", "name": "Vorgang", "type": { "kind": "text" } } },
+
+    { "op": "table.create", "id": "tbl_art", "key": "artikel", "name": "Artikel",
+      "columns": [
+        { "id": "col_a_name", "key": "artikelname", "name": "Artikelname", "type": { "kind": "text" }, "required": true },
+        { "id": "col_a_preis", "key": "preis", "name": "Preis", "type": { "kind": "currency", "currency": "EUR" }, "required": true },
+        { "id": "col_a_nr", "key": "artikelnummer", "name": "Artikelnummer", "type": { "kind": "text" } },
+        { "id": "col_a_anz", "key": "anzahl", "name": "Anzahl", "type": { "kind": "integer", "min": 1 }, "required": true },
+        { "id": "col_a_best", "key": "bestellung", "name": "Bestellung",
+          "type": { "kind": "reference", "table": "$tbl.bestellungen", "on_delete": "cascade" }, "required": true }
+      ],
+      "display_column": "col_a_name" },
+
+    { "op": "workflow.create", "id": "wf_best", "key": "bestellprozess", "name": "Bestellprozess",
+      "definition": {
+        "start": "erfassen",
+        "starters": [],
+        "managers": [{ "kind": "role", "role": "einkauf" }],
+        "run_title": "{{concat(\"Bestellung KS \", coalesce(run.steps.erfassen.values.kostenstelle, \"…\"), \" – \", run.starter.name)}}",
+        "steps": [
+          { "key": "erfassen", "name": "Bestellung erfassen", "status_label": "In Erfassung",
+            "document": "$doc.s1",
+            "assignees": [{ "kind": "starter" }] },
+          { "key": "genehmigung", "name": "Genehmigung", "status_label": "Wartet auf Genehmigung",
+            "document": "doc_s2",
+            "assignees": [{ "kind": "role", "role": "chef" }],
+            "exclude_starter": true,
+            "due_in": "P2D" },
+          { "key": "bestellung", "name": "Bestellung auslösen", "status_label": "Wird vom Einkauf bestellt",
+            "document": "doc_s3",
+            "assignees": [{ "kind": "role", "role": "einkauf" }],
+            "due_in": "P3D" }
+        ],
+        "transitions": [
+          { "from": "erfassen", "on": "submitted", "to": "genehmigung" },
+          { "from": "genehmigung", "on": "approved", "to": "bestellung" },
+          { "from": "genehmigung", "on": "rejected", "to": "end" },
+          { "from": "bestellung", "on": "ordered", "to": "end" }
+        ]
+      } },
+
+    { "op": "import.include", "import_id": "$docx" },
+
+    { "op": "block.update", "block": "$field.name", "props": { "column": "$col.name", "default": "{{user.name}}" } },
+    { "op": "block.update", "block": "$field.kostenstelle", "props": { "column": "$col.kostenstelle" } },
+    { "op": "block.update", "block": "$field.bemerkung", "props": { "column": "col_b_bem" } },
+    { "op": "block.update", "block": "$items.artikel", "props": {
+      "key": "artikel", "label": "Artikel", "min_rows": 1,
+      "columns": [
+        { "key": "artikelname", "label": "Artikelname", "column": "col_a_name" },
+        { "key": "artikelnummer", "label": "Artikelnummer", "column": "col_a_nr" },
+        { "key": "preis", "label": "Preis", "column": "col_a_preis" },
+        { "key": "anzahl", "label": "Anzahl", "column": "col_a_anz" }
+      ] } },
+    { "op": "block.update", "block": "$form.s1", "props": {
+      "actions": [
+        { "key": "order", "type": "create_row", "table": "$tbl.bestellungen",
+          "values": {
+            "$col.name": "{{fields.name}}",
+            "$col.kostenstelle": "{{fields.kostenstelle}}",
+            "$col.bestelldatum": "{{today}}",
+            "$col.gesamtbetrag": "{{sum(fields.artikel, \"preis\")}}",
+            "col_b_bem": "{{fields.bemerkung}}",
+            "col_b_status": "eingereicht",
+            "col_b_run": "{{run.id}}"
+          } },
+        { "key": "items", "type": "create_rows", "table": "tbl_art",
+          "for_each": "{{fields.artikel}}",
+          "values": {
+            "col_a_name": "{{item.artikelname}}",
+            "col_a_preis": "{{item.preis}}",
+            "col_a_nr": "{{item.artikelnummer}}",
+            "col_a_anz": "{{item.anzahl}}",
+            "col_a_best": "{{results.order.id}}"
+          } }
+      ],
+      "buttons": [
+        { "id": "submit", "label": "Eingereicht", "style": "primary", "actions": ["order", "items"], "outcome": "submitted" }
+      ] } },
+
+    { "op": "doc.create", "id": "doc_s2", "title": "Genehmigung",
+      "owner": { "workflow": "wf_best", "step": "genehmigung" },
+      "blocks": [
+        { "id": "blk_s2_h", "type": "heading", "props": { "level": 1, "content": [{ "t": "text", "text": "Genehmigung" }] } },
+        { "id": "blk_s2_p", "type": "paragraph", "props": { "content": [
+          { "t": "text", "text": "Bestellung von " },
+          { "t": "value", "expr": "{{run.steps.erfassen.values.name}}" },
+          { "t": "text", "text": " für Kostenstelle " },
+          { "t": "value", "expr": "{{run.steps.erfassen.values.kostenstelle}}" },
+          { "t": "text", "text": ", Summe: " },
+          { "t": "value", "expr": "{{sum(run.steps.erfassen.values.artikel, \"preis\")}}" }
+        ] } },
+        { "id": "blk_s2_tv", "type": "table_view", "props": {
+          "table": "tbl_art",
+          "columns": ["col_a_name", "col_a_nr", "col_a_anz", "col_a_preis"],
+          "filter": [{ "column": "col_a_best", "op": "eq", "value": "{{run.steps.erfassen.results.order.id}}" }],
+          "editable": false, "allow_add": false, "allow_delete": false } },
+        { "id": "blk_s2_form", "type": "form",
+          "props": {
+            "actions": [
+              { "key": "approve", "type": "update_row", "table": "$tbl.bestellungen",
+                "row": "{{run.steps.erfassen.results.order.id}}",
+                "values": { "col_b_status": "genehmigt", "col_b_gen": "{{user.id}}", "col_b_komm": "{{fields.kommentar}}" } },
+              { "key": "reject", "type": "update_row", "table": "$tbl.bestellungen",
+                "row": "{{run.steps.erfassen.results.order.id}}",
+                "values": { "col_b_status": "abgelehnt", "col_b_komm": "{{fields.kommentar}}" } }
+            ],
+            "buttons": [
+              { "id": "approve", "label": "Genehmigt", "style": "primary", "actions": ["approve"], "outcome": "approved" },
+              { "id": "reject", "label": "Abgelehnt", "style": "danger", "actions": ["reject"], "outcome": "rejected",
+                "require": ["kommentar"], "confirm": "Bestellung wirklich ablehnen?" }
+            ]
+          },
+          "children": [
+            { "id": "blk_s2_komm", "type": "field", "props": { "key": "kommentar", "label": "Kommentar", "input": "textarea" } }
+          ] }
+      ] },
+
+    { "op": "doc.create", "id": "doc_s3", "title": "Bestellung auslösen",
+      "owner": { "workflow": "wf_best", "step": "bestellung" },
+      "blocks": [
+        { "id": "blk_s3_h", "type": "heading", "props": { "level": 1, "content": [{ "t": "text", "text": "Bestellung auslösen" }] } },
+        { "id": "blk_s3_p", "type": "paragraph", "props": { "content": [
+          { "t": "text", "text": "Genehmigt von " },
+          { "t": "value", "expr": "{{run.steps.genehmigung.completed_by.name}}" },
+          { "t": "text", "text": ". Bitte beim Lieferanten bestellen und anschließend Bestellnummer und Liefertermin eintragen." }
+        ] } },
+        { "id": "blk_s3_tv", "type": "table_view", "props": {
+          "table": "tbl_art",
+          "columns": ["col_a_name", "col_a_nr", "col_a_anz", "col_a_preis"],
+          "filter": [{ "column": "col_a_best", "op": "eq", "value": "{{run.steps.erfassen.results.order.id}}" }],
+          "editable": false } },
+        { "id": "blk_s3_form", "type": "form",
+          "props": {
+            "actions": [
+              { "key": "ordered", "type": "update_row", "table": "$tbl.bestellungen",
+                "row": "{{run.steps.erfassen.results.order.id}}",
+                "values": { "col_b_status": "bestellt", "col_b_lnr": "{{fields.lieferanten_nr}}", "col_b_lt": "{{fields.liefertermin}}" } }
+            ],
+            "buttons": [
+              { "id": "ordered", "label": "Bestellt", "style": "primary", "actions": ["ordered"], "outcome": "ordered" }
+            ]
+          },
+          "children": [
+            { "id": "blk_s3_lnr", "type": "field", "props": { "key": "lieferanten_nr", "label": "Bestellnummer Lieferant", "column": "col_b_lnr", "required": true } },
+            { "id": "blk_s3_lt", "type": "field", "props": { "key": "liefertermin", "label": "Liefertermin", "column": "col_b_lt" } }
+          ] }
+      ] },
+
+    { "op": "doc.create", "id": "doc_einkauf", "title": "Einkauf",
+      "blocks": [
+        { "id": "blk_e_h", "type": "heading", "props": { "level": 1, "content": [{ "t": "text", "text": "Einkauf" }] } },
+        { "id": "blk_e_p", "type": "paragraph", "props": { "content": [{ "t": "text", "text": "Hier neue Bestellungen starten und den Stand der eigenen Bestellungen verfolgen." }] } },
+        { "id": "blk_e_wf", "type": "workflow", "props": { "workflow": "wf_best", "mode": "launcher" } },
+        { "id": "blk_e_h2", "type": "heading", "props": { "level": 2, "content": [{ "t": "text", "text": "Bestellübersicht" }] } },
+        { "id": "blk_e_tv", "type": "table_view", "props": { "table": "$tbl.bestellungen", "editable": false } }
+      ] },
+
+    { "op": "workflow.publish", "workflow": "wf_best" }
+  ]
+}

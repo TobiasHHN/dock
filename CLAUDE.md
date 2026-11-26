@@ -45,6 +45,7 @@ Stack, Bibliotheken, Ordnerstruktur, Schema und Betrieb stehen in `technische-um
 docker compose up -d --build        # db (:5433 auf dem Host), backend (:8000, /docs), worker, frontend (:5173)
 docker compose down -v && docker compose up -d   # frische Datenbank (Schema aus db/init.sql)
 python demo/seed.py                 # Demo-Nutzer und Templates, entsteht mit Task 5.5
+python demo/fallback.py             # Fallback ohne Agent: Import + Bestellprozess-Batch (Task 5.6, nach dem Seed)
 
 # Backend-Tests (lokale venv: python3 -m venv backend/.venv && backend/.venv/bin/pip install -e "backend[dev]")
 backend/.venv/bin/pytest backend
