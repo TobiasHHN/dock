@@ -53,7 +53,7 @@ export type RunInfo = {
 export type Me = { id: string; roles: string[] } | null;
 
 /** Darf `me` die offene Aufgabe erledigen? Nur zur Anzeige; bevorzugt das Feld `can_act`, falls der Server es liefert. */
-export function canAct(task: Json, me: Me): boolean {
+export function canAct(task: Json, me: Me, workspaceRoles?: { id: string; key: string }[]): boolean {
   if (!task || !me) return false;
   if (typeof task.can_act === "boolean") return task.can_act;
   if (Array.isArray(task.excluded) && task.excluded.includes(me.id)) return false;
@@ -61,7 +61,11 @@ export function canAct(task: Json, me: Me): boolean {
   if (claimed) return claimed === me.id;
   const users: string[] = task.candidate_users ?? task.candidates?.users ?? [];
   const roles: string[] = task.candidate_roles ?? task.candidates?.roles ?? [];
-  return users.includes(me.id) || roles.some((r) => me.roles.includes(r));
+  const idToKey = workspaceRoles ? new Map(workspaceRoles.map((r) => [r.id, r.key])) : null;
+  return (
+    users.includes(me.id) ||
+    roles.some((r) => me.roles.includes(r) || (!!idToKey?.has(r) && me.roles.includes(idToKey.get(r)!)))
+  );
 }
 
 export type FormState = { fillable: boolean; reason: string | null; /** Buttons anzeigen (Server: `visible_buttons`). */ buttons: boolean };
@@ -74,8 +78,9 @@ export type FormState = { fillable: boolean; reason: string | null; /** Buttons 
  */
 export function formState(opts: {
   me: Me; readOnly?: boolean; run?: string; info?: RunInfo; step?: string | null; /** Dokument gehört einem Workflow-Schritt (`document.owner`). */ owner?: Json;
+  workspaceRoles?: { id: string; key: string }[];
 }): FormState {
-  const { me, readOnly, run, info, step, owner } = opts;
+  const { me, readOnly, run, info, step, owner, workspaceRoles } = opts;
   const no = (reason: string | null): FormState => ({ fillable: false, reason, buttons: false });
   if (!me) return no("Bitte anmelden.");
   if (readOnly) return no("Dieses Dokument ist schreibgeschützt.");
@@ -87,7 +92,7 @@ export function formState(opts: {
   const current = r?.current_step ?? r?.current?.step ?? info.task?.step;
   if (current && step && current !== step) return no("Dieser Schritt ist nicht (mehr) aktuell.");
   if (r?.waiting_subrun || r?.waiting_for) return no("Der Ablauf wartet auf einen Unter-Ablauf.");
-  if (info.task && !canAct(info.task, me)) return no("Du bist für diese Aufgabe nicht zuständig, das Formular ist schreibgeschützt.");
+  if (info.task && !canAct(info.task, me, workspaceRoles)) return no("Du bist für diese Aufgabe nicht zuständig, das Formular ist schreibgeschützt.");
   if (!info.task && r) return no("Es gibt keine offene Aufgabe.");
   return { fillable: true, reason: null, buttons: true };
 }

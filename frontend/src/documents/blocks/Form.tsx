@@ -25,6 +25,7 @@ export function FormBlock({ block }: { block: FlatBlock }) {
   const me = useAuth((s) => s.user);
   const docCh = useChannel(doc.channel || null);
   const runCh = useChannel(doc.run ? `run:${doc.run}` : null);
+  const wsCh = useChannel("workspace");
   const draft = useDraft(block.id, doc.run);
   const [errors, setErrorsState] = useState<FormErrors>(noErrors());
   const [busy, setBusy] = useState<string | null>(null);
@@ -33,6 +34,7 @@ export function FormBlock({ block }: { block: FlatBlock }) {
   const step: string | null = doc.stepKey ?? owner?.step ?? null;
   const state = formState({
     me, readOnly: doc.readOnly, run: doc.run, step, owner,
+    workspaceRoles: wsCh?.view?.roles as { id: string; key: string }[] | undefined,
     info: doc.run ? { loading: !runCh || runCh.status === "loading", run: runCh?.view?.run, task: runCh?.view?.task } : undefined,
   });
   const inputs = useMemo(() => inputBlocks(doc.blocks, block.id), [doc.blocks, block.id]);

@@ -175,4 +175,17 @@ describe("Ops", () => {
     const task = { step: "genehmigung", candidate_roles: ["chef"], excluded: ["usr_ben"] };
     expect(formState({ me: { id: "usr_ben", roles: ["chef"] }, run: "run_1", step: "genehmigung", info: { loading: false, run: { status: "active", current_step: "genehmigung" }, task } }).fillable).toBe(false);
   });
+
+  it("löst Rollen-IDs in candidate_roles über workspaceRoles auf", () => {
+    const task = { step: "genehmigung", candidate_roles: ["rol_chef"] };
+    expect(
+      formState({
+        me: { id: "usr_chef", roles: ["chef"] },
+        run: "run_1",
+        step: "genehmigung",
+        info: { loading: false, run: { status: "active", current_step: "genehmigung" }, task },
+        workspaceRoles: [{ id: "rol_chef", key: "chef" }],
+      }).fillable,
+    ).toBe(true);
+  });
 });

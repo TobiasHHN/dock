@@ -89,14 +89,15 @@ export function RunView({ runId }: { runId: string }) {
 
   const mayCancel = canCancelRun(run, workflow?.draft, me, wsRoles);
   const due = run.current?.due_at ? formatDue(run.current.due_at) : null;
+  const claimedId: string | null = openTask?.claimed_by_id ?? openTask?.claimed_by?.id ?? null;
   const canClaim =
-    run.status === "active" && openTask && !openTask.claimed_by && canAct(openTask, me);
+    run.status === "active" && openTask && !claimedId && canAct(openTask, me, wsRoles);
   const canRelease =
     run.status === "active" &&
     openTask &&
-    !!openTask.claimed_by &&
+    !!claimedId &&
     !!me &&
-    (openTask.claimed_by.id === me.id || me.roles.includes("einkauf"));
+    (claimedId === me.id || me.roles.includes("einkauf"));
 
   async function doTaskOp(op: "task.claim" | "task.release") {
     if (!openTask?.id || busyOp) return;
