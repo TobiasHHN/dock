@@ -1,4 +1,4 @@
-// Home (Task 2.6): Dokumente, Tabellen, Workflows live aus dem Kanal `workspace` (L 7.2), „Neues Dokument“,
+// Home (Task 2.6, B8): nur Dokumente live aus dem Kanal `workspace` (L 7.2); Tabellen und Workflows sind Blätter der Dokumente, „Neues Dokument“,
 // Zähler für Aufgaben und Benachrichtigungen. Neue Einträge erscheinen ohne Neuladen und werden kurz hervorgehoben.
 // Oben „Wartet auf dich“: die offenen Aufgaben aus `user:<id>` als Kurzliste (die volle Ansicht baut Task 4.5).
 import { type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
@@ -205,25 +205,6 @@ export function Home() {
           }
           empty={mayEdit ? "Noch keine Dokumente. Lege oben das erste an." : "Noch keine Dokumente."}
           onImport={mayEdit ? () => setImporting({ file: null }) : undefined}
-        />
-        <ListCard
-          title="Tabellen"
-          icon="table"
-          items={data?.tables as Item[] | undefined}
-          link={(t) => `/tables/${t.id}`}
-          meta={(t) => t.key && <span className="chip" translate="no">{t.key}</span>}
-          empty="Noch keine Tabellen."
-          onImport={mayEdit ? () => setImporting({ file: null }) : undefined}
-        />
-        <ListCard
-          title="Workflows"
-          icon="flow"
-          items={data?.workflows as Item[] | undefined}
-          link={(w) => `/workflows/${w.id}`}
-          meta={(w) =>
-            w.latest_version ? <span className="chip chip-success">v{w.latest_version}</span> : <span className="chip">Entwurf</span>
-          }
-          empty="Noch keine Workflows."
         />
       </div>
       {importing && <ImportDialog initialFile={importing.file} onClose={() => setImporting(null)} />}

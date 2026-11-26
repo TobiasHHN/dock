@@ -2,7 +2,7 @@
 // Kennzeichnung des Autors (Mensch, Agent „im Auftrag von“, Workflow), Präsenz-Avatare (2.5).
 // `DocumentView` ist eigenständig nutzbar (z. B. als Schritt-Dokument in der Run-Ansicht, Task 4.6).
 import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Actor } from "../api";
 import { canEditStructure, useAuth, workflowApi } from "../api/client";
@@ -22,6 +22,10 @@ import { DocContext, type DocContextValue, requestFocus, useDoc } from "./docCon
 import { EmbedDialog } from "./EmbedDialog";
 import { EMBED_TYPES, type EmbedKind } from "./embedModel";
 import { actorColor, scrollCorrection } from "./presenceModel";
+import { SheetBar, type SheetLabel } from "./SheetBar";
+import { WorkflowDetail } from "../workflows/WorkflowPage";
+import { TableEditor } from "../tables/TableEditor";
+import { type Sheet, activeSheet, collectSheets, sheetOfBlock, sheetParam } from "./workbookModel";
 import { TextBlock } from "./TextBlock";
 
 /** Erster (weitgehend) sichtbarer Block der obersten Ebene samt Abstand zum Fensterrand. */
@@ -34,6 +38,7 @@ function pickAnchor(): { id: string; top: number } | null {
   return null;
 }
 
+type SheetRef = { id: string; key?: string; name?: string };
 const fail = (what: string) => (e: Error) => toast(`${what}: ${e.message}`, "error");
 
 export function DocumentPage() {
@@ -118,6 +123,28 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
   const isMe = (a: Actor) => a.type === "user" && a.id === me?.id;
   const presence = useMemo(() => ch?.presence ?? [], [ch?.presence]);
   const others = presence.filter((p) => !isMe(p.actor));
+
+  // Arbeitsmappe (B8): Blatt 1 = Dokument, dann eingebettete Tabellen und Workflows; aktives Blatt steht in `?sheet=`
+  const [params, setParams] = useSearchParams();
+  const wsView = useChannel("workspace")?.view as { tables?: SheetRef[]; workflows?: SheetRef[] } | undefined;
+  const sheets = useMemo(
+    () => collectSheets(blocks, wsView ? { tables: wsView.tables, workflows: wsView.workflows } : undefined),
+    [blocks, wsView],
+  );
+  const sheetLabels: SheetLabel[] = sheets.map((sheet) => {
+    const ref = (sheet.kind === "table" ? wsView?.tables : wsView?.workflows)?.find((x) => x.id === sheet.id);
+    return { sheet, label: ref?.name ?? ref?.key ?? (sheet.kind === "table" ? "Tabelle" : "Workflow") };
+  });
+  const active = activeSheet(params.get("sheet"), sheets);
+  const selectSheet = (s: Sheet | null) => {
+    const next = new URLSearchParams(params);
+    const v = sheetParam(s);
+    if (v) next.set("sheet", v);
+    else next.delete("sheet");
+    setParams(next);
+    window.scrollTo({ top: 0 });
+  };
+  const [embed, setEmbed] = useState<EmbedKind | null>(null);
 
   const ctx: DocContextValue = useMemo(
     () => ({
@@ -240,17 +267,45 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
           </div>
         )}
       </div>
-      <div className="doc-head">
-        {doc.owner && <span className="pill pill-success">Schritt „{doc.owner.step}“ eines Workflows</span>}
-        <DocTitle docId={docId} title={doc.title} editable={mayEdit} />
-      </div>
-      {!mayEdit && !readOnly && (
-        <div className="readonly-hint"><Icon name="info" />Nur lesen: Dokumente ändern darf in der Demo die Rolle Einkauf.</div>
+      {active ? (
+        <div className="sheet-pane" key={active.id}>
+          {active.kind === "table" ? <TableEditor tableId={active.id} embedded /> : <WorkflowDetail workflowId={active.id} embedded />}
+        </div>
+      ) : (
+        <>
+          <div className="doc-head">
+            {doc.owner && <span className="pill pill-success">Schritt „{doc.owner.step}“ eines Workflows</span>}
+            <DocTitle docId={docId} title={doc.title} editable={mayEdit} />
+          </div>
+          {!mayEdit && !readOnly && (
+            <div className="readonly-hint"><Icon name="info" />Nur lesen: Dokumente ändern darf in der Demo die Rolle Einkauf.</div>
+          )}
+          <div className="doc-body">
+            <BlockChildren parent={null} />
+            {mayEdit && <AddBlockButton />}
+          </div>
+        </>
       )}
-      <div className="doc-body">
-        <BlockChildren parent={null} />
-        {mayEdit && <AddBlockButton />}
-      </div>
+      <SheetBar
+        docLabel={doc.title || "Dokument"}
+        sheets={sheetLabels}
+        active={active}
+        onSelect={selectSheet}
+        onEmbed={mayEdit ? setEmbed : undefined}
+      />
+      {embed && (
+        <EmbedDialog
+          kind={embed}
+          onClose={() => setEmbed(null)}
+          onInsert={(nb) => {
+            setEmbed(null);
+            const top = childrenOf(blocks, null);
+            insertBlock(docId, null, top[top.length - 1]?.id, nb).catch(fail("Block nicht eingefügt"));
+            const target = sheetOfBlock(nb);
+            if (target) selectSheet(target);
+          }}
+        />
+      )}
     </DocContext.Provider>
   );
 }

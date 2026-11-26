@@ -464,6 +464,8 @@ frontend/src/
   search/
 ```
 
+**Navigation und Arbeitsmappe:** Home listet nur Dokumente. Ein Dokument ist eine Arbeitsmappe: Eine Blatt-Leiste am unteren Rand zeigt Blatt 1 = Dokument, danach je ein Blatt pro eingebetteter Tabelle (`table_view`, voller Tabellen-Editor) und pro eingebettetem Workflow (`workflow`, Graph und Abläufe), jeweils in Dokumentreihenfolge und ohne Doppelte (`documents/workbookModel.ts`). Das aktive Blatt steht in der Adresse (`/documents/:id?sheet=<Tabellen- oder Workflow-ID>`). Die Routen `/tables/:id` und `/workflows/:id` bleiben für Links aus Suche, Benachrichtigungen und Import und bieten „In Dokument einbetten …“ an. Das Datenmodell bleibt unverändert, ein Besitzer-Feld gibt es nicht.
+
 ### 5.3 Sync-Store
 
 ```ts

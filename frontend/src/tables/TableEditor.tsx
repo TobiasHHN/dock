@@ -1,5 +1,6 @@
 // Tabellen-Editor (Task 3.1, F5, L 2, L 3.4): Spalten und Typen anlegen, Zeilen hinzufügen und löschen, Zellen sofort
 // speichern, Filter und Sortierung, neue Zeilen kurz hervorheben. Alles Live über den Kanal `table:<id>`.
+import { EmbedInDocumentButton } from "../documents/SheetBar";
 import { useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { canEditStructure, useAuth } from "../api/client";
@@ -19,7 +20,7 @@ export function TableEditorPage() {
   return <TableEditor tableId={id!} />;
 }
 
-export function TableEditor({ tableId }: { tableId: string }) {
+export function TableEditor({ tableId, embedded = false }: { tableId: string; embedded?: boolean }) {
   const me = useAuth((s) => s.user);
   const navigate = useNavigate();
   const users = useUsers();
@@ -85,11 +86,13 @@ export function TableEditor({ tableId }: { tableId: string }) {
 
   return (
     <>
-      <nav className="breadcrumb" aria-label="Brotkrumen">
-        <Link to="/">Tabellen</Link>
-        <Icon name="chevronRight" size={14} />
-        <span aria-current="page">{table.name}</span>
-      </nav>
+      {!embedded && (
+        <nav className="breadcrumb" aria-label="Brotkrumen">
+          <Link to="/">Home</Link>
+          <Icon name="chevronRight" size={14} />
+          <span aria-current="page">{table.name}</span>
+        </nav>
+      )}
       <div className="page-head">
         <div>
           <h1>{table.name}</h1>
@@ -107,6 +110,7 @@ export function TableEditor({ tableId }: { tableId: string }) {
               <Icon name="plus" size={14} />Spalte
             </button>
           )}
+          {!embedded && <EmbedInDocumentButton sheet={{ kind: "table", id: table.id }} />}
           {mayStructure && (
             <button className="ghost quiet-danger" onClick={deleteTable}>
               <Icon name="trash" size={14} />Tabelle löschen

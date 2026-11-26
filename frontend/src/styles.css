@@ -1009,3 +1009,24 @@ button.ghost.quiet-danger:focus-visible { background: var(--danger-soft); color:
 .lock-badge .avatar { width: 14px; height: 14px; font-size: 0.5rem; box-shadow: none; background: var(--presence, var(--accent)); }
 .lock-badge .avatar[class*="agent"] { background: var(--presence, var(--agent)); }
 @media (prefers-reduced-motion: reduce) { .block.enter, .lock-badge { animation: none; } }
+
+/* B8: Arbeitsmappe, Blatt-Leiste unten wie in Excel */
+.sheet-bar {
+  position: sticky; bottom: 0; z-index: 5; display: flex; align-items: stretch; gap: 8px;
+  margin: 24px -4px 0; padding: 0 4px; background: var(--surface); border-top: 1px solid var(--border-strong);
+}
+.sheet-tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; }
+.sheet-tab {
+  display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 220px; min-height: 40px;
+  padding: 0 14px; border: 0; border-radius: 0; background: transparent; color: var(--muted); font-weight: 500;
+  border-top: 2px solid transparent; margin-top: -1px; box-shadow: none;
+}
+.sheet-tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sheet-tab:hover { background: var(--surface-2); color: var(--text); }
+.sheet-tab.active { color: var(--accent); border-top-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.sheet-add { position: relative; display: flex; align-items: center; }
+.sheet-menu { bottom: 100%; top: auto; right: 0; left: auto; margin-bottom: 4px; }
+.sheet-pane { min-width: 0; }
+@media (max-width: 720px) {
+  .sheet-bar { bottom: calc(72px + env(safe-area-inset-bottom)); }
+}
