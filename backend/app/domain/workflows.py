@@ -687,22 +687,448 @@ async def publish_with_issues(ctx: Any, workflow_id: str) -> tuple[int, list[Val
 # ── Ablauf (Task 4.2) ────────────────────────────────────────────────────────
 
 
-async def start_run(ctx: Any, run_id: str, workflow: str, input: dict[str, Any] | None, actor: Actor) -> None:
+def parse_iso_duration(raw: str) -> "timedelta":
+    """Parst ISO-8601-Dauer (z. B. `P2D`, `PT4H`, `P1W`, `P1DT12H`) zu `timedelta`."""
+    from datetime import timedelta
+
+    m = _DURATION.match(raw)
+    if not m:
+        raise ValueError(f"Ungültige ISO-Dauer: '{raw}'")
+
+    def num(group: int) -> int:
+        val = m.group(group)
+        return int(val[:-1]) if val else 0
+
+    days = num(1) * 365 + num(2) * 30 + num(3) * 7 + num(4)
+    return timedelta(days=days, hours=num(6), minutes=num(7), seconds=num(8))
+
+
+async def record_run_event(ctx: Any, run_id: str, event_type: str, actor: Actor, *,
+                           step: str | None = None, outcome: str | None = None,
+                           label: str | None = None, text_val: str | None = None) -> str:
+    """Schreibt ein Ereignis in `run_events` (L 5.10)."""
+    from app.domain.ids import new_id
+
+    evt_id = new_id("event")
+    await ctx.session.execute(
+        text("""INSERT INTO run_events (id, run_id, actor, type, step, outcome, label, text)
+                VALUES (:id, :run_id, CAST(:actor AS jsonb), :type, :step, :outcome, :label, :text)"""),
+        {
+            "id": evt_id,
+            "run_id": run_id,
+            "actor": json.dumps(actor.model_dump(mode="json", exclude_none=True)),
+            "type": event_type,
+            "step": step,
+            "outcome": outcome,
+            "label": label,
+            "text": text_val,
+        },
+    )
+    return evt_id
+
+
+async def load_run_bundle(ctx: Any, run_id: str, *, for_update: bool = False
+                          ) -> tuple[dict[str, Any], WorkflowDefinition, str]:
+    """Lädt Run, zugehörige Workflow-Definition der Run-Version und Workflow-Namen."""
+    from app.ops.errors import PipelineError
+
+    lock = " FOR UPDATE OF r" if for_update else ""
+    row = (await ctx.session.execute(
+        text(f"""SELECT r.*, w.name AS wf_name, v.definition AS wf_def
+                 FROM runs r
+                 JOIN workflows w ON w.id = r.workflow_id
+                 JOIN workflow_versions v ON v.workflow_id = r.workflow_id AND v.version = r.version
+                 WHERE r.id = :id{lock}"""),
+        {"id": run_id},
+    )).mappings().first()
+    if row is None:
+        raise PipelineError("NOT_FOUND", f"Run '{run_id}' wurde nicht gefunden")
+    run = dict(row)
+    for col in ("result", "input", "steps", "started_by"):
+        run[col] = _j(run[col])
+    definition = WorkflowDefinition.model_validate(_j(run.pop("wf_def")))
+    wf_name = str(run.pop("wf_name"))
+    return run, definition, wf_name
+
+
+async def _load_lookup_tables(ctx: Any, table_keys: set[str]) -> dict[str, list[dict[str, Any]]]:
+    """Lädt Zeilen für `lookup()`-Ausdrücke (Key -> Zeilen mit Spalten-Keys)."""
+    from app.ops.context import DEFAULT_WORKSPACE
+
+    ws = getattr(ctx, "workspace_id", DEFAULT_WORKSPACE)
+    data: dict[str, list[dict[str, Any]]] = {}
+    for key in sorted(table_keys):
+        tbl_id = (await ctx.session.execute(
+            text("SELECT id FROM tables WHERE workspace_id = :ws AND key = :k"),
+            {"ws": ws, "k": key},
+        )).scalar_one_or_none()
+        if tbl_id is None:
+            continue
+        cols = {
+            c["id"]: c["key"]
+            for c in (await ctx.session.execute(
+                text("SELECT id, key FROM columns WHERE table_id = :t"), {"t": tbl_id}
+            )).mappings()
+        }
+        rows = (await ctx.session.execute(
+            text('SELECT id, "values" FROM rows WHERE table_id = :t ORDER BY position'), {"t": tbl_id}
+        )).mappings()
+        data[key] = [
+            {"id": r["id"], **{cols[c]: v for c, v in (_j(r["values"]) or {}).items() if c in cols}}
+            for r in rows
+        ]
+    return data
+
+
+async def build_run_expr_context(ctx: Any, run: dict[str, Any], actor: Actor | None = None,
+                                 lookup_exprs: list[str] | tuple[str, ...] = ()) -> dict[str, Any]:
+    """Baut den Ausdruckskontext (`run.*`, `user.*`, `tables`) für einen Run."""
+    from app.domain import expressions
+    from app.domain.tasks import effective_id
+
+    started_by = _j(run.get("started_by")) or {}
+    starter_id = run.get("started_by_id") or (effective_id(started_by) if started_by else "")
+    if started_by.get("on_behalf_of") and starter_id:
+        row_name = (await ctx.session.execute(
+            text("SELECT name FROM users WHERE id = :id"), {"id": starter_id}
+        )).scalar_one_or_none()
+        starter_name = row_name or started_by.get("name") or starter_id
+    else:
+        starter_name = started_by.get("name") or starter_id
+    started_at = run.get("started_at")
+    run_ctx = {
+        "id": run.get("id"),
+        "title": run.get("title") or "",
+        "status": run.get("status") or "active",
+        "current_step": run.get("current_step"),
+        "version": run.get("version"),
+        "workflow": run.get("workflow_id"),
+        "result": _j(run.get("result")),
+        "input": _j(run.get("input")) or {},
+        "starter": {"id": starter_id, "name": starter_name},
+        "started_by": started_by,
+        "started_at": started_at.isoformat() if hasattr(started_at, "isoformat") else started_at,
+        "steps": _j(run.get("steps")) or {},
+    }
+    user_ctx = None
+    if actor is not None:
+        uid = effective_id(actor)
+        user_ctx = {"id": uid, "name": actor.name or uid}
+    needed_tables: set[str] = set()
+    for expr in lookup_exprs:
+        needed_tables |= expressions.lookup_tables(expr)
+    tables = await _load_lookup_tables(ctx, needed_tables) if needed_tables else {}
+    return {"run": run_ctx, "user": user_ctx, "tables": tables}
+
+
+async def evaluate_run_title(ctx: Any, definition: WorkflowDefinition, workflow_name: str,
+                             run: dict[str, Any], fallback: str | None = None) -> str:
+    """Wertet `definition.run_title` aus; Fallback ist `Workflow-Name + Datum` (L 5.2)."""
+    from datetime import date
+
+    from app.domain import expressions
+    from app.domain.expressions import ExpressionError
+
+    default_title = fallback or f"{workflow_name} {date.today().isoformat()}"
+    if not definition.run_title:
+        return default_title
+    eval_ctx = await build_run_expr_context(ctx, run, lookup_exprs=[definition.run_title])
+    try:
+        val = expressions.evaluate(definition.run_title, eval_ctx)
+    except ExpressionError:
+        return default_title
+    if isinstance(val, str) and val.strip():
+        return val.strip()
+    return default_title
+
+
+async def start_run(ctx: Any, run_id: str, workflow: str, input: dict[str, Any] | None, actor: Actor) -> dict[str, Any]:
     """Handler für `run.start` (L 5.4): Startberechtigung, Run anlegen, Event `started`, `enter_step(start)`."""
-    ...
+    from datetime import datetime, timezone
+
+    from app.domain import tasks as T
+    from app.ops.context import DEFAULT_WORKSPACE
+    from app.ops.errors import PipelineError
+
+    if not run_id.startswith("run_") or len(run_id) <= 3:
+        raise PipelineError("VALIDATION", f"Run-IDs beginnen mit 'run_' (erhalten: '{run_id}')",
+                            {"errors": {"id": "Präfix 'run_' erforderlich"}})
+    exists = (await ctx.session.execute(text("SELECT 1 FROM runs WHERE id = :id"), {"id": run_id})).first()
+    if exists is not None:
+        raise PipelineError("VALIDATION", f"Run-ID '{run_id}' existiert bereits",
+                            {"errors": {"id": f"Run-ID '{run_id}' bereits vergeben"}})
+
+    ws = getattr(ctx, "workspace_id", DEFAULT_WORKSPACE)
+    wf_row = (await ctx.session.execute(
+        text("SELECT id, name, latest_version FROM workflows WHERE workspace_id = :ws AND (id = :w OR key = :w)"),
+        {"ws": ws, "w": workflow},
+    )).mappings().first()
+    if wf_row is None:
+        raise PipelineError("NOT_FOUND", f"Workflow '{workflow}' wurde nicht gefunden")
+    if wf_row["latest_version"] is None:
+        raise PipelineError("VALIDATION", f"Workflow '{workflow}' ist noch nicht veröffentlicht",
+                            {"errors": {"workflow": "Workflow hat noch keine veröffentlichte Version"}})
+
+    wf_id, wf_name, version = wf_row["id"], wf_row["name"], int(wf_row["latest_version"])
+    ver_def = (await ctx.session.execute(
+        text("SELECT definition FROM workflow_versions WHERE workflow_id = :w AND version = :v"),
+        {"w": wf_id, "v": version},
+    )).scalar_one()
+    definition = WorkflowDefinition.model_validate(_j(ver_def))
+
+    if actor.type != "system" and definition.starters:
+        if not await T.matches_assignees(ctx, definition.starters, {"input": input or {}}, actor):
+            raise PipelineError("FORBIDDEN", "Sie sind nicht berechtigt, diesen Workflow zu starten",
+                                {"workflow": wf_id})
+
+    started_by = await T.enrich_actor(ctx, actor)
+    started_by_id = T.effective_id(started_by)
+    now = datetime.now(timezone.utc)
+    run_stub = {
+        "id": run_id,
+        "workflow_id": wf_id,
+        "version": version,
+        "title": "",
+        "status": "active",
+        "current_step": None,
+        "result": None,
+        "input": input or {},
+        "steps": {},
+        "started_by": started_by.model_dump(mode="json", exclude_none=True),
+        "started_by_id": started_by_id,
+        "started_at": now,
+    }
+    title = await evaluate_run_title(ctx, definition, wf_name, run_stub)
+
+    await ctx.session.execute(
+        text("""INSERT INTO runs (id, workflow_id, version, title, status, current_step, input, steps,
+                                  started_by, started_by_id, started_at, updated_at)
+                VALUES (:id, :wf, :v, :title, 'active', NULL, CAST(:input AS jsonb), '{}'::jsonb,
+                        CAST(:by AS jsonb), :by_id, :at, :at)"""),
+        {
+            "id": run_id,
+            "wf": wf_id,
+            "v": version,
+            "title": title,
+            "input": json.dumps(input or {}),
+            "by": json.dumps(started_by.model_dump(mode="json", exclude_none=True)),
+            "by_id": started_by_id,
+            "at": now,
+        },
+    )
+    await record_run_event(ctx, run_id, "started", started_by)
+    task_id = await enter_step(ctx, run_id, definition.start)
+    return {
+        "id": run_id,
+        "workflow": wf_id,
+        "version": version,
+        "status": "active",
+        "current_step": definition.start,
+        "task_id": task_id,
+    }
 
 
-async def enter_step(ctx: Any, run_id: str, step: str) -> None:
-    """Run auf Schritt setzen, Aufgabe anlegen (tasks.create_task), Event `step_entered`, Titel neu auswerten."""
-    ...
+async def enter_step(ctx: Any, run_id: str, step: str) -> str:
+    """Run auf Schritt setzen, Aufgabe anlegen (`tasks._resolve_assignees`), Event `step_entered`, Titel neu auswerten."""
+    from datetime import datetime, timezone
+
+    from app.domain import tasks as T
+    from app.domain.ids import new_id
+    from app.ops.errors import PipelineError
+
+    run, definition, wf_name = await load_run_bundle(ctx, run_id, for_update=True)
+    step_def = next((s for s in definition.steps if s.key == step), None)
+    if step_def is None:
+        raise PipelineError("VALIDATION", f"Schritt '{step}' existiert in Workflow '{run['workflow_id']}' nicht",
+                            {"errors": {"step": f"unbekannter Schritt '{step}'"}})
+
+    await ctx.session.execute(
+        text("UPDATE runs SET current_step = :step, updated_at = now() WHERE id = :id"),
+        {"step": step, "id": run_id},
+    )
+    run["current_step"] = step
+
+    candidates, excluded, unassigned = await T._resolve_assignees(ctx, step_def, {**run, "definition": definition})
+    due_at = datetime.now(timezone.utc) + parse_iso_duration(step_def.due_in) if step_def.due_in else None
+    task_id = new_id("task")
+    await ctx.session.execute(
+        text("""INSERT INTO tasks (id, run_id, step, status, candidate_users, candidate_roles, excluded, due_at)
+                VALUES (:id, :run_id, :step, 'open', CAST(:u AS text[]), CAST(:r AS text[]),
+                        CAST(:ex AS text[]), :due)"""),
+        {
+            "id": task_id,
+            "run_id": run_id,
+            "step": step,
+            "u": candidates.users,
+            "r": candidates.roles,
+            "ex": excluded,
+            "due": due_at,
+        },
+    )
+
+    system_actor = Actor(type="system", id="workflow", name="Workflow")
+    await record_run_event(ctx, run_id, "step_entered", system_actor, step=step)
+    if unassigned:
+        await record_run_event(
+            ctx, run_id, "unassigned", system_actor, step=step,
+            text_val=f"Keine auflösbaren Zuständigen für Schritt '{step}', an Manager übergeben",
+        )
+
+    new_title = await evaluate_run_title(ctx, definition, wf_name, run, fallback=run["title"])
+    if new_title != run["title"]:
+        await ctx.session.execute(text("UPDATE runs SET title = :t WHERE id = :id"), {"t": new_title, "id": run_id})
+
+    channels = [f"run:{run_id}", *await T.user_channels_for_candidates(
+        ctx, candidates, excluded, [run["started_by_id"]])]
+    for ch in sorted(set(channels)):
+        await ctx.lock_channel(ch)
+    return task_id
 
 
 async def complete_task(ctx: Any, task_id: str, button: dict[str, Any], values: dict[str, Any],
-                        results: dict[str, Any], actor: Actor) -> None:
+                        results: dict[str, Any], actor: Actor) -> dict[str, Any]:
     """Nach `form.submit` im Run: Aufgabe `done`, `run.steps[step]` speichern, Übergang nach Outcome,
     Ende oder `enter_step`. Wird von `forms.submit_form` aufgerufen (Task 4.3)."""
-    ...
+    from datetime import datetime, timezone
+
+    from app.domain import tasks as T
+    from app.ops.errors import PipelineError
+
+    row = (await ctx.session.execute(
+        text("SELECT * FROM tasks WHERE id = :id FOR UPDATE"), {"id": task_id})).mappings().first()
+    if row is None:
+        raise PipelineError("NOT_FOUND", f"Aufgabe '{task_id}' wurde nicht gefunden")
+    if row["status"] == "done":
+        raise PipelineError("TASK_DONE", f"Aufgabe '{task_id}' wurde bereits erledigt",
+                            {"completed_by": _j(row["completed_by"]), "outcome": row["outcome"]})
+    if row["status"] == "cancelled":
+        raise PipelineError("TASK_DONE", f"Aufgabe '{task_id}' wurde abgebrochen", {"status": "cancelled"})
+
+    run, definition, wf_name = await load_run_bundle(ctx, row["run_id"], for_update=True)
+    if run["status"] != "active" or run["current_step"] != row["step"]:
+        raise PipelineError("TASK_DONE", f"Aufgabe '{task_id}' ist nicht mehr aktiv", {"status": run["status"]})
+
+    task_model = T.task_from_row(dict(row))
+    if actor.type != "system":
+        roles = await T.actor_role_refs(ctx, actor)
+        if not T.can_act(actor, roles, task_model):
+            who = T.effective_id(actor)
+            if who in task_model.excluded:
+                raise PipelineError("FORBIDDEN", "Vier-Augen-Prinzip: Sie sind für diese Aufgabe ausgeschlossen",
+                                    {"task": task_id})
+            is_cand = who in task_model.candidates.users or bool(set(roles) & set(task_model.candidates.roles))
+            if is_cand and task_model.claimed_by is not None:
+                raise PipelineError(
+                    "TASK_CLAIMED",
+                    f"Aufgabe wird bereits von {task_model.claimed_by.name or task_model.claimed_by.id} bearbeitet",
+                    {"claimed_by": task_model.claimed_by.model_dump(mode="json", exclude_none=True)},
+                )
+            raise PipelineError("FORBIDDEN", "Sie sind für diese Aufgabe nicht zuständig", {"task": task_id})
+
+    enriched = await T.enrich_actor(ctx, actor)
+    now = datetime.now(timezone.utc)
+    outcome = button.get("outcome")
+    label = button.get("label") or button.get("id") or (outcome or "")
+
+    await ctx.session.execute(
+        text("""UPDATE tasks SET status = 'done', completed_by = CAST(:by AS jsonb), completed_at = :at,
+                                 outcome = :outcome WHERE id = :id"""),
+        {
+            "by": json.dumps(enriched.model_dump(mode="json", exclude_none=True)),
+            "at": now,
+            "outcome": outcome,
+            "id": task_id,
+        },
+    )
+
+    steps_data = dict(_j(run["steps"]) or {})
+    steps_data[row["step"]] = {
+        "outcome": outcome or "",
+        "label": label,
+        "values": values,
+        "results": results,
+        "completed_by": enriched.model_dump(mode="json", exclude_none=True),
+        "completed_at": now.isoformat(),
+    }
+    run["steps"] = steps_data
+    await ctx.session.execute(
+        text("UPDATE runs SET steps = CAST(:steps AS jsonb), updated_at = :at WHERE id = :id"),
+        {"steps": json.dumps(steps_data), "at": now, "id": run["id"]},
+    )
+    await record_run_event(ctx, run["id"], "step_completed", enriched, step=row["step"], outcome=outcome, label=label)
+
+    trans = next((t for t in definition.transitions
+                  if t.from_ == row["step"] and outcome is not None and t.on == outcome), None)
+    if trans is None:
+        trans = next((t for t in definition.transitions if t.from_ == row["step"] and t.on == ANY_OUTCOME), None)
+    if trans is None:
+        raise PipelineError("VALIDATION", f"Kein Übergang von Schritt '{row['step']}' für Outcome '{outcome}'",
+                            {"errors": {"outcome": f"kein Übergang für '{outcome}'"}})
+
+    if trans.to == END:
+        res = {"outcome": outcome or "", "label": label}
+        new_title = await evaluate_run_title(ctx, definition, wf_name, run, fallback=run["title"])
+        await ctx.session.execute(
+            text("""UPDATE runs SET status = 'completed', current_step = NULL, result = CAST(:res AS jsonb),
+                                    title = :title, ended_at = :at, updated_at = :at WHERE id = :id"""),
+            {"res": json.dumps(res), "title": new_title, "at": now, "id": run["id"]},
+        )
+        await record_run_event(ctx, run["id"], "completed", enriched, step=row["step"], outcome=outcome, label=label)
+        channels = [f"run:{run['id']}", *await T.user_channels_for_candidates(
+            ctx, task_model.candidates, task_model.excluded, [run["started_by_id"]])]
+        for ch in sorted(set(channels)):
+            await ctx.lock_channel(ch)
+        return {"status": "completed", "current_step": None, "result": res}
+
+    for ch in sorted(set(await T.user_channels_for_candidates(
+        ctx, task_model.candidates, task_model.excluded, [run["started_by_id"]]))):
+        await ctx.lock_channel(ch)
+
+    next_task_id = await enter_step(ctx, run["id"], trans.to)
+    return {"status": "active", "current_step": trans.to, "task_id": next_task_id}
 
 
-async def cancel_run(ctx: Any, run_id: str, reason: str | None, actor: Actor) -> None:
-    ...
+async def cancel_run(ctx: Any, run_id: str, reason: str | None, actor: Actor) -> dict[str, Any]:
+    """`run.cancel`: bricht einen aktiven Run und dessen offene Aufgaben ab (L 5.4)."""
+    from app.domain import tasks as T
+    from app.ops.errors import PipelineError
+
+    run, definition, _ = await load_run_bundle(ctx, run_id, for_update=True)
+    if run["status"] != "active":
+        raise PipelineError("VALIDATION", f"Run '{run_id}' ist bereits {run['status']}",
+                            {"errors": {"run": f"Run ist nicht aktiv ({run['status']})"}})
+
+    who = T.effective_id(actor)
+    allowed = (
+        actor.type == "system"
+        or (definition.starter_can_cancel and who == run["started_by_id"])
+        or await T.is_manager(ctx, definition, run, actor)
+    )
+    if not allowed:
+        raise PipelineError("FORBIDDEN", "Sie dürfen diesen Run nicht abbrechen", {"run": run_id})
+
+    open_tasks = (await ctx.session.execute(
+        text("SELECT candidate_users, candidate_roles, excluded FROM tasks WHERE run_id = :id AND status = 'open'"),
+        {"id": run_id},
+    )).mappings().all()
+
+    await ctx.session.execute(
+        text("UPDATE tasks SET status = 'cancelled' WHERE run_id = :id AND status = 'open'"),
+        {"id": run_id},
+    )
+    await ctx.session.execute(
+        text("""UPDATE runs SET status = 'cancelled', current_step = NULL, ended_at = now(), updated_at = now()
+                WHERE id = :id"""),
+        {"id": run_id},
+    )
+    enriched = await T.enrich_actor(ctx, actor)
+    await record_run_event(ctx, run_id, "cancelled", enriched, step=run["current_step"], text_val=reason)
+
+    user_chs: list[str] = [f"user:{run['started_by_id']}"]
+    for t in open_tasks:
+        cands = T.TaskCandidates(users=list(t["candidate_users"] or []), roles=list(t["candidate_roles"] or []))
+        user_chs.extend(await T.user_channels_for_candidates(ctx, cands, list(t["excluded"] or [])))
+    for ch in sorted({f"run:{run_id}", *user_chs}):
+        await ctx.lock_channel(ch)
+
+    return {"id": run_id, "status": "cancelled"}
