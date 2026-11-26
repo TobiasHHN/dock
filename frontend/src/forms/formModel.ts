@@ -245,3 +245,14 @@ export const itemDeleteOp = (form_block: string, scope: Scope, key: string, item
 
 export const submitOp = (form_block: string, button: string, submission_id: string, run?: string): Op =>
   ({ op: "form.submit", submission_id, form_block, button, ...(run ? { run } : {}) }) as Op;
+
+/** Ältere Workflows haben Buttons als Ergebnis benannt („Genehmigt“). Buttons sind Aufforderungen, also so anzeigen. */
+const IMPERATIVE: Record<string, string> = {
+  Genehmigt: "Genehmigen",
+  Abgelehnt: "Ablehnen",
+  Eingereicht: "Einreichen",
+  Bestellt: "Bestellen",
+  Angenommen: "Annehmen",
+};
+
+export const buttonLabel = (label: string): string => IMPERATIVE[label.trim()] ?? label;

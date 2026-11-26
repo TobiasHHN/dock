@@ -74,7 +74,7 @@ Action = Annotated[
 
 class Button(Strict):
     id: str
-    label: str
+    label: str  # als Aufforderung („Genehmigen“, „Ablehnen“, „Einreichen“), nicht als Ergebnis („Genehmigt“)
     style: Literal["primary", "secondary", "danger"] = "secondary"
     actions: list[str] = []  # Keys der Actions, in dieser Reihenfolge
     outcome: str | None = None  # bestimmt im Workflow den nächsten Schritt
