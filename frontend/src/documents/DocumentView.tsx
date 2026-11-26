@@ -5,7 +5,7 @@ import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Actor } from "../api";
-import { canEditStructure, useAuth, workflowApi } from "../api/client";
+import { canEditDocument, useAuth, workflowApi } from "../api/client";
 import { useChannelInvalidate } from "../inbox/inboxModel";
 import { submit, sync, useChannel, useSync } from "../sync/store";
 import { Avatar, actorLabel, useUsers } from "../ui/actors";
@@ -119,7 +119,7 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
   const users = useUsers();
   const doc = ch?.view?.documents?.[0];
   const blocks: FlatBlock[] = useMemo(() => doc?.blocks ?? [], [doc?.blocks]);
-  const mayEdit = canEditStructure(me) && !readOnly;
+  const mayEdit = canEditDocument(me, doc?.owner) && !readOnly;
   const isMe = (a: Actor) => a.type === "user" && a.id === me?.id;
   const presence = useMemo(() => ch?.presence ?? [], [ch?.presence]);
   const others = presence.filter((p) => !isMe(p.actor));

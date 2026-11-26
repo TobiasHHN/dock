@@ -3,7 +3,7 @@
 // Oben „Wartet auf dich“: die offenen Aufgaben aus `user:<id>` als Kurzliste (die volle Ansicht baut Task 4.5).
 import { type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { canEditStructure, useAuth } from "../api/client";
+import { canEditDocument, canEditStructure, useAuth } from "../api/client";
 import { type InboxTask, useInbox } from "../layout/AppShell";
 import type { WorkspaceData } from "../sync/core";
 import { newId, submit, useChannel } from "../sync/store";
@@ -131,6 +131,7 @@ export function Home() {
   const [importing, setImporting] = useState<{ file: File | null } | null>(null);
   const [dragOver, setDragOver] = useState(false);
   const mayEdit = canEditStructure(user);
+  const mayCreateDoc = canEditDocument(user);
 
   async function createDocument() {
     const id = newId("doc");
@@ -177,12 +178,14 @@ export function Home() {
             {unread} ungelesene {unread === 1 ? "Benachrichtigung" : "Benachrichtigungen"}
           </p>
         </div>
-        {mayEdit && (
+        {mayCreateDoc && (
           <div className="actions">
-            <button onClick={() => setImporting({ file: null })}>
-              <Icon name="arrowUp" />
-              Importieren
-            </button>
+            {mayEdit && (
+              <button onClick={() => setImporting({ file: null })}>
+                <Icon name="arrowUp" />
+                Importieren
+              </button>
+            )}
             <button className="primary" onClick={createDocument} disabled={creating}>
               <Icon name="plus" />
               {creating ? "Lege an …" : "Neues Dokument"}
@@ -203,7 +206,7 @@ export function Home() {
           meta={(d) =>
             d.owner ? <span className="chip">Schritt</span> : d.updated_at ? <span className="item-meta">{relativeTime(d.updated_at)}</span> : null
           }
-          empty={mayEdit ? "Noch keine Dokumente. Lege oben das erste an." : "Noch keine Dokumente."}
+          empty={mayCreateDoc ? "Noch keine Dokumente. Lege oben das erste an." : "Noch keine Dokumente."}
           onImport={mayEdit ? () => setImporting({ file: null }) : undefined}
         />
       </div>

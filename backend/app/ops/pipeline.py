@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import logging
+from dataclasses import dataclass, field
 from collections.abc import Iterable
 from typing import Any
 
@@ -44,6 +45,9 @@ _OP_ADAPTER = TypeAdapter(Op)
 PRIVILEGED_ROLE = "einkauf"
 PRIVILEGED_PREFIXES = ("table.", "column.", "doc.", "block.", "workflow.", "role.")
 PRIVILEGED_OPS = {"text.edit", "user.set_roles", "agent.set_roles"}
+# Ausnahme: freie Dokumente (ohne Workflow-Besitzer) darf jede Rolle anlegen und bearbeiten.
+DOC_OPS_FOR_ALL = {"doc.create", "doc.update", "doc.delete", "block.insert", "block.update", "block.move",
+                   "block.delete", "text.edit"}
 # Ops, die Listen im Kanal `workspace` ändern (L 7.2). Zeilen- und Blockänderungen sperren ihn bewusst nicht,
 # sonst liefen alle Batches nacheinander (T 2.5).
 WORKSPACE_PREFIXES = ("workflow.", "role.")
@@ -97,8 +101,9 @@ async def _run(db: AsyncSession, batch: OpBatch, actor: Actor) -> tuple[OpContex
 
     ctx = OpContext(session=db, actor=actor)
     ops, origins = await _expand_includes(ctx, batch.ops)
+    perm_state = _PermState()
     for op in ops:
-        await _check_permission(ctx, op)
+        await _check_permission(ctx, op, perm_state)
     ops = [await _resolve_keys(ctx, op) for op in ops]
 
     for channel in sorted(await channels_for(ctx, ops)):
@@ -170,12 +175,66 @@ async def _take_import(ctx: OpContext, import_id: str) -> list[dict[str, Any]]:
 # ── Rechte (L 5.8, Demo-Vereinfachung) ───────────────────────────────────────
 
 
-async def _check_permission(ctx: OpContext, op: Op) -> None:
+@dataclass
+class _PermState:
+    """Im Batch neu angelegte freie Dokumente und Blöcke (die Rechteprüfung läuft vor den Handlern)."""
+    docs: set[str] = field(default_factory=set)
+    blocks: dict[str, str] = field(default_factory=dict)  # block_id -> doc_id
+
+
+async def _check_permission(ctx: OpContext, op: Op, state: _PermState | None = None) -> None:
     if ctx.actor.type == "system":
         return
     if op.op.startswith(PRIVILEGED_PREFIXES) or op.op in PRIVILEGED_OPS:
-        if PRIVILEGED_ROLE not in await ctx.actor_roles():
-            raise PipelineError("FORBIDDEN", f"'{op.op}' erfordert die Rolle '{PRIVILEGED_ROLE}'", {"op": op.op})
+        if PRIVILEGED_ROLE in await ctx.actor_roles():
+            return
+        if op.op in DOC_OPS_FOR_ALL and await _free_document_op(ctx, op, state or _PermState()):
+            return
+        raise PipelineError("FORBIDDEN", f"'{op.op}' erfordert die Rolle '{PRIVILEGED_ROLE}'", {"op": op.op})
+
+
+async def _free_document_op(ctx: OpContext, op: Op, state: _PermState) -> bool:
+    """Alle Rollen dürfen freie Dokumente anlegen und bearbeiten. Schritt-Dokumente eines Workflows
+    (`owner_workflow` gesetzt) bleiben `einkauf` vorbehalten, ebenso unbekannte Dokumente/Blöcke."""
+    v = _dump(op)
+    name = v["op"]
+    if name == "doc.create":
+        if v.get("owner"):
+            return False
+        state.docs.add(v["id"])
+        for b in _walk_blocks(v.get("blocks") or []):
+            state.blocks[b["id"]] = v["id"]
+        return True
+    if name in ("doc.update", "doc.delete", "block.insert"):
+        doc_id = v["doc"]
+    else:  # block.update / block.move / block.delete / text.edit
+        doc_id = state.blocks.get(v["block"]) or await _doc_of_block(ctx, v["block"])
+        if doc_id is None:
+            return False
+    if not (doc_id in state.docs or await _is_free_document(ctx, doc_id)):
+        return False
+    if name == "block.insert":
+        for b in _walk_blocks([v["block"]]):
+            state.blocks[b["id"]] = doc_id
+    return True
+
+
+def _walk_blocks(blocks: list[dict[str, Any]]):
+    for b in blocks:
+        if b.get("id"):
+            yield b
+        yield from _walk_blocks(b.get("children") or [])
+
+
+async def _doc_of_block(ctx: OpContext, block_id: str) -> str | None:
+    row = (await ctx.session.execute(text("SELECT doc_id FROM blocks WHERE id = :i"), {"i": block_id})).first()
+    return row[0] if row else None
+
+
+async def _is_free_document(ctx: OpContext, doc_id: str) -> bool:
+    row = (await ctx.session.execute(text("SELECT owner_workflow FROM documents WHERE id = :i AND workspace_id = :ws"),
+                                     {"i": doc_id, "ws": ctx.workspace_id})).first()
+    return row is not None and row[0] is None
 
 
 # ── Keys auflösen (L 1) ──────────────────────────────────────────────────────

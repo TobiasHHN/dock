@@ -273,11 +273,14 @@ async def test_doc_create_with_tree_and_read_back(engine):
     assert got["document"]["title"] == "Test"
 
 
-async def test_doc_create_requires_einkauf_and_unique_ids(engine):
+async def test_doc_create_free_for_all_roles_step_docs_need_einkauf_and_unique_ids(engine):
     doc = zid("doc")
-    with pytest.raises(PipelineError) as exc:
-        await run({"op": "doc.create", "id": doc, "title": "x"}, actor=BEN)
+    with pytest.raises(PipelineError) as exc:  # Schritt-Dokument eines Workflows: nur `einkauf`
+        await run({"op": "doc.create", "id": doc, "title": "x", "owner": {"workflow": "wf_x", "step": "s"}}, actor=BEN)
     assert exc.value.error.code == "FORBIDDEN"
+    free = zid("doc")
+    await run({"op": "doc.create", "id": free, "title": "Notiz von Ben, Straße 1"}, actor=BEN)  # freies Dokument: alle Rollen
+    assert (await q(engine, "SELECT title FROM documents WHERE id = :d", d=free))[0]["title"] == "Notiz von Ben, Straße 1"
     dup = zid("blk")
     with pytest.raises(PipelineError) as exc:
         await run({"op": "doc.create", "id": doc, "title": "x", "blocks": [para(id_=dup), para(id_=dup)]})

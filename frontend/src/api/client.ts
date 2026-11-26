@@ -65,6 +65,8 @@ export const useAuth = create<AuthState>((set, get) => ({
 export const hasRole = (user: UserOut | null, role: string) => !!user?.roles.includes(role);
 /** Demo-Vereinfachung (Plan, Rechte): Struktur ändern darf nur `einkauf`. */
 export const canEditStructure = (user: UserOut | null) => hasRole(user, "einkauf");
+/** Freie Dokumente (ohne Workflow-Besitzer) darf jede Rolle anlegen und bearbeiten, Schritt-Dokumente nur `einkauf`. */
+export const canEditDocument = (user: UserOut | null, owner?: unknown) => !!user && (!owner || canEditStructure(user));
 
 export class ApiRequestError extends Error {
   constructor(public status: number, message: string, public body?: unknown) {

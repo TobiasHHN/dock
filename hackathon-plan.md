@@ -62,7 +62,7 @@ Beispielprozess ist der Bestellprozess aus L 10. Die Rolle `teamleitung` heißt 
 
 **Nicht im Scope** (siehe auch L 12): Rechte-Modell im Detail, Eskalation, Vertretung, Quorum, automatische Schritte, Bedingungen in Übergängen, berechnete Spalten, Vorschlagsmodus, Migration laufender Runs, Unterschriften-Block (gab es im alten Plan, ist nicht Teil der Fachdokumente), andere Dateiformate (PDF, CSV, `.doc`, `.xls`).
 
-**Demo-Vereinfachung bei Rechten:** Tabellen-, Dokument- und Workflow-Änderungen (Schema, Veröffentlichen) sind nur für `einkauf` erlaubt, Runs starten darf jeder. Das ersetzt vorerst den offenen Punkt „Rechte allgemein“ (L 12).
+**Demo-Vereinfachung bei Rechten:** Tabellen- und Workflow-Änderungen (Schema, Veröffentlichen) sowie Schritt-Dokumente von Workflows sind nur für `einkauf` erlaubt. Freie Dokumente (ohne Workflow-Besitzer) darf jede Rolle anlegen und bearbeiten, Runs starten darf jeder. Das ersetzt vorerst den offenen Punkt „Rechte allgemein“ (L 12).
 
 ---
 
@@ -189,7 +189,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 
 - **Handler:** Neue Ops kommen als Modul in `backend/app/ops/handlers/` mit `@register("<op>")`. Die Schnittstelle (`touch`, `changed`, `set_references`, `add_inverse`, `resolve`, `lock_channel`) steht in `backend/app/ops/context.py`. Versionen erhöht die Pipeline, nicht der Handler.
 - **Fehlende Handler (Stand jetzt):** Alle Ops außer `table.*`, `column.*`, `row.*`, `doc.*`, `block.*`, `role.*` und `user/agent.set_roles` liefern `VALIDATION` („nicht verfügbar“). Das gilt für `draft.*`, `form.submit`, `workflow.*`, `run.*`, `task.*` und `import.include`-Inhalte ohne Handler. `text.edit` hat seit F15 einen Handler (`ops/handlers/documents.py`).
-- **Rechte in der Pipeline:** Nur strukturelle Ops verlangen `einkauf` (`table.*`, `column.*`, `doc.*`, `block.*`, `workflow.*`, `role.*`, `text.edit`, `user/agent.set_roles`). `row.*`, `draft.*`, `form.submit`, `run.*` und `task.*` sind auf Pipeline-Ebene offen. Die fachliche Prüfung (Startberechtigung, `can_act`, Sichtbarkeit) muss der jeweilige Handler machen.
+- **Rechte in der Pipeline:** Nur strukturelle Ops verlangen `einkauf` (`table.*`, `column.*`, `doc.*`, `block.*`, `workflow.*`, `role.*`, `text.edit`, `user/agent.set_roles`). Ausnahme (3.F5): `doc.create/update/delete`, `block.*` und `text.edit` auf freien Dokumenten (`owner_workflow` leer) stehen allen Rollen offen. `row.*`, `draft.*`, `form.submit`, `run.*` und `task.*` sind auf Pipeline-Ebene offen. Die fachliche Prüfung (Startberechtigung, `can_act`, Sichtbarkeit) muss der jeweilige Handler machen.
 - **Fixtures:** Die In-Memory-Fassung ist `backend/app/ops/memory.py` (Tabellen) plus `memory_documents.py` (Dokumente). Neue Op-Arten registrieren sich mit `@memory_op("<op>")` in einer eigenen Datei. Nicht registrierte Ops werden in `test_fixtures` übersprungen.
 - **Positionen:** Fractional Index in Basis 62, `backend/app/domain/positions.py` (Port von `fractional-indexing`). Das Frontend muss dasselbe Verfahren nutzen.
 - **`after`:**

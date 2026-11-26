@@ -534,3 +534,50 @@ async def test_rest_endpoint_maps_pipeline_errors(engine):
             base={tbl["id"]: 99}).model_dump(mode="json"))
         assert conflict.status_code == 409 and conflict.json()["error"]["details"]["versions"]
     app.dependency_overrides.pop(current_user, None)
+
+
+# ── Freie Dokumente für alle Rollen ──────────────────────────────────────────
+
+
+def _op(raw: dict):
+    return pipeline._OP_ADAPTER.validate_python(raw)
+
+
+async def test_every_role_may_create_and_edit_free_documents_but_not_step_documents(engine):
+    free, step = zid("doc"), zid("doc")
+    blk_free, blk_step = zid("blk"), zid("blk")
+    async with engine.begin() as c:
+        await c.execute(text("""INSERT INTO documents (id, workspace_id, title) VALUES (:f, 'ws_demo', 'Frei'),
+                                (:s, 'ws_demo', 'Schritt')"""), {"f": free, "s": step})
+        await c.execute(text("UPDATE documents SET owner_workflow = 'wf_zz12', owner_step = 's1' WHERE id = :s"), {"s": step})
+        await c.execute(text("""INSERT INTO blocks (id, doc_id, position, type, props) VALUES
+                                (:bf, :f, 'a0', 'paragraph', '{}'), (:bs, :s, 'a0', 'paragraph', '{}')"""),
+                        {"bf": blk_free, "f": free, "bs": blk_step, "s": step})
+    try:
+        async with async_sessionmaker(engine)() as s:
+            ctx = OpContext(session=s, actor=BEN)
+            new_doc, new_blk = zid("doc"), zid("blk")
+            state = pipeline._PermState()
+            ok = [
+                {"op": "doc.create", "id": new_doc, "title": "Notiz von Ben"},
+                {"op": "block.insert", "doc": new_doc, "block": {"id": new_blk, "type": "paragraph", "props": {}}},
+                {"op": "text.edit", "block": new_blk, "version": 1, "from": 0, "to": 0, "insert": "ß"},
+                {"op": "doc.update", "doc": free, "title": "Straße"},
+                {"op": "block.delete", "block": blk_free},
+            ]
+            for raw in ok:
+                await pipeline._check_permission(ctx, _op(raw), state)
+            forbidden = [
+                {"op": "doc.create", "id": zid("doc"), "title": "x", "owner": {"workflow": "wf_zz12", "step": "s2"}},
+                {"op": "doc.update", "doc": step, "title": "x"},
+                {"op": "text.edit", "block": blk_step, "version": 1, "from": 0, "to": 0, "insert": "x"},
+                {"op": "block.update", "block": "blk_zz12unbekannt", "props": {}},
+                {"op": "table.create", "id": zid("tbl"), "key": "k_zz12", "name": "x", "columns": []},
+            ]
+            for raw in forbidden:
+                with pytest.raises(PipelineError) as e:
+                    await pipeline._check_permission(ctx, _op(raw), state)
+                assert e.value.error.code == "FORBIDDEN", raw
+    finally:
+        async with engine.begin() as c:
+            await c.execute(text("DELETE FROM documents WHERE id IN (:f, :s)"), {"f": free, "s": step})

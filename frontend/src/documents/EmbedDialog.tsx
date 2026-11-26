@@ -1,6 +1,7 @@
 // Dialog „Tabelle einbetten“ / „Workflow einbetten“ (Task 3.F5, B5). Liefert über `onInsert` einen fertigen Block;
 // das Einfügen selbst übernimmt die Dokument-Ansicht. Weitere Einbettungs-Typen bekommen einen eigenen Zweig.
 import { useEffect, useState } from "react";
+import { canEditStructure, useAuth } from "../api/client";
 import { newId, submit, useChannel } from "../sync/store";
 import { FilterPanel } from "../tables/TableEditor";
 import { useTableData } from "../tables/TableGrid";
@@ -66,6 +67,7 @@ function TablePicker({ onInsert, onClose }: { onInsert: (b: NewBlock) => void; o
   const [tableId, setTableId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
   const [busy, setBusy] = useState(false);
+  const mayCreateTable = canEditStructure(useAuth((st) => st.user)); // neue Tabellen (Schema) nur `einkauf`
 
   const createTable = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,11 +103,15 @@ function TablePicker({ onInsert, onClose }: { onInsert: (b: NewBlock) => void; o
           ))}
         </ul>
       )}
-      <h3 className="embed-sub">Neue Tabelle</h3>
-      <form className="embed-new" onSubmit={createTable}>
-        <input aria-label="Name der neuen Tabelle" placeholder="Name, z. B. Lieferanten" value={newName} onChange={(e) => setNewName(e.target.value)} />
-        <button type="submit" disabled={busy || !newName.trim()} aria-busy={busy}><Icon name="plus" size={14} />Anlegen</button>
-      </form>
+      {mayCreateTable && (
+        <>
+          <h3 className="embed-sub">Neue Tabelle</h3>
+          <form className="embed-new" onSubmit={createTable}>
+            <input aria-label="Name der neuen Tabelle" placeholder="Name, z. B. Lieferanten" value={newName} onChange={(e) => setNewName(e.target.value)} />
+            <button type="submit" disabled={busy || !newName.trim()} aria-busy={busy}><Icon name="plus" size={14} />Anlegen</button>
+          </form>
+        </>
+      )}
     </>
   );
 }
