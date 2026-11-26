@@ -44,22 +44,3 @@ export function overviewDocFor(wf: HomeWorkflow, docs: HomeDoc[]): HomeDoc | nul
 /** Gleiche ID wie die Pipeline (`overview_doc_id`), für Workflows, die noch keines haben. */
 export const overviewDocId = (workflowId: string) => `doc_ov_${workflowId.replace(/^wf_/, "")}`;
 
-const STORAGE_KEY = "dock.home.expanded";
-
-/** Aufgeklappte Workflows (pro Browser gemerkt). Standard: zugeklappt. */
-export function loadExpanded(): Set<string> {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return new Set(raw ? (JSON.parse(raw) as string[]) : []);
-  } catch {
-    return new Set();
-  }
-}
-
-export function saveExpanded(ids: Set<string>): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
-  } catch {
-    /* privates Fenster o. Ä.: dann eben nicht gemerkt */
-  }
-}

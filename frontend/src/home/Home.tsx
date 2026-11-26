@@ -9,7 +9,7 @@ import type { WorkspaceData } from "../sync/core";
 import { useChannel } from "../sync/store";
 import { createBlankDocument } from "../documents/blockOps";
 import { Icon, relativeTime } from "../ui/icons";
-import { type HomeDoc, type HomeGroup, type HomeWorkflow, groupDocuments, loadExpanded, saveExpanded } from "./homeModel";
+import { type HomeDoc, type HomeGroup, type HomeWorkflow, groupDocuments } from "./homeModel";
 import { ImportDialog } from "../imports/ImportDialog";
 import { checkFile } from "../imports/importModel";
 import { toast } from "../ui/toasts";
@@ -82,18 +82,16 @@ function DocumentTree({ docs, workflows, empty, onImport }: {
   docs: HomeDoc[] | undefined; workflows: HomeWorkflow[]; empty: string; onImport?: () => void;
 }) {
   const fresh = useNewIds(docs);
-  const [expanded, setExpanded] = useState<Set<string>>(loadExpanded);
+  const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const toggle = (id: string) => setExpanded((prev) => {
     const next = new Set(prev);
     if (next.has(id)) next.delete(id); else next.add(id);
-    saveExpanded(next);
     return next;
   });
   const { groups, loose } = docs ? groupDocuments(docs, workflows) : { groups: [], loose: [] };
   const allOpen = groups.length > 0 && groups.every((g) => expanded.has(g.workflow.id));
   const setAll = (open: boolean) => {
     const next = open ? new Set(groups.map((g) => g.workflow.id)) : new Set<string>();
-    saveExpanded(next);
     setExpanded(next);
   };
   return (
