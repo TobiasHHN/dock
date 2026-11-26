@@ -1,7 +1,7 @@
 // Dokument-Ansicht (Task 2.4, L 3): Blockbaum aus dem Kanal `doc:<id>`, Blöcke einfügen/verschieben/löschen,
 // Kennzeichnung des Autors (Mensch, Agent „im Auftrag von“, Workflow), Präsenz-Avatare (2.5).
 // `DocumentView` ist eigenständig nutzbar (z. B. als Schritt-Dokument in der Run-Ansicht, Task 4.6).
-import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { type ReactNode, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Actor } from "../api";
@@ -21,7 +21,18 @@ import { BLOCK_COMPONENTS } from "./blocks/registry";
 import { DocContext, type DocContextValue, requestFocus, useDoc } from "./docContext";
 import { EmbedDialog } from "./EmbedDialog";
 import { EMBED_TYPES, type EmbedKind } from "./embedModel";
+import { actorColor, scrollCorrection } from "./presenceModel";
 import { TextBlock } from "./TextBlock";
+
+/** Erster (weitgehend) sichtbarer Block der obersten Ebene samt Abstand zum Fensterrand. */
+function pickAnchor(): { id: string; top: number } | null {
+  const topbar = 72;
+  for (const el of Array.from(document.querySelectorAll<HTMLElement>(".doc-body > .block"))) {
+    const r = el.getBoundingClientRect();
+    if (r.bottom > topbar) return { id: el.id, top: r.top };
+  }
+  return null;
+}
 
 const fail = (what: string) => (e: Error) => toast(`${what}: ${e.message}`, "error");
 
@@ -122,10 +133,52 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
         const entry = presence.find((p) => p.state?.editing === blockId && !(p.actor.type === "user" && p.actor.id === me?.id));
         return entry ? actorLabel(entry.actor, users) : null;
       },
+      editorOf: (blockId) =>
+        presence.find((p) => p.state?.editing === blockId && !(p.actor.type === "user" && p.actor.id === me?.id))?.actor ?? null,
+      isSettled: () => settled.current,
       setEditing: (blockId) => sync.sendPresence(channel, { editing: blockId }),
     }),
     [docId, channel, blocks, mayEdit, readOnly, me, users, ch?.authors, presence],
   );
+
+  // Erstes Laden abgeschlossen: danach neu erscheinende Blöcke blenden sanft ein
+  const settled = useRef(false);
+  useEffect(() => {
+    if (!doc) return;
+    const t = setTimeout(() => (settled.current = true), 300);
+    return () => clearTimeout(t);
+  }, [!!doc]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Keine Sprünge: Ändert sich der Blockbaum über dem sichtbaren Bereich (z. B. fügt jemand anderes oben etwas ein),
+  // bleibt der erste sichtbare Block an derselben Bildschirmposition.
+  const anchor = useRef<{ id: string; top: number } | null>(null);
+  useEffect(() => {
+    let raf = 0;
+    const record = () => {
+      raf = 0;
+      anchor.current = pickAnchor();
+    };
+    const onScroll = () => {
+      if (!raf) raf = requestAnimationFrame(record);
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    record();
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (raf) cancelAnimationFrame(raf);
+    };
+  }, []);
+  useLayoutEffect(() => {
+    const a = anchor.current;
+    const el = a ? document.getElementById(a.id) : null;
+    if (a && el) {
+      const by = scrollCorrection(a.top, el.getBoundingClientRect().top, window.scrollY);
+      if (by) window.scrollBy(0, by);
+    }
+    anchor.current = pickAnchor();
+  }, [blocks]);
 
   // Sprungmarke #blk_… (z. B. aus der Suche)
   useEffect(() => {
@@ -410,6 +463,8 @@ function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode
   const [embed, setEmbed] = useState<EmbedKind | null>(null);
   const flash = useFlashOnForeignChange(block);
   const locked = ctx.lockedBy(block.id);
+  const editor = ctx.editorOf?.(block.id) ?? null;
+  const enter = useRef(ctx.isSettled?.() ?? false).current; // live eingefügt: sanft einblenden
   const author = ctx.authors[block.id];
   const parentType = ctx.blocks.find((b) => b.id === block.parent_id)?.type ?? null;
   const parent = block.parent_id ?? null;
@@ -449,7 +504,8 @@ function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode
     <div
       id={block.id}
       ref={frame}
-      className={`block ${locked ? "shared" : ""} ${flash ? "flash" : ""} ${dragging ? "dragging" : ""} ${dropSide ? `drop-${dropSide}` : ""}`}
+      className={`block ${locked ? "shared" : ""} ${flash ? "flash" : ""} ${dragging ? "dragging" : ""} ${dropSide ? `drop-${dropSide}` : ""} ${enter ? "enter" : ""}`}
+      style={editor ? ({ "--presence": actorColor(`${editor.type}:${editor.id}`) } as React.CSSProperties) : undefined}
       onDragOver={onDragOver}
       onDragLeave={(e) => {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setDropSide(null);
@@ -497,7 +553,10 @@ function BlockFrame({ block, children }: { block: FlatBlock; children: ReactNode
       )}
       <div className="content">{children}</div>
       {locked ? (
-        <span className="lock-badge">{locked} bearbeitet</span>
+        <span className="lock-badge" role="status">
+          {editor && <Avatar actor={editor} users={ctx.users} />}
+          {locked} bearbeitet
+        </span>
       ) : (
         author && <span className={`author-badge ${author.type}`}>{actorLabel(author, ctx.users)}</span>
       )}

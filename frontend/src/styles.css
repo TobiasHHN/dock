@@ -981,3 +981,22 @@ button.ghost.quiet-danger:focus-visible { background: var(--danger-soft); color:
 .block-menu { left: 0; top: 30px; min-width: 160px; }
 .block-menu button:disabled { opacity: 0.5; }
 .insert-menu button.quiet-danger-item:hover:not(:disabled) { background: var(--danger-soft); color: var(--danger); }
+
+/* B7: Live-Änderungen ruhig. Fremde Änderung: kurzes, weiches Aufleuchten; Präsenz: farbiger Rand + kleiner Hinweis am Block */
+@keyframes remote-flash { 0% { background-color: var(--accent-soft); } 100% { background-color: transparent; } }
+@keyframes block-enter { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
+.block.flash > .content { animation: remote-flash 1.8s ease-out; }
+.block.enter { animation: block-enter 260ms var(--ease); }
+.block.shared > .content, .block.locked > .content {
+  background: transparent; box-shadow: inset 2px 0 0 var(--presence, var(--accent));
+  transition: box-shadow 200ms var(--ease), background-color 200ms var(--ease);
+}
+.lock-badge {
+  display: inline-flex; align-items: center; gap: 6px; top: -9px;
+  background: var(--surface); color: var(--muted); font-weight: 400;
+  border: 1px solid var(--border); box-shadow: none; padding: 0 8px 0 2px;
+  animation: block-enter 200ms var(--ease);
+}
+.lock-badge .avatar { width: 14px; height: 14px; font-size: 0.5rem; box-shadow: none; background: var(--presence, var(--accent)); }
+.lock-badge .avatar[class*="agent"] { background: var(--presence, var(--agent)); }
+@media (prefers-reduced-motion: reduce) { .block.enter, .lock-badge { animation: none; } }
