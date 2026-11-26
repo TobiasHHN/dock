@@ -90,7 +90,6 @@ function AppShell() {
       <header className="topbar">
         <Link to="/" className="brand" translate="no" aria-label="dock, zur Startseite">dock</Link>
         <nav className="topnav" aria-label="Hauptnavigation">
-          <NavLink to="/" end>Home</NavLink>
           <NavLink to="/inbox/tasks">
             Aufgaben <Badge n={counts.tasks} label="offen" />
           </NavLink>
