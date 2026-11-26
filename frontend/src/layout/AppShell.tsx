@@ -1,4 +1,4 @@
-// Rahmen nach dem Login (Task 2.1): Kopfzeile mit Name, Rolle, Suche, Zählern und Verbindungsstatus.
+// Rahmen nach dem Login (Task 2.1): Kopfzeile mit Name, Rolle, Suche, Zählern.
 // Verbindet den Sync-Store und abonniert dauerhaft `user:<id>` (T 5.7) und `workspace` (Listen, L 7.2).
 // Auf schmalen Bildschirmen wandert die Navigation in eine Tab-Leiste am unteren Rand.
 import { useEffect } from "react";
@@ -6,7 +6,7 @@ import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { authApi, useAuth } from "../api/client";
 import { NotificationBell, useNotificationToasts } from "../inbox/Notifications";
 import { SearchBox } from "../search/SearchBox";
-import { sync, useChannel, useSync } from "../sync/store";
+import { sync, useChannel } from "../sync/store";
 import { initials } from "../ui/actors";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
@@ -62,7 +62,6 @@ function AppShell() {
   const token = useAuth((s) => s.token)!;
   const user = useAuth((s) => s.user);
   const { setUser, logout } = useAuth();
-  const status = useSync((s) => s.status);
 
   useEffect(() => {
     sync.onRejected((e) => toast(`Änderung abgelehnt: ${e.error.message}`, "error"));
@@ -81,8 +80,6 @@ function AppShell() {
   useChannel("workspace");
   useNotificationToasts(user?.id);
   const counts = useInboxCounts();
-  const live = status === "open";
-  const liveLabel = live ? "Live verbunden" : "Verbindung wird aufgebaut …";
 
   return (
     <>
@@ -97,10 +94,6 @@ function AppShell() {
         </nav>
         <SearchBox />
         <span className="spacer" />
-        <span className={`live ${status}`} role="status" title={liveLabel}>
-          <span className="conn" aria-hidden="true" />
-          <span className="sr-only">{liveLabel}</span>
-        </span>
         <NotificationBell />
         {user && (
           <span className="profile">

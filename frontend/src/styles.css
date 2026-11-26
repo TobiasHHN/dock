@@ -297,10 +297,6 @@ a.brand:focus-visible { background: var(--surface-2); }
 .topnav a:hover { background: var(--surface-2); color: var(--text); }
 .topnav a.active { background: var(--surface-2); color: var(--text); }
 
-.live { display: inline-flex; align-items: center; gap: 6px; font-size: 0.78rem; color: var(--muted); flex: none; }
-.conn { width: 8px; height: 8px; border-radius: 50%; background: var(--subtle); transition: background-color 300ms var(--ease); }
-.live.open .conn { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 20%, transparent); }
-.live.connecting .conn { background: var(--warning); animation: pulse 1.4s var(--ease) infinite; }
 @keyframes pulse { 50% { opacity: 0.35; } }
 
 .profile {
@@ -714,7 +710,7 @@ table.grid .col-actions { width: 1%; white-space: nowrap; text-align: right; }
 
 @media (max-width: 760px) {
   .topbar { gap: 8px; padding: 0 12px; }
-  .topnav, .profile, .live { display: none; }
+  .topnav, .profile { display: none; }
   .search { flex: 1; }
   .search .kbd { display: none; }
   .search input { padding-right: 12px; }
