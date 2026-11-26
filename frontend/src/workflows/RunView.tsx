@@ -76,7 +76,7 @@ export function RunView({ runId }: { runId: string }) {
       <p className="alert" role="alert">
         <Icon name="alert" />
         Ablauf konnte nicht geladen werden: {(error as Error | undefined)?.message ?? "Nicht gefunden"}.{" "}
-        <Link to="/inbox/requests">Zu Meine Anträge</Link>
+        <Link to="/inbox/requests">Zu Meine Vorgänge</Link>
       </p>
     );
   }
@@ -148,7 +148,7 @@ export function RunView({ runId }: { runId: string }) {
   return (
     <div>
       <nav className="breadcrumb" aria-label="Brotkrumen">
-        <Link to="/inbox/requests">Meine Anträge</Link>
+        <Link to="/inbox/requests">Meine Vorgänge</Link>
         <Icon name="chevronRight" size={14} />
         <Link to={`/workflows/${wfId ?? ""}`}>{wfName}</Link>
         <Icon name="chevronRight" size={14} />

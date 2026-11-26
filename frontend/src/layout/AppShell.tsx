@@ -4,10 +4,12 @@
 import { useEffect } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { authApi, useAuth } from "../api/client";
+import { McpInfoHost } from "../onboarding/McpInfo";
+import { TourHost } from "../onboarding/Tour";
+import { ProfileMenu } from "./ProfileMenu";
 import { NotificationBell, useNotificationToasts } from "../inbox/Notifications";
 import { SearchBox } from "../search/SearchBox";
 import { sync, useChannel } from "../sync/store";
-import { initials } from "../ui/actors";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 
@@ -88,26 +90,17 @@ function AppShell() {
         <Link to="/" className="brand" translate="no" aria-label="Dock, zur Startseite">Dock</Link>
         <nav className="topnav" aria-label="Hauptnavigation">
           <NavLink to="/inbox/tasks">
-            Aufgaben <Badge n={counts.tasks} label="offen" />
+            Zu erledigen <Badge n={counts.tasks} label="offen" />
           </NavLink>
-          <NavLink to="/inbox/requests">Meine Anträge</NavLink>
+          <NavLink to="/inbox/requests">Meine Vorgänge</NavLink>
         </nav>
         <SearchBox />
         <span className="spacer" />
         <NotificationBell />
-        {user && (
-          <span className="profile">
-            <span className="avatar" aria-hidden="true">{initials(user.name)}</span>
-            <span className="profile-name">{user.name}</span>
-            {user.roles.map((r) => (
-              <span key={r} className="role-chip">{ROLE_LABEL[r] ?? r}</span>
-            ))}
-          </span>
-        )}
-        <button className="icon-button" onClick={logout} aria-label="Abmelden" title="Abmelden">
-          <Icon name="logout" size={18} strokeWidth={1.8} />
-        </button>
+        <ProfileMenu />
       </header>
+      <TourHost />
+      <McpInfoHost />
       <main className="page" id="main" tabIndex={-1}>
         <div key={location.pathname} className="page-enter">
           <Outlet />
@@ -120,12 +113,12 @@ function AppShell() {
         </NavLink>
         <NavLink to="/inbox/tasks">
           <Icon name="tasks" size={22} />
-          <span>Aufgaben</span>
+          <span>Zu erledigen</span>
           <Badge n={counts.tasks} label="offen" />
         </NavLink>
         <NavLink to="/inbox/requests">
           <Icon name="inbox" size={22} />
-          <span>Anträge</span>
+          <span>Vorgänge</span>
         </NavLink>
       </nav>
     </>

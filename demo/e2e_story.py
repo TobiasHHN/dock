@@ -69,7 +69,7 @@ async def main():
         check(w_anna.seen(lambda m: m.get("type") == "ops" and m["channel"] == f"table:{ORDERS}" and run in json.dumps(m)),
               "Annas Tabelle sieht neue Bestellung live")
         my = ben.get("/runs", params={"mine": "true"}).json()
-        check(any(r.get("id") == run for r in (my if isinstance(my, list) else [])), "Ben sieht Run in Meine Anträge", my)
+        check(any(r.get("id") == run for r in (my if isinstance(my, list) else [])), "Ben sieht Run in Meine Vorgänge", my)
         tl = chef.get("/tasks").json()
         check(any(t.get("run") == run or t.get("run_id") == run or run in json.dumps(t) for t in tl), "Chef sieht Aufgabe in /tasks", tl)
         # Vier-Augen

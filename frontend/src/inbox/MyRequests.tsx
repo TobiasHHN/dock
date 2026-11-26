@@ -1,4 +1,4 @@
-// „Meine Anträge“ (Task 4.5, L 5.10): gestartete bzw. sichtbare Runs mit Status, aktuellem Schritt und Zuständigen.
+// „Meine Vorgänge“ (früher „Meine Anträge“) (Task 4.5, L 5.10): gestartete bzw. sichtbare Runs mit Status, aktuellem Schritt und Zuständigen.
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -30,7 +30,7 @@ export function InboxRequestsPage() {
     <div>
       <div className="page-head">
         <div>
-          <h1>Meine Anträge</h1>
+          <h1>Meine Vorgänge</h1>
           <p className="muted">Laufende und abgeschlossene Abläufe im Überblick.</p>
         </div>
         <div className="inbox-filters">
@@ -42,7 +42,7 @@ export function InboxRequestsPage() {
               className={scope === "me" ? "active" : ""}
               onClick={() => setScope("me")}
             >
-              Meine Anträge
+              Von mir gestartet
             </button>
             <button
               type="button"
@@ -70,17 +70,17 @@ export function InboxRequestsPage() {
       {isError && (
         <p className="alert" role="alert">
           <Icon name="alert" />
-          Anträge konnten nicht geladen werden: {(error as Error).message}
+          Vorgänge konnten nicht geladen werden: {(error as Error).message}
         </p>
       )}
 
       <section className="panel">
         {isLoading ? (
-          <div className="skeleton-list" aria-label="Anträge werden geladen …">
+          <div className="skeleton-list" aria-label="Vorgänge werden geladen …">
             <span /><span /><span />
           </div>
         ) : !data || data.length === 0 ? (
-          <p className="empty">Keine Anträge gefunden.</p>
+          <p className="empty">Keine Vorgänge gefunden.</p>
         ) : (
           <ul className="inbox-list">
             {data.map((run) => {
