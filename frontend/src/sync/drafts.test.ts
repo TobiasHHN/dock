@@ -2,6 +2,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import type { WsClientMessage, WsServerMessage } from "../api";
 import { applyDraftOps, findDraft, scopeKey, sortedItems } from "./drafts";
+import type { Json } from "./tableRules";
 import type { ConnectionStatus, Transport } from "./socket";
 import { createSyncStore, type SyncStore } from "./store";
 import { draftSetOp, itemDeleteOp, itemInsertOp, itemUpdateOp, submitOp } from "../forms/formModel";
@@ -131,5 +132,15 @@ describe("Entwürfe im Sync-Store", () => {
     t.push({ type: "ops", channel: "run:run_1", seq: 4, batch_id: "bat_y", actor: BEN, ops: [submitOp("f", "save", "sub_2", "run_1")] });
     expect(t.sent.length).toBe(before + 1);
     expect(t.sent.at(-1)).toMatchObject({ type: "subscribe", channel: "run:run_1" });
+  });
+});
+
+describe("item_insert wie der Server", () => {
+  const ins = (id: string, after?: string) => ({
+    op: "draft.item_insert", form_block: "f", scope: { user: "u" }, key: "k", item: { id, values: {} }, ...(after ? { after } : {}),
+  });
+  it('"^" fügt am Anfang ein, ohne after am Ende', () => {
+    let st: Json = applyDraftOps({}, "user:u", [ins("a"), ins("b"), ins("c", "^")]);
+    expect(sortedItems(findDraft(st, "f", "user:u")!.values.k).map((x: Json) => x.id)).toEqual(["c", "a", "b"]);
   });
 });

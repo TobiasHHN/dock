@@ -76,7 +76,9 @@ async def _user(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
     runs = await _all(s, "SELECT * FROM runs WHERE started_by_id = :u ORDER BY started_at DESC", u=id_)
     notes = await _all(s, "SELECT * FROM notifications WHERE recipient_id = :u ORDER BY created_at DESC LIMIT 100",
                        u=id_)
-    return {"tasks": tasks, "runs": runs, "notifications": notes}
+    drafts = await _all(s, 'SELECT form_block, scope, "values", version, updated_at FROM form_drafts '
+                           "WHERE scope = :scope", scope=f"user:{id_}")
+    return {"tasks": tasks, "runs": runs, "notifications": notes, "drafts": drafts}
 
 
 async def _workspace(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:

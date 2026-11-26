@@ -426,3 +426,17 @@ async def test_expression_errors_become_validation_errors(engine):
     e = await err(submit(w, "go"))
     assert e.error.code == "VALIDATION" and "tippfehler" in e.error.message
     assert await count(engine, w.best) == 0
+
+
+async def test_user_snapshot_carries_own_drafts(engine):
+    """Der Snapshot von `user:<id>` enthält die Entwürfe mit `scope = "user:<id>"` (Frontend 3.4 liest sie dort)."""
+    from app.realtime import snapshots
+
+    w = await make_world(engine)
+    await fill(w, rows=(("A", 1, 1),))
+    async with async_sessionmaker(engine, expire_on_commit=False)() as s:
+        mine = (await snapshots._user(s, BEN.id, None))["drafts"]
+        other = (await snapshots._user(s, ANNA.id, None))["drafts"]
+    assert [(d["form_block"], d["scope"]) for d in mine] == [(w.form, f"user:{BEN.id}")]
+    assert mine[0]["values"]["name"] == "Ben" and mine[0]["values"]["artikel"][0]["id"] == "li_zz33_0"
+    assert other == []

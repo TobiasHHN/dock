@@ -120,6 +120,7 @@ class SnapshotUser(BaseModel):
     tasks: list[dict[str, Any]] = []
     runs: list[dict[str, Any]] = []
     notifications: list[dict[str, Any]] = []
+    drafts: list[dict[str, Any]] = []  # Formularentwürfe mit scope `user:<id>` (L 4.4)
 
 
 class SnapshotWorkspace(BaseModel):

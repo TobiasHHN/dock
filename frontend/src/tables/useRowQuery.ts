@@ -1,5 +1,5 @@
 // Gefilterte Zeilen vom Server holen (POST /api/tables/{t}/rows/query, L 3.4). Der Server ist die einzige Stelle, die
-// Filter auswertet (auch Ausdrücke, ab Task 3.2); der Client legt das Ergebnis auf den Live-Stand (overlayRows).
+// Filter auswertet (auch Ausdrücke); der Client legt das Ergebnis auf den Live-Stand (overlayRows).
 // Ändert sich der Kanal (`seq`), wird entprellt neu abgefragt, so tauchen neue passende Zeilen anderer auf.
 import { useEffect, useRef, useState } from "react";
 import { ApiRequestError, api } from "../api/client";
