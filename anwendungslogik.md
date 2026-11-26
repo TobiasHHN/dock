@@ -207,7 +207,7 @@ type FormProps = {
 
 type Button = {
   id: string;                        // "save", "approve", "reject"
-  label: string;                     // erscheint auch im Run-Verlauf ("Genehmigt", "Abgelehnt")
+  label: string;                     // Aufforderung ("Genehmigen", "Ablehnen"); Verlauf und Status zeigen das Ergebnis, siehe 10.1
   style?: "primary" | "secondary" | "danger";
   actions: string[];                 // Keys der auszuführenden Actions, in dieser Reihenfolge
   outcome?: string;                  // für Workflows: bestimmt den nächsten Schritt
@@ -1204,9 +1204,9 @@ Der Agent prüft zuerst mit `list_roles`, welche Rollen es gibt, und schickt dan
                 "values": { "col_b_status": "abgelehnt", "col_b_komm": "{{fields.kommentar}}" } }
             ],
             "buttons": [
-              { "id": "approve", "label": "Genehmigt", "style": "primary",
+              { "id": "approve", "label": "Genehmigen", "style": "primary",
                 "actions": ["approve"], "outcome": "approved" },
-              { "id": "reject",  "label": "Abgelehnt", "style": "danger",
+              { "id": "reject",  "label": "Ablehnen", "style": "danger",
                 "actions": ["reject"], "outcome": "rejected",
                 "require": ["kommentar"], "confirm": "Bestellung wirklich ablehnen?" }
             ]
@@ -1239,7 +1239,7 @@ Der Agent prüft zuerst mit `list_roles`, welche Rollen es gibt, und schickt dan
                 "values": { "col_b_status": "bestellt", "col_b_lnr": "{{fields.lieferanten_nr}}", "col_b_lt": "{{fields.liefertermin}}" } }
             ],
             "buttons": [
-              { "id": "ordered", "label": "Bestellt", "style": "primary",
+              { "id": "ordered", "label": "Bestellung abschließen", "style": "primary",
                 "actions": ["ordered"], "outcome": "ordered" }
             ]
           },
@@ -1265,7 +1265,7 @@ Der Agent prüft zuerst mit `list_roles`, welche Rollen es gibt, und schickt dan
 
 Hinweise:
 
-- Der Absende-Button im ersten Schritt heißt „Einreichen“ (Aufforderung an den Antragsteller). Die Entscheidungs-Buttons („Genehmigt“, „Abgelehnt“, „Bestellt“) sind bewusst als Ergebnis formuliert. Alle Labels erscheinen im Verlauf, die Entscheidungen zusätzlich als `run.result` beim Antragsteller.
+- Alle Buttons sind als Aufforderung formuliert („Einreichen“, „Genehmigen“, „Ablehnen“, „Bestellung abschließen“). Als Status und im Verlauf zeigt das Frontend das Ergebnis: Bekannte Outcomes (`approved`, `rejected`, `ordered`, `submitted`, …) erscheinen als „Genehmigt“, „Abgelehnt“, „Bestellt“, „Eingereicht“, sonst das Button-Label (`resultLabel` in `frontend/src/inbox/inboxModel.ts`). `run.result.label` bleibt das Button-Label.
 - Soll statt einer Rolle eine **bestimmte Person** genehmigen, ersetzt man den Assignee durch `{ "kind": "user", "user": "usr_tom" }`. Soll der **Verantwortliche der Kostenstelle** genehmigen, gibt es eine Tabelle `kostenstellen` mit einer Spalte `verantwortlich` (Typ `user`) und den Assignee `{ "kind": "expr", "expr": "{{lookup(\"kostenstellen\", \"nummer\", run.steps.erfassen.values.kostenstelle, \"verantwortlich\")}}" }`.
 - Statt Tabelle `bestellungen` und Schritt-Dokument 1 von Hand zu beschreiben, kann der Agent sie aus der bestehenden Excel-Übersicht und dem Word-Formular importieren (8.3). Er nimmt beide Importe mit `import.include` in denselben Batch auf und ergänzt Actions, Buttons, Workflow und die übrigen Schritt-Dokumente.
 - Das Formular in Schritt 2 hat ein optionales Kommentarfeld, das nur beim Ablehnen Pflicht ist (`require`).
@@ -1296,16 +1296,16 @@ Hinweise:
    → task.claim → andere Teamleiter sehen "In Bearbeitung von Tom"
    → Anna sieht im Verlauf: "Tom Teamleiter bearbeitet die Genehmigung"
 
-4. Tom klickt "Genehmigt"
+4. Tom klickt "Genehmigen"
    → update_row row_B1 { status: genehmigt, genehmigt_von: Tom }
    → Übergang approved → bestellung, Aufgabe tsk_3 an Rolle einkauf (fällig in 3 Tagen)
    → Anna: "Genehmigt von Tom Teamleiter", jetzt "Wird vom Einkauf bestellt"
 
-   Alternativ "Abgelehnt": Kommentar ist Pflicht, status = abgelehnt,
+   Alternativ "Ablehnen": Kommentar ist Pflicht, status = abgelehnt,
    Run endet mit result "Abgelehnt", Anna sieht den Kommentar im Verlauf.
 
 5. Eva (Rolle einkauf) bestellt beim Lieferanten, trägt Bestellnummer und Liefertermin ein
-   und klickt "Bestellt"
+   und klickt "Bestellung abschließen"
    → update_row row_B1 { status: bestellt, lieferanten_nr, liefertermin }
    → Übergang ordered → end, run.status = completed, run.result = "Bestellt"
    → Anna: "Bestellt am 26.11. von Eva Einkauf, Liefertermin 03.12."

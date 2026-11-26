@@ -124,8 +124,8 @@
                 "values": { "col_b_status": "abgelehnt", "col_b_komm": "{{fields.kommentar}}" } }
             ],
             "buttons": [
-              { "id": "approve", "label": "Genehmigt", "style": "primary", "actions": ["approve"], "outcome": "approved" },
-              { "id": "reject", "label": "Abgelehnt", "style": "danger", "actions": ["reject"], "outcome": "rejected",
+              { "id": "approve", "label": "Genehmigen", "style": "primary", "actions": ["approve"], "outcome": "approved" },
+              { "id": "reject", "label": "Ablehnen", "style": "danger", "actions": ["reject"], "outcome": "rejected",
                 "require": ["kommentar"], "confirm": "Bestellung wirklich ablehnen?" }
             ]
           },
@@ -156,7 +156,7 @@
                 "values": { "col_b_status": "bestellt", "col_b_lnr": "{{fields.lieferanten_nr}}", "col_b_lt": "{{fields.liefertermin}}" } }
             ],
             "buttons": [
-              { "id": "ordered", "label": "Bestellt", "style": "primary", "actions": ["ordered"], "outcome": "ordered" }
+              { "id": "ordered", "label": "Bestellung abschließen", "style": "primary", "actions": ["ordered"], "outcome": "ordered" }
             ]
           },
           "children": [

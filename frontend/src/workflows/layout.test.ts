@@ -101,6 +101,15 @@ describe("workflow layout & helpers", () => {
     expect(text).toContain("Eingereicht");
   });
 
+  it("zeigt im Verlauf das Ergebnis statt des Button-Labels", () => {
+    const base = { id: "evt_2", run_id: "run_1", at: "2026-11-26T10:00:00Z", actor: { type: "user", id: "usr_ben" } } as const;
+    const users = { usr_ben: ME_BEN };
+    expect(formatRunEvent({ ...base, type: "step_completed", step: "genehmigung", outcome: "approved", label: "Genehmigen" }, users))
+      .toContain("(Genehmigt)");
+    expect(formatRunEvent({ ...base, type: "completed", outcome: "rejected", label: "Ablehnen" }, users)).toBe("Ablauf abgeschlossen: Abgelehnt");
+    expect(formatRunEvent({ ...base, type: "step_completed", step: "x", outcome: "weiter", label: "Weiter" }, users)).toContain("(Weiter)");
+  });
+
   it("normalisiert eingereichte line_items-Arrays für schreibgeschützte Formulare", () => {
     const blocks: FlatBlock[] = [
       { id: "f1", parent_id: null, position: "a0", type: "form", props: {}, version: 1 },

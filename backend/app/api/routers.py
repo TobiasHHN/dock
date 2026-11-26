@@ -298,6 +298,14 @@ async def read_notification(notification: str, user: User, session: AsyncSession
         raise _http(exc) from exc
 
 
+@runs.delete("/notifications/{notification}", status_code=204)
+async def delete_notification(notification: str, user: User, session: AsyncSession = Depends(get_session)):
+    try:
+        await run_status.delete_notification(session, notification, user.actor)
+    except PipelineError as exc:
+        raise _http(exc) from exc
+
+
 # ── Import (3.6–3.8) ─────────────────────────────────────────────────────────
 imports = APIRouter(prefix="/api/imports", tags=["imports"])
 

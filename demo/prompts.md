@@ -37,7 +37,7 @@ Erwartet: `search` findet den Bestellprozess → `start_run` → `get_task` → 
 
 ### Schritt 3: Genehmigen (Chef, Browser, optional Agent)
 
-Browser: Benachrichtigung erscheint live, Aufgabe öffnen, **Übernehmen**, „Genehmigt“. Ben darf selbst nicht genehmigen (Vier-Augen). Ablehnen verlangt einen Kommentar.
+Browser: Benachrichtigung erscheint live, Aufgabe öffnen, **Übernehmen**, „Genehmigen“. Ben darf selbst nicht genehmigen (Vier-Augen). Ablehnen verlangt einen Kommentar.
 
 Agent im Auftrag des Chefs (Stretch):
 
@@ -45,7 +45,7 @@ Agent im Auftrag des Chefs (Stretch):
 
 ### Schritt 4: Bestellen (Anna, Browser)
 
-Neue Aufgabe erscheint live, Bestellnummer (z. B. `LF-2026-0815`) und Liefertermin eintragen, „Bestellt“. Der Run ist abgeschlossen, die Tabelle in Annas offenem Browser zeigt den Status live.
+Neue Aufgabe erscheint live, Bestellnummer (z. B. `LF-2026-0815`) und Liefertermin eintragen, „Bestellung abschließen“. Der Run ist abgeschlossen, die Tabelle in Annas offenem Browser zeigt den Status live.
 
 ### Schritt 5: Status (Ben, Agent)
 

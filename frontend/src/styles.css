@@ -144,7 +144,7 @@ button:disabled { opacity: 0.55; cursor: not-allowed; }
 
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.primary:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); color: #fff; }
-button.block { width: 100%; min-height: 44px; font-size: 0.95rem; font-weight: 600; }
+button.full { width: 100%; min-height: 44px; font-size: 0.95rem; font-weight: 600; }
 
 button.ghost { background: transparent; border-color: transparent; box-shadow: none; color: var(--muted); min-height: 32px; padding: 0 10px; }
 button.ghost:hover:not(:disabled) { background: var(--surface-2); border-color: transparent; color: var(--text); }
@@ -849,13 +849,26 @@ a.btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--a
 }
 .notif-head { display: flex; align-items: center; justify-content: space-between; padding: 8px 10px 6px; font-size: 0.9rem; }
 .notif-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.notif-row { position: relative; display: flex; align-items: flex-start; border-radius: var(--radius-sm); transition: background-color var(--dur) var(--ease); }
+.notif-row:hover { background: var(--surface-hover); }
+.notif-row.unread::before {
+  content: ""; position: absolute; left: 5px; top: 15px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+}
 .notif-item {
-  width: 100%; min-height: 0; padding: 9px 10px; border: none; box-shadow: none; background: transparent;
+  flex: 1; min-width: 0; min-height: 0; padding: 9px 4px 9px 18px; border: none; box-shadow: none; background: transparent;
   display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; border-radius: var(--radius-sm);
 }
-.notif-item:hover:not(:disabled) { background: var(--surface-hover); }
-.notif-item.unread { background: var(--accent-soft); }
-.notif-item-title { font-size: 0.85rem; font-weight: 600; color: var(--text); }
+.notif-item:hover:not(:disabled) { background: transparent; }
+.notif-remove {
+  flex: none; width: 26px; height: 26px; min-height: 0; padding: 0; margin: 7px 6px 0 0;
+  border: none; box-shadow: none; background: transparent; color: var(--subtle); border-radius: 6px;
+  opacity: 0; transition: opacity var(--dur) var(--ease), background-color var(--dur) var(--ease), color var(--dur) var(--ease);
+}
+.notif-row:hover .notif-remove, .notif-remove:focus-visible { opacity: 1; }
+.notif-remove:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: transparent; }
+@media (hover: none) { .notif-remove { opacity: 1; } }
+.notif-item-title { font-size: 0.85rem; font-weight: 500; color: var(--text); }
+.notif-row.unread .notif-item-title { font-weight: 600; }
 .notif-item-detail { font-size: 0.8rem; color: var(--text-2); }
 .notif-item-time { font-size: 0.72rem; color: var(--muted); }
 
@@ -877,12 +890,9 @@ a.btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--a
 .wf-block-run-title { font-weight: 500; margin-right: auto; }
 
 .run-title-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.run-task-bar {
-  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px;
-  padding: 14px 16px; border-left: 3px solid var(--accent);
-}
-.run-task-info { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-
+.run-meta { display: flex; flex-wrap: wrap; gap: 4px 0; margin: 0; font-size: 0.85rem; color: var(--muted); }
+.run-meta > span + span::before { content: "\00B7"; margin: 0 8px; color: var(--subtle); }
+.warn-text { color: var(--warning-text); }
 .wf-graph-panel { padding: 8px 12px 14px; }
 .wf-legend { display: inline-flex; align-items: center; gap: 14px; }
 .wf-legend span { display: inline-flex; align-items: center; gap: 5px; }
@@ -913,32 +923,46 @@ a.btn.btn-primary:hover { background: var(--accent-hover); border-color: var(--a
 .wf-dot-pending { background: var(--subtle); }
 .wf-handle { width: 7px; height: 7px; background: var(--border-strong); border: none; }
 
-.wf-step-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding-top: 10px; }
-.wf-step-tab {
-  min-height: 30px; padding: 0 10px; font-size: 0.8rem; border-radius: 999px;
-  border: 1px solid var(--border); background: var(--surface-2); color: var(--text-2); box-shadow: none;
-}
-.wf-step-tab-done { border-color: var(--success); color: var(--success-text); }
-.wf-step-tab-active { border-color: var(--accent); color: var(--accent); font-weight: 600; }
-.wf-step-tab.active { background: var(--text); border-color: var(--text); color: var(--bg); }
-
 .run-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; align-items: start; } /* Verlauf unter dem Schritt-Dokument, nicht daneben */
 .run-step-panel { padding: 8px 14px 18px; }
-.doc-embedded-title { font-size: 1.25rem; font-weight: 650; margin: 6px 0 12px; }
 .doc-embedded-body { padding: 18px 20px 18px 0; }
 
-.run-timeline { padding: 8px 14px 16px; }
-.timeline-list { list-style: none; margin: 0 0 14px; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.run-timeline { padding: 4px 4px 0; }
+.timeline-heading { font-size: 0.8rem; font-weight: 600; color: var(--muted); letter-spacing: 0.02em; margin: 0 0 12px; }
+.timeline-empty { margin: 0 0 10px; font-size: 0.85rem; color: var(--subtle); }
+.timeline-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; }
 .timeline-item {
-  display: flex; justify-content: space-between; gap: 10px; align-items: flex-start;
-  padding: 8px 10px; border-radius: var(--radius-sm); background: var(--surface-2); font-size: 0.85rem;
+  position: relative; display: flex; gap: 12px; align-items: baseline;
+  padding: 0 0 12px 18px; font-size: 0.85rem; line-height: 1.45;
 }
-.timeline-body { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-.timeline-desc { color: var(--text); }
-.timeline-comment { margin: 0; padding: 6px 8px; border-radius: var(--radius-sm); background: var(--surface); border: 1px solid var(--border); color: var(--text-2); }
-.timeline-time { flex: none; font-size: 0.75rem; color: var(--muted); white-space: nowrap; }
-.timeline-form { display: flex; gap: 8px; }
-.timeline-form input { flex: 1; min-width: 0; height: 38px; font-size: 0.875rem; }
+.timeline-item::before {
+  content: ""; position: absolute; left: 3px; top: 13px; bottom: -1px; width: 1px; background: var(--border);
+}
+.timeline-item:last-child::before { display: none; }
+.timeline-dot {
+  position: absolute; left: 0; top: 6px; width: 7px; height: 7px; border-radius: 50%;
+  background: var(--surface); border: 1.5px solid var(--border-strong);
+}
+.timeline-step_completed .timeline-dot, .timeline-completed .timeline-dot { background: var(--success); border-color: var(--success); }
+.timeline-item.timeline-comment .timeline-dot { background: var(--accent); border-color: var(--accent); }
+.timeline-cancelled .timeline-dot, .timeline-overdue .timeline-dot { background: var(--danger); border-color: var(--danger); }
+.timeline-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.timeline-desc { color: var(--text-2); }
+p.timeline-comment { margin: 0; color: var(--text); white-space: pre-wrap; }
+.timeline-time { flex: none; font-size: 0.75rem; color: var(--subtle); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.timeline-form { position: relative; display: flex; align-items: center; margin: 0 0 0 18px; }
+.timeline-form input {
+  flex: 1; min-width: 0; height: 32px; padding: 0 36px 0 0; font-size: 0.85rem;
+  background: transparent; border: none; border-bottom: 1px solid transparent; border-radius: 0; box-shadow: none;
+}
+.timeline-form input:hover:not(:disabled) { border-color: transparent; border-bottom-color: var(--border); }
+.timeline-form input:focus-visible { box-shadow: none; border-color: transparent; border-bottom-color: var(--accent); }
+.timeline-send {
+  position: absolute; right: 0; width: 26px; height: 26px; min-height: 0; padding: 0;
+  border: none; border-radius: 50%; background: var(--accent); color: #fff; box-shadow: none;
+  animation: pop-in 120ms var(--ease);
+}
+.timeline-send:hover:not(:disabled) { background: var(--accent-hover); color: #fff; border-color: transparent; }
 
 @media (max-width: 900px) {
   .run-layout { grid-template-columns: 1fr; }
@@ -1012,34 +1036,40 @@ button.ghost.quiet-danger:focus-visible { background: var(--danger-soft); color:
 
 /* B8: Arbeitsmappe, Blatt-Leiste unten wie in Excel */
 .sheet-bar {
-  position: sticky; bottom: 0; z-index: 5; display: flex; align-items: stretch; gap: 8px;
-  margin: 24px -4px 0; padding: 0 4px; background: var(--surface); border-top: 1px solid var(--border-strong);
+  position: fixed; z-index: 15; left: 50%; bottom: max(16px, env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  display: flex; align-items: center; gap: 2px; max-width: calc(100vw - 32px);
+  padding: 4px; border-radius: 999px;
+  background: color-mix(in srgb, var(--surface) 88%, transparent);
+  backdrop-filter: saturate(180%) blur(14px); -webkit-backdrop-filter: saturate(180%) blur(14px);
+  border: 1px solid var(--border); box-shadow: var(--shadow-lg);
 }
-.sheet-tabs { display: flex; flex: 1; min-width: 0; overflow-x: auto; }
+.sheet-tabs { display: flex; gap: 2px; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.sheet-tabs::-webkit-scrollbar { display: none; }
 .sheet-tab {
-  display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 220px; min-height: 40px;
-  padding: 0 14px; border: 0; border-radius: 0; background: transparent; color: var(--muted); font-weight: 500;
-  border-top: 2px solid transparent; margin-top: -1px; box-shadow: none;
+  display: inline-flex; align-items: center; gap: 6px; flex: none; max-width: 200px; min-height: 32px;
+  padding: 0 12px; border: 0; border-radius: 999px; background: transparent; box-shadow: none;
+  color: var(--muted); font-size: 0.82rem; font-weight: 500;
 }
 .sheet-tab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sheet-tab:hover { background: var(--surface-2); color: var(--text); }
-.sheet-tab.active { color: var(--accent); border-top-color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.sheet-tab:hover:not(:disabled) { background: var(--surface-2); color: var(--text); border-color: transparent; }
+.sheet-tab.active, .sheet-tab.active:hover:not(:disabled) { background: var(--text); color: var(--surface); }
+.sheet-add > button.ghost { width: 32px; height: 32px; min-height: 0; padding: 0; border-radius: 50%; }
 .sheet-add { position: relative; display: flex; align-items: center; }
-.sheet-menu { bottom: 100%; top: auto; right: 0; left: auto; margin-bottom: 4px; }
+.sheet-menu { bottom: 100%; top: auto; right: 0; left: auto; margin-bottom: 8px; transform-origin: bottom right; }
 .sheet-pane { min-width: 0; }
 @media (max-width: 720px) {
-  .sheet-bar { bottom: calc(72px + env(safe-area-inset-bottom)); }
+  .sheet-bar { bottom: calc(76px + env(safe-area-inset-bottom)); }
 }
 
-/* --- Tabellen-Editor in Excel-Optik: Gitterlinien, Zeilennummern, Spaltenbuchstaben, aktive Zelle --- */
+/* --- Tabellen-Editor in Excel-Optik: Gitterlinien, Zeilennummern, aktive Zelle --- */
 .sheet-wrap { border-radius: var(--radius-sm); max-height: calc(100vh - 220px); overflow: auto; }
 table.grid.sheet { width: max-content; min-width: 100%; border-collapse: separate; border-spacing: 0; }
 table.grid.sheet th, table.grid.sheet td { padding: 0; border-bottom: 1px solid var(--border); border-right: 1px solid var(--border); }
 table.grid.sheet thead th {
-  position: sticky; top: 0; z-index: 2; padding: 2px 8px 6px; background: var(--surface-2, var(--surface-hover));
+  position: sticky; top: 0; z-index: 2; padding: 8px; background: var(--surface-2, var(--surface-hover));
   text-transform: none; letter-spacing: 0; font-size: 0.8rem; color: var(--text-2, var(--text)); border-bottom: 1px solid var(--border-strong);
 }
-table.grid.sheet .col-letter { display: block; text-align: center; font-size: 0.68rem; font-weight: 500; color: var(--muted); }
 table.grid.sheet .row-num {
   position: sticky; left: 0; z-index: 1; width: 44px; min-width: 44px; padding: 0 6px; text-align: center;
   background: var(--surface-2, var(--surface-hover)); color: var(--muted); font-size: 0.75rem; font-weight: 500;
@@ -1058,3 +1088,34 @@ table.grid.sheet td.cell-error { box-shadow: inset 0 0 0 1px var(--danger); }
 table.grid.sheet tr.new-row td, table.grid.sheet tr.new-row th { border-top: 0; }
 table.grid.sheet .col-actions { padding: 0 6px; }
 /* --- Ende Excel-Optik --- */
+
+/* --- Dokumente ausfüllen: flacher, weniger Kästen in Kästen --- */
+/* Ohne Bearbeitungsrechte gibt es keine Block-Werkzeuge, also auch keine leere 64-px-Spalte pro Ebene. */
+.doc-static .block > .gutter { display: none; }
+.doc-static.doc-body { padding-left: 24px; }
+/* Verschachtelte Blöcke (Felder im Formular, Listenpunkte): Werkzeuge schweben links daneben statt einzurücken. */
+.block .block > .gutter { position: absolute; right: 100%; top: 0; width: auto; padding-right: 2px; z-index: 2; }
+/* Dokument im Schritt-Panel: das Panel ist der einzige Rahmen. */
+.panel .doc-body, .doc-embedded-body { background: transparent; border: 0; box-shadow: none; border-radius: 0; padding: 8px 8px 8px 24px; }
+/* Formular: kein eigener Kasten, nur eine ruhige Fläche mit Abstand. */
+.form-block { margin: 4px 0 8px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.form-note { padding: 0; background: transparent; margin: 0 0 14px; font-size: 0.8rem; }
+.form-buttons { margin-top: 20px; padding-top: 16px; }
+.field { margin: 0 0 16px; }
+.field label { font-size: 0.8rem; color: var(--muted); }
+/* Zeilenliste: dezente Tabelle, Zellen ohne eigene Eingabekästen (Rahmen erst bei Hover/Fokus). */
+.line-items { margin: 4px 0 18px; }
+.line-items > .table-wrap { box-shadow: none; border-radius: var(--radius); }
+.line-items table.simple th { padding: 8px 10px; text-transform: none; letter-spacing: 0; font-size: 0.78rem; font-weight: 500; background: transparent; }
+.line-items table.simple td { padding: 2px 4px; }
+.line-items table.simple td.col-actions { padding: 2px 6px; }
+.line-items td input:not([type="checkbox"]), .line-items td select {
+  border-color: transparent; background: transparent; box-shadow: none; border-radius: var(--radius-sm);
+}
+.line-items td input:not([type="checkbox"]):hover:not(:disabled), .line-items td select:hover:not(:disabled) { border-color: var(--border); }
+.line-items td input:focus-visible, .line-items td select:focus-visible { border-color: var(--accent); background: var(--surface); }
+.line-items table.simple tbody tr:hover { background: transparent; }
+.line-items-head { font-size: 0.8rem; color: var(--muted); }
+/* Platzhalter (z. B. Feld außerhalb eines Formulars): kein gestrichelter Kasten, nur ein Hinweis. */
+.placeholder-block { border: 0; background: transparent; padding: 4px 0; }
+/* --- Ende Dokumente ausfüllen --- */

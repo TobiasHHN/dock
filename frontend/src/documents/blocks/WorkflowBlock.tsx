@@ -7,7 +7,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Op } from "../../api";
 import { useAuth, workflowApi } from "../../api/client";
-import { formatCandidates, runStatusLabel, useChannelInvalidate } from "../../inbox/inboxModel";
+import { formatCandidates, resultLabel, runStatusLabel, useChannelInvalidate } from "../../inbox/inboxModel";
 import { BatchRejected, newId, submit, useChannel } from "../../sync/store";
 import { Icon, relativeTime } from "../../ui/icons";
 import { toast } from "../../ui/toasts";
@@ -31,7 +31,7 @@ function RunRefCard({ runId }: { runId: string }) {
   const badgeText =
     run.status === "active"
       ? run.current?.label || "Aktiv"
-      : run.result?.label || runStatusLabel(run.status);
+      : resultLabel(run.result) || runStatusLabel(run.status);
 
   return (
     <div className="wf-block">
@@ -140,7 +140,7 @@ export function WorkflowBlock({ block }: { block: FlatBlock }) {
               const badgeText =
                 r.status === "active"
                   ? r.status_label || runStatusLabel(r.status)
-                  : r.result?.label || runStatusLabel(r.status);
+                  : resultLabel(r.result) || runStatusLabel(r.status);
               return (
                 <li key={r.id}>
                   <Link to={`/runs/${r.id}`} className="wf-block-run-row">
