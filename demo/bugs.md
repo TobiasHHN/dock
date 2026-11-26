@@ -33,9 +33,11 @@ Sortiert nach Priorität.
 | B3 | Workflow-Ansicht: Buttons +, − und Vollbild sind weiß auf weiß | Bug | Workflow | Hoch | 2.I2 (Browser) | P4 | offen | |
 | B4 | Workflow-Graph: Pfeile laufen teilweise durch die Schritt-Kästen | Bug | Workflow | Hoch | 2.I2 (Browser) | P4 | offen | |
 | B5 | Tabellen-Ansicht (`table_view`) lässt sich im Browser nicht in ein Dokument einfügen | Feature | Frontend, Tabellen | Hoch | 2.I2 (Browser) | P3 | offen | |
+| B11 | MCP über HTTP: `import_xlsx`/`import_docx` mit `file_path` liefern `NOT_FOUND`, weil der Pfad im Backend-Container gesucht wird | Bug | MCP/Agent, Import | Hoch (Blocker, falls die Demo über HTTP läuft) | 3.F1-Probe | P5 | offen | |
 | B6 | Dokument-Editor: Blöcke per Drag & Drop verschieben statt über Buttons, Design allgemein verbessern | UX | Frontend | Mittel | 2.I2 (Browser) | P2 | offen | |
 | B7 | Live-Updates beim gemeinsamen Bearbeiten von Dokumenten wirken unruhig, sollen ruhiger und klarer werden | UX | Frontend, Echtzeit | Mittel | 2.I2 (Browser) | P2 | offen | |
 | B8 | Ein Dokument als Arbeitsmappe: Tabellen und Workflows eingebettet, Tabellen als eigene Blätter wie in Excel, Blatt 1 = Dokument | UX | Frontend | Mittel | 2.I2 (Browser) | P2 + P3 + P4 | offen | |
+| B12 | MCP-Tool-Schemas von `apply_ops`, `edit_document`, `create_document` sind sehr groß (je mehrere zehn KB) | UX | MCP/Agent | Mittel | 3.F1-Probe | P5 | offen | |
 | B9 | Löschen-Button bei Dokumenten und Tabellen ist zu präsent | UX | Frontend | Niedrig | 2.I2 (Browser) | P3 | offen | |
 | B10 | „Home“ aus der Topbar entfernen, Klick auf das Logo „dock“ führt schon nach Home | UX | Frontend | Niedrig | 2.I2 (Browser) | P2 | offen | |
 
@@ -112,6 +114,28 @@ Sortiert nach Priorität.
 - **Symptom:** Die Topbar hat einen Link „Home“, obwohl ein Klick auf das Logo „dock“ ebenfalls zur Startseite führt.
 - **Erwartet:** Link „Home“ entfällt, das Logo bleibt der Weg zur Startseite (mit Hover-Zustand, damit klar ist, dass es klickbar ist).
 - **Ort:** `frontend/src/layout/AppShell.tsx:93` (und `:126`, falls das die mobile Navigation ist).
+
+### B11: Import per `file_path` scheitert über HTTP
+
+- **Symptom:** Annas Agent ruft `import_xlsx(file_path="…/demo/Bestelluebersicht.xlsx")` auf und bekommt `NOT_FOUND at file_path`, obwohl die Datei auf dem Rechner liegt. Schritt 1 aus `demo/prompts.md` bricht damit beim ersten Aufruf ab. Erst wenn der Agent selbst auf `content_base64` ausweicht, geht es weiter. Das kostet Zeit und wirkt live schlecht.
+- **Schritte:** Claude Code mit dem MCP-Server über HTTP (`http://localhost:8000/mcp`) verbinden, `import_xlsx` mit einem lokalen Pfad aufrufen.
+- **Ursache (geprüft):** `_read_upload` in `backend/app/mcp/server.py:281` öffnet `file_path` in dem Prozess, in dem der MCP-Server läuft. Über HTTP ist das der Backend-Container, und der hat laut `docker-compose.yml` nur `./backend` unter `/srv` gemountet, nicht `demo/` und nicht den Pfad des Rechners.
+- **Umgehung für die Demo:** MCP über stdio anbinden (Variante B), dann läuft der Server auf dem Rechner und findet die Datei.
+- **Dauerhafte Lösung (eine davon):**
+  - `demo/` in den Backend-Container mounten, und zwar unter demselben Pfad, den der Agent kennt. Unter Windows schwierig, weil Host-Pfade wie `C:\…` im Container nicht existieren.
+  - Besser: Bei HTTP liest ein kleiner lokaler MCP-Proxy bzw. der Client den Pfad und schickt `content_base64`. Alternativ die Tool-Beschreibung so ändern, dass Agenten über HTTP direkt `content_base64` nutzen, und `file_path` nur bei stdio anbieten.
+- **Priorität:** `Hoch`, weil es mit stdio eine Umgehung gibt. **Blocker**, falls das Team für die Demo HTTP festlegt. Entscheidung in 2.I3 treffen und in `demo/prompts.md` festhalten.
+
+### B12: Sehr große Tool-Schemas
+
+- **Symptom:** `apply_ops`, `edit_document` und `create_document` bringen jeweils den kompletten Block- und Op-Baum (alle Blocktypen, alle 40 Ops, verschachtelte `children`) als JSON-Schema mit, je mehrere zehn KB.
+- **Folgen:** Jedes Laden der Tools kostet viel Kontext. Agenten werden langsamer und teurer und haben weniger Platz für die eigentliche Aufgabe. Mit dem Pro-Plan und mehreren Proben vor Freitag spürbar (siehe Abschnitt „Claude Code mit dem Pro-Plan effizient nutzen“ im Plan).
+- **Ort:** Tool-Definitionen in `backend/app/mcp/server.py`, Schemas aus `backend/app/schemas/`.
+- **Lösungsideen:**
+  - Gemeinsame Definitionen nur einmal ausliefern (`$defs` statt Wiederholung je Tool).
+  - Ops und Blöcke im Tool-Schema nur als `object` beschreiben und auf eine Doku-Ressource verweisen (z. B. MCP-Resource mit L 6.1 und den Blocktypen). Die Validierung bleibt serverseitig, Fehler kommen wie bisher als lesbare Tool-Fehler zurück.
+  - Das volle Schema nur an `apply_ops` hängen, `edit_document` und `create_document` schlank halten (Markdown statt Blockbaum, L 8.2).
+- **Achtung:** Der API-Vertrag in `backend/app/schemas/` bleibt unverändert, es geht nur um die Darstellung im MCP-Tool. Nach dem Umbau Annas Agent-Flow (3.F1) erneut proben, damit die Agenten den Batch weiterhin fehlerfrei bauen.
 
 <!-- Vorlage für neue Details:
 
