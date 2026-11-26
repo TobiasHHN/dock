@@ -3,16 +3,19 @@
 Protokoll zum Test aus `demo/usability-test.md` (Anna arbeitet nur über ihren KI-Assistenten).
 Es geht nicht um Zeiten oder Messwerte, sondern darum, was wir daraus lernen: Was klappt gut, was hakt, was ändern wir.
 
-> **Stand:** Abschnitt „W1“ enthält echte Ergebnisse aus einem Agenten-Walkthrough. Alles ab
-> „Erwartungen für den Test mit Person“ sind **Annahmen**, noch nicht mit einer Testperson geprüft. Nach dem echten
-> Durchlauf jeden Punkt dort als **bestätigt**, **widerlegt** oder **neu** markieren.
+> **Stand:** Abschnitt „W1“ enthält Ergebnisse aus einem Agenten-Walkthrough, Abschnitt „Durchlauf 1“ die Ergebnisse
+> aus dem Test mit Person. Die Erwartungen weiter unten sind gegen Durchlauf 1 abgeglichen (**bestätigt**,
+> **widerlegt**, **neu** oder **nicht erhoben**).
+>
+> **Kernergebnis Durchlauf 1:** Alle Aufgaben hat die Testperson erfolgreich gelöst. Schwer war der **Einstieg**: Am
+> Anfang war unklar, was die Anwendung überhaupt macht und wie der Ablauf darin ist.
 
 ## Durchläufe
 
 | # | Datum | Art | Testperson | Agent / Client | Status |
 |---|---|---|---|---|---|
 | W1 | 26.11.2026 | Agenten-Walkthrough (ohne Testperson) | – | Claude Code (Opus 5.5) über `dock`-MCP als Anna | beide Aufgaben erfolgreich |
-| 1 | | Test mit Person | | | geplant |
+| 1 | 26.11.2026 | Test mit Person | _(eintragen)_ | KI-Assistent über `dock`-MCP als Anna | alle Aufgaben erfolgreich, Einstieg schwer |
 
 ## W1: Agenten-Walkthrough (tatsächlich durchgeführt)
 
@@ -92,7 +95,41 @@ Tatsächlicher Ablauf, 3 Tool-Aufrufe: `list_tasks` → genau eine offene Aufgab
 - **Neu:** W1-1 bis W1-4, W1-8, W1-10, W1-11. Vor allem W1-8: Inhaltsleere Genehmigungsschritte stehen nicht in den Erwartungen.
 - **Nicht prüfbar ohne Person:** Wartezeit-Gefühl, Verständlichkeit der Antworten, Rückfragen (E1, E4, E6).
 
-# Erwartungen für den Test mit Person (noch nicht geprüft)
+## Durchlauf 1: Test mit Person
+
+Ablauf nach `demo/usability-test.md`: Die Testperson spielt Anna (Einkauf) und arbeitet nur über ihren KI-Assistenten.
+Ben und Chef spielt das Testteam.
+
+### Ergebnis
+
+| Aufgabe | Ergebnis |
+|---|---|
+| 1: Bestellprozess aus Word + Excel bauen lassen | **erfolgreich** |
+| 2: Bestellnummer und Liefertermin eintragen | **erfolgreich** |
+
+### Was gut geklappt hat
+
+- **Alle Aufgaben gelöst.** Sobald die Testperson wusste, worum es geht, kam sie mit dem Assistenten zum Ziel. Die
+  Bedienung über natürliche Sprache selbst war also kein Hindernis.
+
+### Was nicht gut geklappt hat
+
+| # | Befund | Folge | Vorschlag |
+|---|---|---|---|
+| P1-1 | **Einstieg schwer:** Am Anfang war unklar, **was die Anwendung macht** und **wie der Ablauf ist** (Prozess anlegen → Mitarbeiter reicht ein → Chef genehmigt → Einkauf bestellt). | Die Testperson brauchte Zeit, um sich zu orientieren, bevor sie die erste Aufgabe angehen konnte. | siehe E7: Ablauf und Zweck sichtbar machen, bevor die erste Aufgabe beginnt. |
+
+### Interpretation
+
+Das Problem liegt **vor** den Aufgaben, nicht in den Aufgaben. Der Vorlesetext erklärt die Rolle (Anna, Einkauf) und
+die Dateien, aber nicht das **mentale Modell** der Plattform: Dokumente mit Formularen, ein Workflow aus Schritten,
+Aufgaben, die zur nächsten Rolle wandern, und eine Tabelle, die den Stand zeigt. Ohne dieses Bild ist „bauen Sie einen
+Bestellprozess“ zunächst abstrakt. Weil die Testperson nur über den Assistenten arbeitet, sieht sie den Ablauf auch nicht
+nebenbei in der Oberfläche.
+
+# Erwartungen vor dem Test (abgeglichen mit Durchlauf 1)
+
+Die Annahmen unten sind vor dem Test entstanden. Marker: **bestätigt**, **widerlegt**, **neu**, **nicht erhoben**
+(dazu gibt es aus Durchlauf 1 keine Beobachtung).
 
 ## Aufgabe 1: Bestellprozess aus Word + Excel bauen lassen
 
@@ -131,13 +168,15 @@ Tatsächlicher Ablauf, 3 Tool-Aufrufe: `list_tasks` → genau eine offene Aufgab
 
 ## Schlussfragen: erwartete Aussagen der Testperson
 
-- **Einfach:** „Ich musste nichts über die Plattform wissen, nur sagen, was ich will.“ – „Dass meine Excel-Liste und das Word-Formular übernommen wurden.“
-- **Unklar:** „Ich wusste nicht, ob der Assistent fertig ist oder noch arbeitet.“ – „Ich hätte gern gesehen, was er gebaut hat, bevor es live geht.“ – „Wo sehe ich das jetzt, ohne den Assistenten zu fragen?“
+- **Einfach:** „Ich musste nichts über die Plattform wissen, nur sagen, was ich will.“ → **widerlegt (Einstieg):** Ohne Grundverständnis von Zweck und Ablauf fiel der Anfang schwer. Für die eigentlichen Aufgaben **bestätigt**: Die hat die Testperson gelöst. – „Dass meine Excel-Liste und das Word-Formular übernommen wurden.“ → **nicht erhoben**
+- **Unklar:** „Ich wusste nicht, ob der Assistent fertig ist oder noch arbeitet.“ – „Ich hätte gern gesehen, was er gebaut hat, bevor es live geht.“ – „Wo sehe ich das jetzt, ohne den Assistenten zu fragen?“ → **nicht erhoben**
+- **Neu:** Unklar war vor allem, **was die Anwendung macht und wie der Ablauf ist** (P1-1). Diese Aussage stand nicht in den Erwartungen.
 
 ## Erkenntnisse und mögliche Maßnahmen
 
 | # | Erkenntnis | Mögliche Maßnahme | Wo | Priorität |
 |---|---|---|---|---|
+| E7 | **Neu, bestätigt in Durchlauf 1:** Zweck und Ablauf der Anwendung sind zu Beginn unklar | (a) Startseite/Einstiegsdokument erklärt in 2–3 Sätzen, was die Plattform macht, und zeigt den Ablauf als Bild (Erfassen → Genehmigen → Bestellen, mit Rollen). (b) Der Assistent erklärt beim ersten Kontakt kurz, was er kann und wie es weitergeht (Hinweis in den MCP-Server-Instructions). (c) Vorlesetext um einen Satz zum Ablauf ergänzen oder vorab den fertigen Prozess 30 Sekunden im Browser zeigen. | Frontend (Startseite), MCP-Hinweise, `demo/usability-test.md` | Hoch |
 | E1 | Testperson ist unsicher, wann der Agent fertig ist | Tool-Beschreibungen: Agent soll am Ende kurz in Alltagssprache zusammenfassen („Der Bestellprozess ist eingerichtet und kann ab jetzt genutzt werden“) und den Link zum Workflow nennen | MCP-Tool-Hinweise | Hoch |
 | E2 | IDs und Fachbegriffe in Agenten-Antworten | Rückgaben von `publish_workflow`/`complete_task` um lesbare Namen und eine URL ergänzen, damit der Agent die nennen kann | MCP/Backend | Mittel |
 | E3 | Dateipfade beim Import | Fehlermeldung bei unbekanntem Pfad mit Hinweis „absoluten Pfad verwenden“, Pfad im Vorlesetext nennen | MCP, Testablauf | Mittel |
@@ -147,6 +186,10 @@ Tatsächlicher Ablauf, 3 Tool-Aufrufe: `list_tasks` → genau eine offene Aufgab
 
 Neue Bugs aus dem Test zusätzlich in `demo/bugs.md` eintragen (Bereich `MCP/Agent`, „Gefunden in: Usability-Test“).
 
+Zu E1–E6 gibt es aus Durchlauf 1 keine gesonderten Beobachtungen (**nicht erhoben**). E3 und E5 sind schon durch W1 widerlegt.
+
 ## Notizen aus dem echten Durchlauf
 
-_Hier nach dem Test eintragen: Zitate der Testperson, Stellen, an denen sie gezögert hat, was der Agent anders gemacht hat als erwartet._
+- Durchlauf 1 (26.11.2026): Beide Aufgaben erfolgreich. Zögern vor allem **am Anfang**, weil unklar war, was die
+  Anwendung macht und wie der Ablauf ist.
+- _Noch ergänzen, falls notiert: Zitate der Testperson, Zeit und Anzahl der Prompts pro Aufgabe, was der Agent anders gemacht hat als erwartet._
