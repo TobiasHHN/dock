@@ -1,7 +1,7 @@
 // Rundgang beim ersten Besuch: Schritte und „schon gesehen“-Merker (pro Nutzer und Browser).
 import type { IconName } from "../ui/icons";
 
-export type TourVisual = "welcome" | "documents" | "tasks" | "requests" | "search";
+export type TourVisual = "welcome" | "documents" | "tasks" | "requests" | "search" | "mcp";
 
 export type TourStep = {
   id: string;
@@ -17,7 +17,7 @@ export const TOUR_STEPS: TourStep[] = [
     visual: "welcome",
     icon: "home",
     title: "Willkommen bei Dock",
-    text: "Dokumente, Tabellen und Abläufe an einem Ort. In vier kurzen Schritten zeigen wir dir, wo du was findest.",
+    text: "Dokumente, Tabellen und Abläufe an einem Ort. In wenigen Schritten zeigen wir dir, wo du was findest.",
   },
   {
     id: "documents",
@@ -45,7 +45,14 @@ export const TOUR_STEPS: TourStep[] = [
     visual: "search",
     icon: "search",
     title: "Suchen und auf dem Laufenden bleiben",
-    text: "Die Suche oben findet Dokumente, Tabellen und Abläufe. Die Glocke meldet dir in Echtzeit, wenn sich etwas für dich ändert. Den Rundgang findest du jederzeit über das Fragezeichen.",
+    text: "Die Suche oben findet Dokumente, Tabellen und Abläufe. Die Glocke meldet dir in Echtzeit, wenn sich etwas für dich ändert.",
+  },
+  {
+    id: "mcp",
+    visual: "mcp",
+    icon: "plug",
+    title: "Auch per KI-Assistent",
+    text: "Dock lässt sich zusätzlich über MCP mit einem Assistenten wie Claude oder ChatGPT bedienen. Er arbeitet mit deinen Rechten. Details und die Server-Adresse findest du im Profilmenü. Dort startest du auch diesen Rundgang jederzeit neu.",
   },
 ];
 

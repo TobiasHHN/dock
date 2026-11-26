@@ -4,11 +4,12 @@
 import { useEffect } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { authApi, useAuth } from "../api/client";
-import { TourButton, TourHost } from "../onboarding/Tour";
+import { McpInfoHost } from "../onboarding/McpInfo";
+import { TourHost } from "../onboarding/Tour";
+import { ProfileMenu } from "./ProfileMenu";
 import { NotificationBell, useNotificationToasts } from "../inbox/Notifications";
 import { SearchBox } from "../search/SearchBox";
 import { sync, useChannel } from "../sync/store";
-import { initials } from "../ui/actors";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 
@@ -95,22 +96,11 @@ function AppShell() {
         </nav>
         <SearchBox />
         <span className="spacer" />
-        <TourButton />
         <NotificationBell />
-        {user && (
-          <span className="profile">
-            <span className="avatar" aria-hidden="true">{initials(user.name)}</span>
-            <span className="profile-name">{user.name}</span>
-            {user.roles.map((r) => (
-              <span key={r} className="role-chip">{ROLE_LABEL[r] ?? r}</span>
-            ))}
-          </span>
-        )}
-        <button className="icon-button" onClick={logout} aria-label="Abmelden" title="Abmelden">
-          <Icon name="logout" size={18} strokeWidth={1.8} />
-        </button>
+        <ProfileMenu />
       </header>
       <TourHost />
+      <McpInfoHost />
       <main className="page" id="main" tabIndex={-1}>
         <div key={location.pathname} className="page-enter">
           <Outlet />

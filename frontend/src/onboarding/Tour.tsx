@@ -1,5 +1,5 @@
-// Rundgang für neue Nutzer: eine ruhige Karte mit fünf Schritten, öffnet sich beim ersten Besuch
-// und lässt sich über das Fragezeichen in der Kopfzeile jederzeit wieder starten.
+// Rundgang für neue Nutzer: eine ruhige Karte mit sechs Schritten, öffnet sich beim ersten Besuch
+// und lässt sich über das Profilmenü jederzeit wieder starten (`openTour`).
 import { useEffect, useRef, useState } from "react";
 import { create } from "zustand";
 import { useAuth } from "../api/client";
@@ -9,15 +9,6 @@ import { TOUR_STEPS, type TourVisual, clampStep, markTourSeen, tourSeen } from "
 const useTour = create<{ open: boolean }>(() => ({ open: false }));
 
 export const openTour = () => useTour.setState({ open: true });
-
-/** Fragezeichen in der Kopfzeile. */
-export function TourButton() {
-  return (
-    <button className="icon-button" onClick={openTour} aria-label="Rundgang starten" title="Rundgang">
-      <Icon name="help" size={18} strokeWidth={1.8} />
-    </button>
-  );
-}
 
 function Visual({ kind }: { kind: TourVisual }) {
   switch (kind) {
@@ -49,6 +40,13 @@ function Visual({ kind }: { kind: TourVisual }) {
         <div className="tour-vis tour-mock-col">
           <div className="tour-mock-steps"><i className="done" /><u className="done" /><i className="done" /><u /><i /></div>
           <div className="tour-mock-row"><span>Bestellung 4711</span><em className="tour-pill">In Prüfung · Anna</em></div>
+        </div>
+      );
+    case "mcp":
+      return (
+        <div className="tour-vis tour-mock-col">
+          <div className="tour-mock-bubble me">Lege eine Bestellung für 20 Monitore an</div>
+          <div className="tour-mock-bubble ai"><Icon name="check" size={14} strokeWidth={2.4} />Erledigt, der Ablauf läuft</div>
         </div>
       );
     case "search":
