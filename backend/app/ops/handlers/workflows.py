@@ -21,13 +21,14 @@ from typing import Any
 from sqlalchemy import text
 
 from app.domain import references
+from app.domain import run_status as RS
 from app.domain import tasks as T
 from app.domain import workflows as W
 from app.ops.context import OpContext
 from app.ops.errors import PipelineError
 from app.ops.handlers import register
 from app.schemas.ops import (
-    RunCancel, RunStart, TaskClaim, TaskReassign, TaskRelease,
+    RunCancel, RunComment, RunStart, TaskClaim, TaskReassign, TaskRelease,
     WorkflowCreate, WorkflowDelete, WorkflowPublish, WorkflowUpdate,
 )
 from app.schemas.workflows import WorkflowDefinition
@@ -183,6 +184,11 @@ async def run_start(ctx: OpContext, op: RunStart):
 @register("run.cancel")
 async def run_cancel(ctx: OpContext, op: RunCancel):
     return await W.cancel_run(ctx, op.run, op.reason, ctx.actor)
+
+
+@register("run.comment")
+async def run_comment(ctx: OpContext, op: RunComment):
+    return await RS.add_comment(ctx, op.run, op.text, ctx.actor)
 
 
 @register("task.claim")

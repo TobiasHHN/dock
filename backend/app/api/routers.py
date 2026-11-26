@@ -11,8 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.auth import ROLE_NAMES, CurrentUser, create_access_token, current_user, hash_password, verify_password
 from app.db.session import get_session
-from app.domain import forms, queries
+from app.domain import forms, queries, run_status
 from app.domain.ids import new_id
+from app.ops.context import OpContext
 from app.ops.errors import PipelineError
 from app.ops.pipeline import apply_batch
 from app.schemas import api as A
@@ -20,12 +21,10 @@ from app.schemas.blocks import DocumentMarkdown, DocumentOut, DocumentSummary
 from app.schemas.ops import BatchError, BatchResult, OpBatch
 from app.schemas.tables import RowsPage, Table
 from app.schemas.workflows import (
-    ButtonInfo, Notification, RunListItem, RunStatusView, TaskDetail, TaskListItem,
+    Notification, RunListItem, RunStatusView, TaskDetail, TaskListItem,
     ValidationResult, Workflow, WorkflowSummary,
 )
 from app.schemas.ws import WsMessages
-
-from . import stub_data as D
 
 User = Annotated[CurrentUser, Depends(current_user)]
 
@@ -253,53 +252,50 @@ async def validate_workflow(body: A.WorkflowValidateRequest, user: User,
         raise _http(exc) from exc
 
 
-# ── Runs, Aufgaben, Benachrichtigungen (4.2–4.4) ─────────────────────────────
+# ── Runs, Aufgaben, Benachrichtigungen (4.4) ─────────────────────────────────
 runs = APIRouter(prefix="/api", tags=["runs"])
 
 
 @runs.get("/runs", response_model=list[RunListItem])
 async def list_runs(user: User, workflow: str | None = None,
-                    started_by: Literal["me", "any"] = "me", status: str | None = None):
-    return D.RUN_LIST
+                    started_by: Literal["me", "any"] = "me", status: str | None = None,
+                    session: AsyncSession = Depends(get_session)):
+    return await run_status.list_runs(session, user.actor, workflow=workflow, started_by=started_by, status=status)
 
 
 @runs.get("/runs/{run}", response_model=RunStatusView)
-async def get_run(run: str, user: User):
-    return D.RUN_STATUS
+async def get_run(run: str, user: User, session: AsyncSession = Depends(get_session)):
+    try:
+        return await run_status.build_status_view(OpContext(session=session, actor=user.actor), run, user.actor)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 @runs.get("/tasks", response_model=list[TaskListItem])
 async def list_tasks(user: User, assigned_to: Literal["me"] = "me", status: str = "open",
-                     workflow: str | None = None):
-    can = "chef" in user.roles
-    return [TaskListItem(task=D.TASK_OPEN, run_title=D.RUN_STATUS.title, step_name="Genehmigung",
-                         workflow_name="Bestellprozess", can_act=can)] if can else []
+                     workflow: str | None = None, session: AsyncSession = Depends(get_session)):
+    return await run_status.list_tasks(session, user.actor, assigned_to=assigned_to, status=status, workflow=workflow)
 
 
 @runs.get("/tasks/{task}", response_model=TaskDetail)
-async def get_task(task: str, user: User):
-    return TaskDetail(
-        task=D.TASK_OPEN, run_title=D.RUN_STATUS.title, document_id="doc_s2",
-        document_markdown="# Genehmigung {#blk_s2_h}\n\nBestellung von Ben Mitarbeiter für Kostenstelle 4711.",
-        form_block="blk_s2_form",
-        buttons=[ButtonInfo(id="approve", label="Genehmigt", style="primary", outcome="approved"),
-                 ButtonInfo(id="reject", label="Abgelehnt", style="danger", outcome="rejected", require=["kommentar"])],
-        fields=[{"key": "kommentar", "label": "Kommentar", "input": "textarea", "required": False}],
-        can_act="chef" in user.roles,
-    )
+async def get_task(task: str, user: User, session: AsyncSession = Depends(get_session)):
+    try:
+        return await run_status.get_task_detail(session, task, user)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 @runs.get("/notifications", response_model=list[Notification])
-async def list_notifications(user: User, unread: bool = False):
-    if "chef" not in user.roles:
-        return []
-    return [Notification(id="ntf_1", recipient_id=user.id, run_id="run_42", task_id="tsk_2", type="step_entered",
-                         payload={"title": D.RUN_STATUS.title, "step": "Genehmigung"}, created_at=D.T1)]
+async def list_notifications(user: User, unread: bool = False, session: AsyncSession = Depends(get_session)):
+    return await run_status.list_notifications(session, user.actor, unread=unread)
 
 
 @runs.post("/notifications/{notification}/read", response_model=Notification)
-async def read_notification(notification: str, user: User):
-    return Notification(id=notification, recipient_id=user.id, type="step_entered", created_at=D.T1, read_at=D.T1)
+async def read_notification(notification: str, user: User, session: AsyncSession = Depends(get_session)):
+    try:
+        return await run_status.mark_notification_read(session, notification, user.actor)
+    except PipelineError as exc:
+        raise _http(exc) from exc
 
 
 # ── Import (3.6–3.8) ─────────────────────────────────────────────────────────

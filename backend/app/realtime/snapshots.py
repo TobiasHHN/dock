@@ -70,7 +70,7 @@ async def _run(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
 async def _user(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
     keys, ids = await load_roles(s, id_)
     tasks = await _all(
-        s, """SELECT * FROM tasks WHERE status = 'open' AND (
+        s, """SELECT * FROM tasks WHERE status = 'open' AND NOT (:u = ANY(excluded)) AND (
                   :u = ANY(candidate_users) OR candidate_roles && CAST(:roles AS text[]) OR claimed_by_id = :u)
               ORDER BY created_at""", u=id_, roles=keys + ids)
     runs = await _all(s, "SELECT * FROM runs WHERE started_by_id = :u ORDER BY started_at DESC", u=id_)

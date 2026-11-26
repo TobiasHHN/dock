@@ -77,6 +77,14 @@ async def apply_batch(batch: OpBatch, actor: Actor, session: AsyncSession | None
                 await enqueue_reembed(source_kind, source_id)
             except Exception:  # Suche ist nachrangig, der Batch ist bereits committet
                 log.exception("enqueue_reembed(%s, %s) fehlgeschlagen", source_kind, source_id)
+        if ctx.post_commit_events:
+            from app.realtime import hub
+
+            for channel, event in ctx.post_commit_events:
+                try:
+                    await hub.publish(channel, event)
+                except Exception:
+                    log.exception("hub.publish(%s) fehlgeschlagen", channel)
     return result
 
 
