@@ -320,6 +320,7 @@ async def _prepare_import(source: str, result, user: CurrentUser, session: Async
     from app.imports import store
     from app.ops.context import OpContext
 
+    await session.commit()  # beendet die Transaktion der Anmeldeprüfung (Autobegin), sonst scheitert `begin()`
     async with session.begin():
         plan = await store.save_plan(OpContext(session=session, actor=user.actor), source, result.ops,
                                      result.created, result.warnings)

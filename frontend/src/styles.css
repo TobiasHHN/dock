@@ -754,3 +754,35 @@ table.grid .col-actions { width: 1%; white-space: nowrap; text-align: right; }
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Import (Task 3.8) */
+.modal-backdrop {
+  position: fixed; inset: 0; z-index: 60; display: flex; align-items: center; justify-content: center;
+  padding: 16px; background: rgba(16, 24, 40, 0.45);
+}
+.modal {
+  width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg); padding: 20px; display: flex; flex-direction: column; gap: 14px;
+}
+.modal-head { display: flex; justify-content: space-between; align-items: center; }
+.modal-head h2 { margin: 0; font-size: 1.1rem; }
+.modal-foot { display: flex; justify-content: flex-end; gap: 8px; }
+.dropzone {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center;
+  padding: 22px 16px; border: 1.5px dashed var(--border-strong); border-radius: var(--radius);
+  color: var(--muted); transition: background var(--dur) var(--ease), border-color var(--dur) var(--ease);
+}
+.dropzone p { margin: 0; color: var(--text-2); }
+.dropzone.over { background: var(--accent-soft); border-color: var(--accent); }
+.import-options { display: flex; flex-direction: column; gap: 10px; }
+.import-options label { display: flex; flex-direction: column; gap: 4px; font-size: 0.85rem; font-weight: 500; color: var(--text-2); }
+.import-preview h3 { margin: 0 0 8px; font-size: 0.95rem; }
+.preview-list, .warnings ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.preview-list li { display: flex; gap: 10px; align-items: flex-start; }
+.preview-list .icon { margin-top: 3px; color: var(--muted); }
+.warnings { margin-top: 12px; padding: 10px 14px; border-radius: var(--radius); background: var(--warning-soft); color: var(--warning-text); font-size: 0.875rem; }
+.warnings h4 { margin: 0 0 6px; display: flex; gap: 6px; align-items: center; font-size: 0.85rem; }
+.warnings ul { list-style: disc; padding-left: 18px; gap: 3px; }
+.page-drop-over { outline: 2px dashed var(--accent); outline-offset: 4px; border-radius: var(--radius-lg); background: var(--accent-soft); }
+.card h2 .card-action { margin-left: auto; }

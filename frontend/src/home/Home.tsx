@@ -1,13 +1,15 @@
 // Home (Task 2.6): Dokumente, Tabellen, Workflows live aus dem Kanal `workspace` (L 7.2), „Neues Dokument“,
 // Zähler für Aufgaben und Benachrichtigungen. Neue Einträge erscheinen ohne Neuladen und werden kurz hervorgehoben.
 // Oben „Wartet auf dich“: die offenen Aufgaben aus `user:<id>` als Kurzliste (die volle Ansicht baut Task 4.5).
-import { type ReactNode, useEffect, useRef, useState } from "react";
+import { type DragEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { canEditStructure, useAuth } from "../api/client";
 import { type InboxTask, useInbox } from "../layout/AppShell";
 import type { WorkspaceData } from "../sync/core";
 import { newId, submit, useChannel } from "../sync/store";
 import { Icon, type IconName, relativeTime } from "../ui/icons";
+import { ImportDialog } from "../imports/ImportDialog";
+import { checkFile } from "../imports/importModel";
 import { toast } from "../ui/toasts";
 
 type Item = {
@@ -36,9 +38,9 @@ function useNewIds(items: Item[] | undefined): Set<string> {
   return fresh;
 }
 
-function ListCard({ title, icon, items, link, meta, empty }: {
+function ListCard({ title, icon, items, link, meta, empty, onImport }: {
   title: string; icon: IconName; items: Item[] | undefined; link: (i: Item) => string;
-  meta: (i: Item) => ReactNode; empty: string;
+  meta: (i: Item) => ReactNode; empty: string; onImport?: () => void;
 }) {
   const fresh = useNewIds(items);
   const id = `card-${title.toLowerCase()}`;
@@ -47,6 +49,7 @@ function ListCard({ title, icon, items, link, meta, empty }: {
       <h2 id={id}>
         <span className="card-title"><Icon name={icon} />{title}</span>
         {items && items.length > 0 && <span className="count">{items.length}</span>}
+        {onImport && <button className="ghost card-action" onClick={onImport}>Importieren</button>}
       </h2>
       {!items ? (
         <div className="skeleton-list" aria-label="Lädt …">
@@ -125,6 +128,8 @@ export function Home() {
   const { openTasks, unread } = useInbox();
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
+  const [importing, setImporting] = useState<{ file: File | null } | null>(null);
+  const [dragOver, setDragOver] = useState(false);
   const mayEdit = canEditStructure(user);
 
   async function createDocument() {
@@ -145,8 +150,24 @@ export function Home() {
   const docs = data?.documents as Item[] | undefined;
   const sortedDocs = docs && [...docs].sort((a, b) => (b.updated_at ?? "").localeCompare(a.updated_at ?? ""));
 
+  const hasFiles = (e: DragEvent<HTMLElement>) => mayEdit && !importing && Array.from(e.dataTransfer.types).includes("Files");
+
   return (
-    <>
+    <div
+      className={dragOver ? "page-drop-over" : undefined}
+      onDragOver={(e) => { if (hasFiles(e)) { e.preventDefault(); setDragOver(true); } }}
+      onDragLeave={(e) => { if (e.currentTarget === e.target) setDragOver(false); }}
+      onDrop={(e) => {
+        if (!hasFiles(e)) return;
+        e.preventDefault();
+        setDragOver(false);
+        const f = e.dataTransfer.files[0];
+        if (!f) return;
+        const c = checkFile(f);
+        if ("error" in c) toast(c.error, "error");
+        else setImporting({ file: f });
+      }}
+    >
       <div className="page-head">
         <div>
           <h1>Hallo {user?.name?.split(" ")[0]}</h1>
@@ -158,6 +179,10 @@ export function Home() {
         </div>
         {mayEdit && (
           <div className="actions">
+            <button onClick={() => setImporting({ file: null })}>
+              <Icon name="arrowUp" />
+              Importieren
+            </button>
             <button className="primary" onClick={createDocument} disabled={creating}>
               <Icon name="plus" />
               {creating ? "Lege an …" : "Neues Dokument"}
@@ -179,6 +204,7 @@ export function Home() {
             d.owner ? <span className="chip">Schritt</span> : d.updated_at ? <span className="item-meta">{relativeTime(d.updated_at)}</span> : null
           }
           empty={mayEdit ? "Noch keine Dokumente. Lege oben das erste an." : "Noch keine Dokumente."}
+          onImport={mayEdit ? () => setImporting({ file: null }) : undefined}
         />
         <ListCard
           title="Tabellen"
@@ -187,6 +213,7 @@ export function Home() {
           link={(t) => `/tables/${t.id}`}
           meta={(t) => t.key && <span className="chip" translate="no">{t.key}</span>}
           empty="Noch keine Tabellen."
+          onImport={mayEdit ? () => setImporting({ file: null }) : undefined}
         />
         <ListCard
           title="Workflows"
@@ -199,6 +226,7 @@ export function Home() {
           empty="Noch keine Workflows."
         />
       </div>
-    </>
+      {importing && <ImportDialog initialFile={importing.file} onClose={() => setImporting(null)} />}
+    </div>
   );
 }
