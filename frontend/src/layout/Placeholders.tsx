@@ -3,24 +3,38 @@
 // schreibgeschützte Live-Ansicht aus dem Kanal `table:<id>`.
 import { Link, useParams } from "react-router-dom";
 import { useChannel } from "../sync/store";
+import { Icon, type IconName } from "../ui/icons";
 import { useInboxCounts } from "./AppShell";
 
 export function TablePage() {
   const { id } = useParams();
   const ch = useChannel(`table:${id}`);
   const table = ch?.view?.tables?.[0];
-  if (!ch || ch.status === "loading") return <p className="muted">Tabelle wird geladen …</p>;
-  if (ch.status === "error") return <p className="error-text">Tabelle nicht verfügbar: {ch.error?.message}</p>;
-  if (!table) return <p className="muted">Diese Tabelle wurde gelöscht. <Link to="/">Zur Übersicht</Link></p>;
+  if (!ch || ch.status === "loading") return <p className="muted" role="status">Tabelle wird geladen …</p>;
+  if (ch.status === "error")
+    return <p className="alert" role="alert"><Icon name="alert" />Tabelle nicht verfügbar: {ch.error?.message}. <Link to="/">Zur Übersicht</Link></p>;
+  if (!table) return <Pending icon="table" title="Tabelle gelöscht" text="Diese Tabelle gibt es nicht mehr." />;
   const columns = [...table.columns].sort((a: { position: string }, b: { position: string }) => (a.position < b.position ? -1 : 1));
   const rows = [...table.rows].sort((a: { position: string }, b: { position: string }) => (a.position < b.position ? -1 : 1));
   return (
     <>
-      <h1>{table.title ?? table.name}</h1>
-      <p className="small muted">Schreibgeschützte Vorschau, die bearbeitbare Tabellenansicht folgt mit Task 3.1.</p>
+      <nav className="breadcrumb" aria-label="Brotkrumen">
+        <Link to="/">Tabellen</Link>
+        <Icon name="chevronRight" size={14} />
+        <span aria-current="page">{table.title ?? table.name}</span>
+      </nav>
+      <div className="page-head">
+        <div>
+          <h1>{table.title ?? table.name}</h1>
+          <p className="muted">
+            {rows.length} {rows.length === 1 ? "Eintrag" : "Einträge"} · schreibgeschützte Vorschau, der Editor folgt mit Task 3.1
+          </p>
+        </div>
+      </div>
+      <div className="table-wrap">
       <table className="simple">
         <thead>
-          <tr>{columns.map((c: { id: string; name: string }) => <th key={c.id}>{c.name}</th>)}</tr>
+          <tr>{columns.map((c: { id: string; name: string }) => <th key={c.id} scope="col">{c.name}</th>)}</tr>
         </thead>
         <tbody>
           {rows.map((r: { id: string; values: Record<string, unknown> }) => (
@@ -33,26 +47,37 @@ export function TablePage() {
           ))}
         </tbody>
       </table>
+      </div>
+      {rows.length === 0 && <p className="empty">Noch keine Zeilen.</p>}
     </>
   );
 }
 
-function Pending({ title, task }: { title: string; task: string }) {
+function Pending({ icon, title, text }: { icon: IconName; title: string; text: string }) {
   return (
-    <>
+    <div className="empty-state">
+      <span className="empty-state-icon"><Icon name={icon} size={22} /></span>
       <h1>{title}</h1>
-      <p className="muted">Diese Ansicht entsteht mit Task {task}.</p>
+      <p className="muted">{text}</p>
       <Link to="/">Zur Übersicht</Link>
-    </>
+    </div>
   );
 }
 
-export const WorkflowPage = () => <Pending title="Workflow" task="4.6" />;
-export const RunPage = () => <Pending title="Ablauf" task="4.6" />;
+export const WorkflowPage = () => <Pending icon="flow" title="Workflow" text="Diese Ansicht entsteht mit Task 4.6." />;
+export const RunPage = () => <Pending icon="flow" title="Ablauf" text="Diese Ansicht entsteht mit Task 4.6." />;
 
 export function InboxTasksPage() {
   const counts = useInboxCounts();
-  return <Pending title={`Aufgaben (${counts.tasks} offen)`} task="4.5" />;
+  return (
+    <Pending
+      icon="tasks"
+      title={`Aufgaben (${counts.tasks} offen)`}
+      text="Die Aufgabenliste mit Öffnen, Übernehmen und Freigeben entsteht mit Task 4.5."
+    />
+  );
 }
 
-export const InboxRequestsPage = () => <Pending title="Anfragen" task="4.5" />;
+export const InboxRequestsPage = () => (
+  <Pending icon="inbox" title="Meine Anträge" text="Die Übersicht deiner Anträge entsteht mit Task 4.5." />
+);

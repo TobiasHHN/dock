@@ -2,6 +2,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { type SignupRequest, authApi, useAuth } from "../api/client";
+import { Icon } from "../ui/icons";
 
 const ROLES: { key: SignupRequest["role"]; label: string }[] = [
   { key: "mitarbeiter", label: "Mitarbeiter" },
@@ -11,10 +12,39 @@ const ROLES: { key: SignupRequest["role"]; label: string }[] = [
 
 // Demo-Konten aus demo/seed.py (siehe demo/prompts.md)
 const DEMO = [
-  { label: "Anna (Einkauf)", email: "anna@demo.local" },
-  { label: "Ben (Mitarbeiter)", email: "ben@demo.local" },
-  { label: "Chef", email: "chef@demo.local" },
+  { name: "Anna", role: "Einkauf", email: "anna@demo.local" },
+  { name: "Ben", role: "Mitarbeiter", email: "ben@demo.local" },
+  { name: "Chef", role: "Chef", email: "chef@demo.local" },
 ];
+
+/** Gemeinsamer Rahmen: Marke, Karte, Link darunter. */
+function AuthLayout({ title, subtitle, children, footer }: {
+  title: string; subtitle: string; children: React.ReactNode; footer: React.ReactNode;
+}) {
+  return (
+    <div className="auth-wrap">
+      <div className="auth-brand brand" translate="no">dock</div>
+      <main className="auth-card">
+        <div className="auth-head">
+          <h1>{title}</h1>
+          <p className="muted">{subtitle}</p>
+        </div>
+        {children}
+      </main>
+      <p className="auth-foot muted">{footer}</p>
+    </div>
+  );
+}
+
+function FormError({ error }: { error: string | null }) {
+  if (!error) return null;
+  return (
+    <div className="form-error" role="alert">
+      <Icon name="alert" />
+      <span>{error}</span>
+    </div>
+  );
+}
 const DEMO_PASSWORD = "demo"; // PASSWORD in demo/seed.py
 
 function useAfterLogin() {
@@ -56,34 +86,45 @@ export function LoginPage() {
   };
 
   return (
-    <div className="auth-card">
-      <h1>Anmelden</h1>
+    <AuthLayout
+      title="Anmelden"
+      subtitle="Willkommen zurück. Melde dich mit deinem Konto an."
+      footer={<>Noch kein Konto? <Link to="/signup">Registrieren</Link></>}
+    >
       <form onSubmit={onSubmit}>
         <label>
           E-Mail
-          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" required autoFocus />
+          <input type="email" name="email" placeholder="name@firma.de" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="username" spellCheck={false} required autoFocus />
         </label>
         <label>
           Passwort
-          <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
+          <input type="password" name="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
         </label>
-        {error && <div className="error-text">{error}</div>}
-        <button className="primary" disabled={busy}>
+        <FormError error={error} />
+        <button className="primary block" disabled={busy}>
           {busy ? "Anmelden …" : "Anmelden"}
         </button>
       </form>
-      <p className="small muted">
-        Noch kein Konto? <Link to="/signup">Registrieren</Link>
-      </p>
-      <div className="small muted">Demo-Konten:</div>
-      <div className="demo-logins">
-        {DEMO.map((d) => (
-          <button key={d.email} type="button" disabled={busy} onClick={() => void login(d.email, DEMO_PASSWORD)}>
-            {d.label}
-          </button>
-        ))}
+      <div className="demo">
+        <span className="eyebrow" id="demo-label">Demo-Konten</span>
+        <div className="demo-grid" role="group" aria-labelledby="demo-label">
+          {DEMO.map((d) => (
+            <button
+              key={d.email}
+              type="button"
+              className="demo-card"
+              disabled={busy}
+              onClick={() => void login(d.email, DEMO_PASSWORD)}
+              aria-label={`Als ${d.name} (${d.role}) anmelden`}
+            >
+              <span className="avatar" aria-hidden="true">{d.name[0]}</span>
+              <span className="demo-name">{d.name}</span>
+              <span className="demo-role">{d.role}</span>
+            </button>
+          ))}
+        </div>
       </div>
-    </div>
+    </AuthLayout>
   );
 }
 
@@ -116,24 +157,28 @@ export function SignupPage() {
   }
 
   return (
-    <div className="auth-card">
-      <h1>Registrieren</h1>
+    <AuthLayout
+      title="Registrieren"
+      subtitle="Lege ein Konto an und wähle deine Rolle."
+      footer={<>Schon registriert? <Link to="/login">Anmelden</Link></>}
+    >
       <form onSubmit={onSubmit}>
         <label>
           Name
-          <input value={form.name} onChange={set("name")} required autoFocus />
+          <input name="name" value={form.name} onChange={set("name")} autoComplete="name" required autoFocus />
         </label>
         <label>
           E-Mail
-          <input type="email" value={form.email} onChange={set("email")} autoComplete="username" required />
+          <input type="email" name="email" placeholder="name@firma.de" value={form.email} onChange={set("email")} autoComplete="username" spellCheck={false} required />
         </label>
         <label>
-          Passwort (mindestens 8 Zeichen)
-          <input type="password" value={form.password} onChange={set("password")} autoComplete="new-password" required />
+          Passwort
+          <input type="password" name="password" value={form.password} onChange={set("password")} autoComplete="new-password" aria-describedby="pw-hint" required />
+          <span className="hint" id="pw-hint">Mindestens 8 Zeichen</span>
         </label>
         <label>
           Rolle
-          <select value={form.role} onChange={set("role")}>
+          <select name="role" value={form.role} onChange={set("role")}>
             {ROLES.map((r) => (
               <option key={r.key} value={r.key}>
                 {r.label}
@@ -141,14 +186,11 @@ export function SignupPage() {
             ))}
           </select>
         </label>
-        {error && <div className="error-text">{error}</div>}
-        <button className="primary" disabled={busy}>
+        <FormError error={error} />
+        <button className="primary block" disabled={busy}>
           {busy ? "Registrieren …" : "Registrieren"}
         </button>
       </form>
-      <p className="small muted">
-        Schon registriert? <Link to="/login">Anmelden</Link>
-      </p>
-    </div>
+    </AuthLayout>
   );
 }
