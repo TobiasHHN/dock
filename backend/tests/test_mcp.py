@@ -169,7 +169,7 @@ def _stub_reads(monkeypatch):
     async def fetch_table(s, ref):
         return table(ref).model_dump()
 
-    async def query_rows(s, ref, filters, sorts, limit=100, offset=0):
+    async def query_rows(s, ref, filters, sorts, limit=100, offset=0, context=None):
         t = table(ref)
         rows = D.ROWS.get(t.id, [])
         return {"table": t.id, "rows": [r.model_dump() for r in rows], "total": len(rows)}

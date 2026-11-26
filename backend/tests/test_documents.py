@@ -575,7 +575,8 @@ async def test_table_and_row_endpoints_filters(engine, api):
     assert bad.status_code == 422
     expr = await api.post(f"/api/tables/{tbl['key']}/rows/query",
                           json={"filter": [{"column": "name", "op": "eq", "value": "{{run.id}}"}]})
-    assert expr.status_code == 422
+    assert expr.status_code == 422  # `run` gibt es in einer Abfrage nicht
+    assert (await query(filter=[{"column": "name", "op": "eq", "value": '{{concat("Mu", "tter")}}'}]))[0] == ["Mutter"]
 
 
 async def test_table_view_block_protects_table_and_column_from_delete(engine):
