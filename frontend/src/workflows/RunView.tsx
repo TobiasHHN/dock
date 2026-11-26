@@ -13,7 +13,7 @@ import { actorLabel, useUsers } from "../ui/actors";
 import { confirmDialog } from "../ui/confirm";
 import { Icon, relativeTime } from "../ui/icons";
 import { toast } from "../ui/toasts";
-import { canCancelRun } from "./layout";
+import { canCancelRun, isStepResponsible } from "./layout";
 import { RunTimeline } from "./RunTimeline";
 import { WorkflowGraph } from "./WorkflowGraph";
 
@@ -84,6 +84,7 @@ export function RunView({ runId }: { runId: string }) {
   const openTask = runCh?.view?.task;
   const activeStep = run.current?.step ?? null;
   const currentStepDef = workflow?.draft.steps.find((s) => s.key === selectedStep);
+  const stepVisible = !!currentStepDef && isStepResponsible(currentStepDef, run, me, openTask, wsRoles);
   const stepEditable = run.status === "active" && !!selectedStep && selectedStep === activeStep;
 
   const mayCancel = canCancelRun(run, workflow?.draft, me, wsRoles);
@@ -198,7 +199,9 @@ export function RunView({ runId }: { runId: string }) {
 
       <div className="run-layout">
         <section className="panel run-step-panel" aria-label={currentStepDef?.name ?? "Schritt-Dokument"}>
-          {currentStepDef ? (
+          {currentStepDef && !stepVisible ? (
+            <p className="empty">Für diesen Schritt bist du nicht zuständig, sein Dokument wird dir nicht angezeigt.</p>
+          ) : currentStepDef ? (
             <DocumentView
               key={`${runId}:${currentStepDef.document}:${selectedStep}`}
               docId={currentStepDef.document}

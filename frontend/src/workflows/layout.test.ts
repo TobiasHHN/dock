@@ -3,7 +3,7 @@ import type { RunStatusView } from "../api";
 import type { UserOut } from "../api/client";
 import type { FlatBlock } from "../documents/blockOps";
 import {
-  canCancelRun, canStartWorkflow, formatRunEvent, layoutWorkflow, normalizeSubmittedValues, routeEdge, type WorkflowDefinition,
+  canCancelRun, canStartWorkflow, formatRunEvent, isStepResponsible, layoutWorkflow, normalizeSubmittedValues, routeEdge, type WorkflowDefinition,
 } from "./layout";
 
 const ME_BEN: UserOut = { id: "usr_ben", name: "Ben", email: "ben@example.com", roles: ["mitarbeiter"] };
@@ -140,5 +140,25 @@ describe("edge routing", () => {
     expect(by("rework")).toMatchObject({ route: "back", sourceHandle: "out-bottom", targetHandle: "in-bottom" });
     expect(by("rejected")).toMatchObject({ route: "skip", sourceHandle: "out-top", targetHandle: "in-top" });
     expect(by("approved").route).toBe("forward");
+  });
+});
+
+describe("isStepResponsible", () => {
+  const run = { started_by: { type: "user", id: "usr_ben" }, current: { step: "genehmigung" } } as unknown as RunStatusView;
+  const [erfassen, genehmigung] = ORDER_WF.steps;
+
+  it("erkennt Zuständigkeit über Starter und Rolle", () => {
+    expect(isStepResponsible(erfassen, run, ME_BEN, undefined)).toBe(true);
+    expect(isStepResponsible(erfassen, run, ME_CHEF, undefined)).toBe(false);
+    expect(isStepResponsible(genehmigung, run, ME_CHEF, undefined)).toBe(true);
+  });
+
+  it("blendet das Dokument für Unzuständige aus", () => {
+    expect(isStepResponsible(genehmigung, run, ME_BEN, undefined)).toBe(false);
+    expect(isStepResponsible(genehmigung, run, null, undefined)).toBe(false);
+  });
+
+  it("lässt beim aktiven Schritt auch eine Aufgabe zählen (z. B. expr-Zuständigkeit)", () => {
+    expect(isStepResponsible(genehmigung, run, ME_BEN, { can_act: true })).toBe(true);
   });
 });
