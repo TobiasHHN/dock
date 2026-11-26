@@ -6,7 +6,8 @@ import { type DragEvent, useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { canEditDocument, canEditStructure, useAuth } from "../api/client";
 import type { WorkspaceData } from "../sync/core";
-import { newId, submit, useChannel } from "../sync/store";
+import { useChannel } from "../sync/store";
+import { createBlankDocument } from "../documents/blockOps";
 import { Icon, relativeTime } from "../ui/icons";
 import { type HomeDoc, type HomeGroup, type HomeWorkflow, groupDocuments, loadExpanded, saveExpanded } from "./homeModel";
 import { ImportDialog } from "../imports/ImportDialog";
@@ -143,12 +144,9 @@ export function Home() {
   const mayCreateDoc = canEditDocument(user);
 
   async function createDocument() {
-    const id = newId("doc");
     setCreating(true);
     try {
-      await submit([
-        { op: "doc.create", id, title: "Neues Dokument", blocks: [{ id: newId("blk"), type: "paragraph", props: { content: [] } }] } as never,
-      ]);
+      const id = await createBlankDocument();
       navigate(`/documents/${id}`);
     } catch (e) {
       toast(`Dokument konnte nicht angelegt werden: ${(e as Error).message}`, "error");

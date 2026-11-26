@@ -56,6 +56,13 @@ export function firstTextId(b: NewBlock): string | null {
 export const insertBlock = (doc: string, parent: string | null, after: string | undefined, block: NewBlock) =>
   submit([{ op: "block.insert", doc, parent, ...(after ? { after } : {}), block } as Op]);
 
+/** Legt ein Dokument mit einem leeren Absatz an und liefert seine ID. */
+export async function createBlankDocument(title = "Neues Dokument"): Promise<string> {
+  const id = newId("doc");
+  await submit([{ op: "doc.create", id, title, blocks: [{ id: newId("blk"), type: "paragraph", props: { content: [] } }] } as never]);
+  return id;
+}
+
 export const updateBlock = (block: string, props: Json) => submit([{ op: "block.update", block, props } as Op]);
 
 export const deleteBlock = (block: string) => submit([{ op: "block.delete", block } as Op]);
