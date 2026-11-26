@@ -102,7 +102,6 @@ function RunDocumentView({
   return (
     <DocContext.Provider value={ctx}>
       <div className="doc-embedded">
-        <h3 className="doc-embedded-title">{data.document.title || "Ohne Titel"}</h3>
         <div className="doc-body doc-embedded-body">
           <BlockChildren parent={null} />
         </div>

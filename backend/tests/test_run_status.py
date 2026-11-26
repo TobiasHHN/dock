@@ -341,6 +341,14 @@ async def test_notifications_and_live_websocket_delivery_to_role(env):
                 # Fremde Benachrichtigung -> 403
                 holder["user"] = CurrentUser(id=CHEF1.id, name=CHEF1.name, email="c1@zz44.local", roles=[ex["tl_key"]])
                 assert (await client.post(f"/api/notifications/{nid}/read")).status_code == 403
+                assert (await client.delete(f"/api/notifications/{nid}")).status_code == 403
+
+                # Entfernen (B21): nur die eigene, danach weg
+                holder["user"] = CurrentUser(id=BEN.id, name=BEN.name, email="b@zz44.local", roles=["mitarbeiter"])
+                assert (await client.delete(f"/api/notifications/{nid}")).status_code == 204
+                all_after = (await client.get("/api/notifications")).json()
+                assert all(n["id"] != nid for n in all_after)
+                assert (await client.delete(f"/api/notifications/{nid}")).status_code == 404
         finally:
             app.dependency_overrides.pop(get_session, None)
             app.dependency_overrides.pop(current_user, None)

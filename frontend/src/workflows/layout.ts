@@ -3,6 +3,7 @@ import type { Actor, RunStatusView, Workflow } from "../api";
 import type { UserOut } from "../api/client";
 import type { FlatBlock } from "../documents/blockOps";
 import { actorLabel } from "../ui/actors";
+import { resultLabel } from "../inbox/inboxModel";
 
 export type WorkflowDefinition = Workflow["draft"];
 export type RunEvent = RunStatusView["events"][number];
@@ -219,8 +220,10 @@ export function formatRunEvent(ev: RunEvent, users: Record<string, UserOut>): st
       return `${who} hat Schritt ${step} freigegeben`;
     case "reassigned":
       return `${who} hat Schritt ${step} neu zugewiesen`;
-    case "step_completed":
-      return `${who} hat Schritt ${step} abgeschlossen${ev.label ? ` (${ev.label})` : ""}`;
+    case "step_completed": {
+      const result = resultLabel(ev);
+      return `${who} hat Schritt ${step} abgeschlossen${result ? ` (${result})` : ""}`;
+    }
     case "overdue":
       return `Frist für Schritt ${step} überschritten`;
     case "unassigned":
@@ -231,8 +234,10 @@ export function formatRunEvent(ev: RunEvent, users: Record<string, UserOut>): st
       return `Unter-Ablauf in Schritt ${step} gestartet`;
     case "subflow_completed":
       return `Unter-Ablauf in Schritt ${step} abgeschlossen`;
-    case "completed":
-      return `Ablauf abgeschlossen${ev.label ? `: ${ev.label}` : ""}`;
+    case "completed": {
+      const result = resultLabel(ev);
+      return `Ablauf abgeschlossen${result ? `: ${result}` : ""}`;
+    }
     case "cancelled":
       return `${who} hat den Ablauf abgebrochen`;
     default:

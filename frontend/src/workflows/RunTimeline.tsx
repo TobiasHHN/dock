@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import type { Op, RunStatusView } from "../api";
 import { BatchRejected, submit } from "../sync/store";
 import { useUsers } from "../ui/actors";
-import { relativeTime } from "../ui/icons";
+import { Icon, relativeTime } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import { formatRunEvent } from "./layout";
 
@@ -38,23 +38,21 @@ export function RunTimeline({
   }
 
   return (
-    <section className="panel run-timeline" aria-labelledby="timeline-heading">
-      <div className="panel-head">
-        <h2 id="timeline-heading">Verlauf</h2>
-        <span className="count">{events.length}</span>
-      </div>
+    <section className="run-timeline" aria-labelledby="timeline-heading">
+      <h2 id="timeline-heading" className="timeline-heading">Verlauf</h2>
 
       {events.length === 0 ? (
-        <p className="empty">Noch keine Ereignisse.</p>
+        <p className="timeline-empty">Noch keine Ereignisse.</p>
       ) : (
         <ol className="timeline-list">
           {events.map((ev) => (
             <li key={ev.id} className={`timeline-item timeline-${ev.type}`}>
+              <span className="timeline-dot" aria-hidden="true" />
               <div className="timeline-body">
                 <span className="timeline-desc">{formatRunEvent(ev, users)}</span>
                 {ev.text && <p className="timeline-comment">{ev.text}</p>}
               </div>
-              <time className="timeline-time" dateTime={ev.at} title={ev.at}>
+              <time className="timeline-time" dateTime={ev.at} title={new Date(ev.at).toLocaleString("de-DE")}>
                 {relativeTime(ev.at) ?? "gerade eben"}
               </time>
             </li>
@@ -66,14 +64,16 @@ export function RunTimeline({
         <input
           type="text"
           aria-label="Kommentar hinzufügen"
-          placeholder="Kommentar schreiben …"
+          placeholder="Kommentieren …"
           value={text}
           disabled={busy}
           onChange={(e) => setText(e.target.value)}
         />
-        <button type="submit" className="primary" disabled={busy || !text.trim()}>
-          {busy ? "Sende …" : "Senden"}
-        </button>
+        {text.trim() && (
+          <button type="submit" className="timeline-send" disabled={busy} aria-label="Kommentar senden" title="Senden (Enter)">
+            <Icon name="arrowUp" size={14} />
+          </button>
+        )}
       </form>
     </section>
   );

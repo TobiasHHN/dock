@@ -101,7 +101,7 @@ export function LoginPage() {
           <input type="password" name="password" value={password} onChange={(e) => setPassword(e.target.value)} autoComplete="current-password" required />
         </label>
         <FormError error={error} />
-        <button className="primary block" disabled={busy}>
+        <button className="primary full" disabled={busy}>
           {busy ? "Anmelden …" : "Anmelden"}
         </button>
       </form>
@@ -187,7 +187,7 @@ export function SignupPage() {
           </select>
         </label>
         <FormError error={error} />
-        <button className="primary block" disabled={busy}>
+        <button className="primary full" disabled={busy}>
           {busy ? "Registrieren …" : "Registrieren"}
         </button>
       </form>

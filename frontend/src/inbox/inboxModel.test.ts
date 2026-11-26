@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { Notification, TaskListItem } from "../api";
 import type { UserOut } from "../api/client";
 import {
-  canClaimTask, canReleaseTask, formatCandidates, formatDue, formatNotification, runStatusLabel,
+  canClaimTask, canReleaseTask, formatCandidates, formatDue, formatNotification, resultLabel, runStatusLabel,
 } from "./inboxModel";
 
 const ME_CHEF: UserOut = { id: "usr_chef", name: "Chef", email: "chef@example.com", roles: ["chef"] };
@@ -99,5 +99,15 @@ describe("inboxModel", () => {
     expect(canClaimTask(claimedByChef)).toBe(false);
     expect(canReleaseTask(claimedByChef.task, ME_CHEF)).toBe(true);
     expect(canReleaseTask(claimedByChef.task, ME_ANNA)).toBe(true); // Einkauf darf freigeben
+  });
+});
+
+describe("resultLabel", () => {
+  it("formuliert bekannte Outcomes als Ergebnis, sonst Button-Label", () => {
+    expect(resultLabel({ outcome: "approved", label: "Genehmigen" })).toBe("Genehmigt");
+    expect(resultLabel({ outcome: "rejected", label: "Ablehnen" })).toBe("Abgelehnt");
+    expect(resultLabel({ outcome: "ordered", label: "Bestellen" })).toBe("Bestellt");
+    expect(resultLabel({ outcome: "weiter", label: "Weiter" })).toBe("Weiter");
+    expect(resultLabel(null)).toBe("");
   });
 });

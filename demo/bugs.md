@@ -160,6 +160,18 @@ Alle Fixes per Unit-Tests geprüft (Backend 396 grün, Frontend 392 grün), **no
 - **B16 Verlauf unten:** `.run-layout` einspaltig.
 - **B17 Excel-Optik:** Zeilennummern, Spaltenbuchstaben, Gitterlinien, fixierte Kopfzeile und Zeilennummern, aktive Zelle mit Rahmen. Pfeiltasten und Enter wechseln die Zelle, mehrere Zellen aus Excel/Sheets lassen sich einfügen (überzählige Zeilen werden angehängt). Logik in `tables/tableModel.ts` (`pasteOps`, `gridMove`, `parseClipboard`, `columnLetter`), getestet.
 
+### B18–B24 (UI-Feinschliff nach 3.F5, Branch `task/3.F5-ui-feinschliff`)
+
+- **B18 Anmelden-Button:** Schrift saß oben, weil die Dokument-Klasse `.block` (`display:flex; align-items:flex-start`) auch `button.block` traf. Klasse heißt jetzt `full`.
+- **B19 Schritt mehrfach angezeigt:** Aufgabenleiste „Aktueller Schritt“, Kopf über dem Schritt-Dokument, eingebetteter Dokumenttitel und Schritt-Buttons unter dem Graph entfernt. Zuständig, Frist, „Übernehmen“/„Freigeben“ und „Ablauf abbrechen“ stehen im Seitenkopf. Im Schritt-Block steht nur noch das Dokument.
+- **B20 Verlauf:** schlanke Zeitleiste (Punkt + Linie, keine Kästen), Kommentar als unauffällige Zeile mit rundem Senden-Knopf, der erst bei Text erscheint.
+- **B21 Benachrichtigungen:** neuer Endpunkt `DELETE /api/notifications/{id}` (nur eigene, 204/403/404), Entfernen-Knopf je Eintrag, „Alle gelesen“ heißt „Als gelesen markieren“.
+- **B22 Button-Labels:** Buttons als Aufforderung („Genehmigen“, „Ablehnen“, „Bestellung abschließen“) in `demo/fallback_batch.json`, Doku und Plan. Status und Verlauf zeigen über `resultLabel` das Ergebnis („Genehmigt“, „Abgelehnt“, „Bestellt“). Bestehende Workflows behalten ihre Labels bis zum Neu-Anlegen bzw. Neu-Veröffentlichen.
+- **B23 Blatt-Leiste:** schwebende, runde Leiste fest am unteren Bildschirmrand (auch bei kurzen Dokumenten), aktives Blatt dunkel hervorgehoben.
+- **B24 Tabellen:** Spaltenbuchstaben (A, B, C …) entfernt, nur noch der Spaltenname.
+
+Unit-Tests grün (Backend 397, Frontend 398), Typecheck sauber. **Noch nicht im Browser geprüft.**
+
 <!-- Vorlage für neue Details:
 
 ### B<n>: <Titel>

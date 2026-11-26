@@ -5,7 +5,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import type { Op } from "../api";
 import { useAuth, workflowApi } from "../api/client";
-import { formatCandidates, runStatusLabel, useChannelInvalidate } from "../inbox/inboxModel";
+import { formatCandidates, resultLabel, runStatusLabel, useChannelInvalidate } from "../inbox/inboxModel";
 import { BatchRejected, newId, submit, useChannel } from "../sync/store";
 import { Icon, relativeTime } from "../ui/icons";
 import { toast } from "../ui/toasts";
@@ -143,7 +143,7 @@ export function WorkflowDetail({ workflowId, embedded = false }: { workflowId: s
                     <span className={`pill ${r.status === "completed" ? "pill-success" : r.status === "cancelled" ? "pill-danger" : "pill-accent"}`}>
                       {r.status === "active"
                         ? r.status_label || runStatusLabel(r.status)
-                        : r.result?.label || runStatusLabel(r.status)}
+                        : resultLabel(r.result) || runStatusLabel(r.status)}
                     </span>
                   </div>
                   <div className="inbox-card-meta muted small">

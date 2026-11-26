@@ -152,7 +152,7 @@ export interface paths {
         };
         /**
          * Get Document Markdown
-         * @description Markdown mit Block-IDs (L 8.2); Actions und Buttons nur im JSON. Der Parameter `run` folgt mit den Runs.
+         * @description Markdown mit Block-IDs (L 8.2); Actions und Buttons nur im JSON. Mit `run` im Kontext eines Runs ausgewertet.
          */
         get: operations["get_document_markdown_api_documents__doc__markdown_get"];
         put?: never;
@@ -397,6 +397,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/notifications/{notification}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Delete Notification */
+        delete: operations["delete_notification_api_notifications__notification__delete"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/imports/xlsx": {
         parameters: {
             query?: never;
@@ -426,7 +443,11 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Import Docx */
+        /**
+         * Import Docx
+         * @description Bereitet einen Word-Import vor (schreibt noch nichts). `owner` = `workflow:schritt` oder JSON
+         *     `{"workflow":…,"step":…}`. Kaputte oder zu große Dateien: 422 bzw. 413.
+         */
         post: operations["import_docx_api_imports_docx_post"];
         delete?: never;
         options?: never;
@@ -3925,6 +3946,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Notification"];
                 };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    delete_notification_api_notifications__notification__delete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                notification: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Validation Error */
             422: {
