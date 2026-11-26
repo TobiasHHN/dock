@@ -787,8 +787,14 @@ async def build_run_expr_context(ctx: Any, run: dict[str, Any], actor: Actor | N
     from app.domain.tasks import effective_id
 
     started_by = _j(run.get("started_by")) or {}
-    starter_id = run.get("started_by_id") or effective_id(started_by) if started_by else ""
-    starter_name = started_by.get("name") or starter_id
+    starter_id = run.get("started_by_id") or (effective_id(started_by) if started_by else "")
+    if started_by.get("on_behalf_of") and starter_id:
+        row_name = (await ctx.session.execute(
+            text("SELECT name FROM users WHERE id = :id"), {"id": starter_id}
+        )).scalar_one_or_none()
+        starter_name = row_name or started_by.get("name") or starter_id
+    else:
+        starter_name = started_by.get("name") or starter_id
     started_at = run.get("started_at")
     run_ctx = {
         "id": run.get("id"),
@@ -871,7 +877,7 @@ async def start_run(ctx: Any, run_id: str, workflow: str, input: dict[str, Any] 
     definition = WorkflowDefinition.model_validate(_j(ver_def))
 
     if actor.type != "system" and definition.starters:
-        if not await T.matches_assignees(ctx, definition.starters, {}, actor):
+        if not await T.matches_assignees(ctx, definition.starters, {"input": input or {}}, actor):
             raise PipelineError("FORBIDDEN", "Sie sind nicht berechtigt, diesen Workflow zu starten",
                                 {"workflow": wf_id})
 
@@ -1073,6 +1079,10 @@ async def complete_task(ctx: Any, task_id: str, button: dict[str, Any], values: 
         for ch in sorted(set(channels)):
             await ctx.lock_channel(ch)
         return {"status": "completed", "current_step": None, "result": res}
+
+    for ch in sorted(set(await T.user_channels_for_candidates(
+        ctx, task_model.candidates, task_model.excluded, [run["started_by_id"]]))):
+        await ctx.lock_channel(ch)
 
     next_task_id = await enter_step(ctx, run["id"], trans.to)
     return {"status": "active", "current_step": trans.to, "task_id": next_task_id}

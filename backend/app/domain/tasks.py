@@ -12,7 +12,10 @@ from app.domain.expressions import ExpressionError
 from app.ops.context import DEFAULT_WORKSPACE
 from app.ops.errors import PipelineError
 from app.schemas.common import Actor
-from app.schemas.workflows import Assignee, Step, Task, TaskCandidates, WorkflowDefinition
+from app.schemas.workflows import (
+    Assignee, AssigneeExpr, AssigneeRole, AssigneeStarter, AssigneeUser,
+    Step, Task, TaskCandidates, WorkflowDefinition,
+)
 
 _ASSIGNEE_ADAPTER = TypeAdapter(Assignee)
 
@@ -122,11 +125,12 @@ async def user_channels_for_candidates(ctx: Any, candidates: TaskCandidates, exc
     return sorted(f"user:{u}" for u in all_users)
 
 
-async def _eval_assignee_expr(ctx: Any, expr: str, run: dict[str, Any]) -> list[str]:
+async def _eval_assignee_expr(ctx: Any, expr: str, run: dict[str, Any],
+                              actor: Actor | None = None) -> list[str]:
     """Wertet einen `AssigneeExpr` im Run-Kontext aus. Fehler oder leere Werte liefern `[]`."""
     from app.domain.workflows import build_run_expr_context
 
-    eval_ctx = await build_run_expr_context(ctx, run, lookup_exprs=[expr])
+    eval_ctx = await build_run_expr_context(ctx, run, actor=actor, lookup_exprs=[expr])
     try:
         val = expressions.evaluate(expr, eval_ctx)
     except ExpressionError:
@@ -139,12 +143,13 @@ async def _eval_assignee_expr(ctx: Any, expr: str, run: dict[str, Any]) -> list[
 
 
 async def _resolve_assignee_list(ctx: Any, assignees: list[Any], run: dict[str, Any],
-                                 *, strict_roles: bool = False) -> TaskCandidates:
+                                 *, strict_roles: bool = False,
+                                 actor: Actor | None = None) -> TaskCandidates:
     users: list[str] = []
     roles: list[str] = []
     starter_id = run.get("started_by_id") or (effective_id(run["started_by"]) if run.get("started_by") else None)
     for raw in assignees:
-        a = raw if isinstance(raw, (Assignee.__args__ if hasattr(Assignee, "__args__") else tuple)) else _ASSIGNEE_ADAPTER.validate_python(raw)
+        a = raw if isinstance(raw, (AssigneeStarter, AssigneeUser, AssigneeRole, AssigneeExpr)) else _ASSIGNEE_ADAPTER.validate_python(raw)
         if a.kind == "starter":
             if starter_id:
                 users.append(starter_id)
@@ -157,7 +162,7 @@ async def _resolve_assignee_list(ctx: Any, assignees: list[Any], run: dict[str, 
                 raise PipelineError("NOT_FOUND", f"Rolle '{a.role}' wurde nicht gefunden")
             roles.append(rid or a.role)
         elif a.kind == "expr":
-            for uid in await _eval_assignee_expr(ctx, a.expr, run):
+            for uid in await _eval_assignee_expr(ctx, a.expr, run, actor=actor):
                 if not await _is_inactive_member(ctx, uid):
                     users.append(uid)
     return TaskCandidates(users=_dedup(users), roles=_dedup(roles))
@@ -167,7 +172,7 @@ async def matches_assignees(ctx: Any, assignees: list[Any], run: dict[str, Any],
     """Prüft, ob `actor` zu einer Assignee-Liste (z. B. `starters` oder `managers`) gehört."""
     if not assignees:
         return False
-    cands = await _resolve_assignee_list(ctx, assignees, run)
+    cands = await _resolve_assignee_list(ctx, assignees, run, actor=actor)
     who = effective_id(actor)
     if who in cands.users:
         return True

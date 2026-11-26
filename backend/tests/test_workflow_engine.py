@@ -601,3 +601,22 @@ async def test_cancel_and_reassign_and_immediate_role_effect(engine):
     assert t2_row["candidate_users"] == [BEN.id] and t2_row["candidate_roles"] == [] and t2_row["claimed_by"] is None
     out = await do_complete_task(sm, t2, {"id": "ok", "label": "OK", "outcome": "ok"}, {}, {}, BEN)
     assert out["status"] == "completed"
+
+
+async def test_agent_on_behalf_of_starter_name_in_run_title(engine):
+    eng, _ = engine
+    ex = order_process_ops()
+    await run_ops(*ex["ops"])
+    ben_agent = Actor(type="agent", id="agt_zz42ben", on_behalf_of=BEN.id, name="Bens Assistent")
+    async with eng.begin() as c:
+        await c.execute(
+            text("INSERT INTO agents (id, workspace_id, name, active) VALUES (:id, 'ws_demo', :name, true) "
+                 "ON CONFLICT (id) DO NOTHING"),
+            {"id": ben_agent.id, "name": ben_agent.name},
+        )
+    run_id = zid("run")
+    await run_ops({"op": "run.start", "id": run_id, "workflow": ex["wf_key"]}, actor=ben_agent)
+    row = (await q(eng, "SELECT title, started_by_id FROM runs WHERE id = :r", r=run_id))[0]
+    assert row["started_by_id"] == BEN.id
+    assert "Ben Mitarbeiter" in row["title"]
+    assert "Bens Assistent" not in row["title"]
