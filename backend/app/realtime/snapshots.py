@@ -85,13 +85,22 @@ async def _user(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
 
 async def _workspace(s: AsyncSession, id_: str, user: CurrentUser) -> dict[str, Any]:
     ws = {"ws": DEFAULT_WORKSPACE}
+    docs = await _all(s, "SELECT id, title, owner_workflow, owner_step, version, updated_at FROM documents "
+                         "WHERE workspace_id = :ws ORDER BY title, id", **ws)
+    for d in docs:  # `owner` wie in SnapshotDoc; Home gruppiert danach (Übersichtsdokument = step null)
+        wf, step = d.pop("owner_workflow"), d.pop("owner_step")
+        d["owner"] = {"workflow": wf, "step": step} if wf else None
+    workflows = await _all(s, "SELECT id, key, name, latest_version, draft FROM workflows WHERE workspace_id = :ws "
+                              "ORDER BY name, id", **ws)
+    for w in workflows:  # Schritt-Dokumente aus dem Entwurf, damit Home sie unter dem Workflow einhängt
+        draft = w.pop("draft")
+        draft = json.loads(draft) if isinstance(draft, str) else (draft or {})
+        w["documents"] = list(dict.fromkeys(st["document"] for st in draft.get("steps", []) if st.get("document")))
     return {
-        "documents": await _all(s, "SELECT id, title, version, updated_at FROM documents WHERE workspace_id = :ws "
-                                   "ORDER BY title, id", **ws),
+        "documents": docs,
         "tables": await _all(s, "SELECT id, key, name, version FROM tables WHERE workspace_id = :ws "
                                 "ORDER BY name, id", **ws),
-        "workflows": await _all(s, "SELECT id, key, name, latest_version FROM workflows WHERE workspace_id = :ws "
-                                   "ORDER BY name, id", **ws),
+        "workflows": workflows,
         "roles": await _all(s, "SELECT id, key, name FROM roles WHERE workspace_id = :ws ORDER BY name, id", **ws),
     }
 

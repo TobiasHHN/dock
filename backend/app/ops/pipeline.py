@@ -2,7 +2,7 @@
 
 Reihenfolge in einer Transaktion:
   0. Advisory-Lock auf `batch_id` (parallele Wiederholung wartet), dann Idempotenz-Treffer in `batches`
-  1. `import.include` ersetzen (L 8.3)
+  1. `import.include` ersetzen (L 8.3), Übersichtsdokumente zu `workflow.create|delete` ergänzen
   2. Rechte pro Op prüfen (L 6.2 Schritt 2, vor allem anderen Zugriff auf Daten)
   3. Keys in IDs auflösen
   4. Kanäle sortiert sperren (`seq + 1`), erst danach `base`-Versionen prüfen (sonst Lost Update)
@@ -27,6 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal
 from app.domain import references
+from app.domain.ids import new_id
 from app.imports.store import take_ops
 from app.ops.context import VERSIONED, OpContext
 from app.ops.errors import PipelineError
@@ -101,6 +102,7 @@ async def _run(db: AsyncSession, batch: OpBatch, actor: Actor) -> tuple[OpContex
 
     ctx = OpContext(session=db, actor=actor)
     ops, origins = await _expand_includes(ctx, batch.ops)
+    ops, origins = await _expand_workflow_overviews(ctx, ops, origins)
     perm_state = _PermState()
     for op in ops:
         await _check_permission(ctx, op, perm_state)
@@ -170,6 +172,58 @@ async def _expand_includes(ctx: OpContext, ops: Iterable[Op]) -> tuple[list[Op],
 
 async def _take_import(ctx: OpContext, import_id: str) -> list[dict[str, Any]]:
     return await take_ops(ctx, import_id, ctx.actor)
+
+
+# ── Übersichtsdokument je Workflow ───────────────────────────────────────────
+
+
+def overview_doc_id(workflow_id: str) -> str:
+    return f"doc_ov_{workflow_id.removeprefix('wf_')}"
+
+
+async def _expand_workflow_overviews(ctx: OpContext, ops: list[Op], origins: list[tuple[int, bool]]
+                                     ) -> tuple[list[Op], list[tuple[int, bool]]]:
+    """Jeder Workflow hat ein Übersichtsdokument (`owner = {workflow, step: null}`) mit Beschreibung und
+    `workflow`-Block; die Schritt-Dokumente hängen auf Home darunter. Als echte Ops eingefügt, damit Op-Log,
+    Rechte, Echtzeit und Undo sie sehen:
+    - nach `workflow.create` ein `doc.create`, außer der Batch legt selbst schon ein Übersichtsdokument an,
+    - vor `workflow.delete` ein `doc.delete` je Übersichtsdokument (sonst blockiert dessen Workflow-Block)."""
+    if not any(op.op in ("workflow.create", "workflow.delete") for op in ops):
+        return ops, origins
+    dumped = [_dump(op) for op in ops]
+    created = {d["id"] for d in dumped if d["op"] == "doc.create"}
+    own_overview = {d["owner"]["workflow"] for d in dumped
+                    if d["op"] == "doc.create" and d.get("owner") and d["owner"].get("step") is None}
+    deleted = {d["doc"] for d in dumped if d["op"] == "doc.delete"}
+    out: list[Op] = []
+    out_origins: list[tuple[int, bool]] = []
+    for op, d, origin in zip(ops, dumped, origins, strict=True):
+        if d["op"] == "workflow.delete":
+            rows = await ctx.session.execute(text(
+                """SELECT d.id FROM documents d JOIN workflows w ON w.id = d.owner_workflow
+                   WHERE w.workspace_id = :ws AND (w.id = :ref OR w.key = :ref) AND d.owner_step IS NULL
+                   ORDER BY d.id"""), {"ws": ctx.workspace_id, "ref": d["workflow"]})
+            for doc_id in rows.scalars():
+                if doc_id not in deleted:
+                    out.append(_OP_ADAPTER.validate_python({"op": "doc.delete", "doc": doc_id}))
+                    out_origins.append((origin[0], False))
+        out.append(op)
+        out_origins.append(origin)
+        if d["op"] == "workflow.create" and not ({d["id"], d["key"]} & own_overview):
+            doc_id = overview_doc_id(d["id"])
+            if doc_id in created:
+                continue
+            blocks: list[dict[str, Any]] = []
+            if (d.get("description") or "").strip():
+                blocks.append({"id": new_id("block"), "type": "paragraph",
+                               "props": {"content": [{"t": "text", "text": d["description"].strip()}]}})
+            blocks.append({"id": new_id("block"), "type": "workflow",
+                           "props": {"workflow": d["id"], "mode": "launcher"}})
+            out.append(_OP_ADAPTER.validate_python({
+                "op": "doc.create", "id": doc_id, "title": d["name"],
+                "owner": {"workflow": d["id"], "step": None}, "blocks": blocks}))
+            out_origins.append((origin[0], False))
+    return out, out_origins
 
 
 # ── Rechte (L 5.8, Demo-Vereinfachung) ───────────────────────────────────────

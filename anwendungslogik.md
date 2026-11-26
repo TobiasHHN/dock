@@ -110,7 +110,7 @@ type Row = {
 type Document = {
   id: DocumentId;
   title: string;
-  owner?: { workflow: WorkflowId; step: string };  // gesetzt, wenn das Dokument ein Workflow-Schritt ist
+  owner?: { workflow: WorkflowId; step: string | null };  // Schritt-Dokument; step null = Übersichtsdokument des Workflows
   version: number;            // steigt mit jeder Operation am Dokument
 };
 
@@ -779,10 +779,10 @@ Der Akteur (`Actor`, 5.8) wird **nicht** mitgeschickt, sondern vom Server aus de
 
 | Op | Parameter |
 |---|---|
-| `workflow.create` | `id, key, name, definition` |
+| `workflow.create` | `id, key, name, definition, description?`. Die Pipeline ergänzt ein `doc.create` für das Übersichtsdokument (`doc_ov_<…>`, Titel = Name, `owner = { workflow, step: null }`, Absatz mit `description` + `workflow`-Block), außer der Batch legt selbst eines an. Home zeigt die Schritt-Dokumente aufklappbar darunter. |
 | `workflow.update` | `workflow, definition` (nur der Entwurf) |
 | `workflow.publish` | `workflow` → prüft (5.7) und legt Version an |
-| `workflow.delete` | `workflow` (nur ohne aktive Runs) |
+| `workflow.delete` | `workflow` (nur ohne aktive Runs). Die Pipeline löscht vorher das Übersichtsdokument mit. |
 | `run.start` | `id, workflow, input?` |
 | `run.cancel` | `run, reason?` |
 | `run.comment` | `run, text` |
