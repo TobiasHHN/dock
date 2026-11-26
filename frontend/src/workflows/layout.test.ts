@@ -3,7 +3,7 @@ import type { RunStatusView } from "../api";
 import type { UserOut } from "../api/client";
 import type { FlatBlock } from "../documents/blockOps";
 import {
-  canCancelRun, canStartWorkflow, formatRunEvent, layoutWorkflow, normalizeSubmittedValues, type WorkflowDefinition,
+  canCancelRun, canStartWorkflow, formatRunEvent, layoutWorkflow, normalizeSubmittedValues, routeEdge, type WorkflowDefinition,
 } from "./layout";
 
 const ME_BEN: UserOut = { id: "usr_ben", name: "Ben", email: "ben@example.com", roles: ["mitarbeiter"] };
@@ -114,5 +114,22 @@ describe("workflow layout & helpers", () => {
     expect(normalized.artikel).toEqual([
       { id: "sub_0", position: "0000", values: { name: "ThinkPad", menge: 1 } },
     ]);
+  });
+});
+
+describe("edge routing", () => {
+  it("routeEdge: Nachbar-Ebene seitlich, Überspringen oben, Rücksprung unten", () => {
+    expect(routeEdge(0, 1)).toEqual({ route: "forward", sourceHandle: "out-right", targetHandle: "in-left" });
+    expect(routeEdge(1, 3)).toEqual({ route: "skip", sourceHandle: "out-top", targetHandle: "in-top" });
+    expect(routeEdge(2, 0)).toEqual({ route: "back", sourceHandle: "out-bottom", targetHandle: "in-bottom" });
+    expect(routeEdge(1, 1).route).toBe("back");
+  });
+
+  it("layoutWorkflow weist Rework- und Reject-Kanten die passenden Handles zu", () => {
+    const { edges } = layoutWorkflow(ORDER_WF);
+    const by = (on: string) => edges.find((e) => e.label === on)!;
+    expect(by("rework")).toMatchObject({ route: "back", sourceHandle: "out-bottom", targetHandle: "in-bottom" });
+    expect(by("rejected")).toMatchObject({ route: "skip", sourceHandle: "out-top", targetHandle: "in-top" });
+    expect(by("approved").route).toBe("forward");
   });
 });

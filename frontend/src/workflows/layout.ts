@@ -22,10 +22,24 @@ export type LayoutEdge = {
   target: string;
   label: string;
   isBackEdge: boolean;
+  /** forward = Nachbar-Ebene, skip = überspringt Ebenen, back = Rücksprung. */
+  route: EdgeRoute;
+  /** Handle-IDs an Quell-/Zielknoten, damit Skip- und Rück-Kanten oben/unten um Kästen herum laufen. */
+  sourceHandle: string;
+  targetHandle: string;
 };
 
-const COL_GAP = 260;
-const ROW_GAP = 115;
+export type EdgeRoute = "forward" | "skip" | "back";
+
+/** Wählt Routing und Handles: Vorwärts rechts→links, Überspringen oben herum, Rücksprung unten herum. */
+export function routeEdge(fromLayer: number, toLayer: number): Pick<LayoutEdge, "route" | "sourceHandle" | "targetHandle"> {
+  if (toLayer <= fromLayer) return { route: "back", sourceHandle: "out-bottom", targetHandle: "in-bottom" };
+  if (toLayer - fromLayer > 1) return { route: "skip", sourceHandle: "out-top", targetHandle: "in-top" };
+  return { route: "forward", sourceHandle: "out-right", targetHandle: "in-left" };
+}
+
+const COL_GAP = 320;
+const ROW_GAP = 150;
 
 /**
  * Deterministisches Links-nach-Rechts-Layout für Workflow-Graphen ohne externe Layout-Library.
@@ -142,6 +156,7 @@ export function layoutWorkflow(def: WorkflowDefinition): { nodes: LayoutNode[]; 
       target: t.to,
       label: t.on === "*" ? "" : t.on,
       isBackEdge: toL <= fromL,
+      ...routeEdge(fromL, toL),
     };
   });
 
