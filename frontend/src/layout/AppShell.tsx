@@ -85,7 +85,7 @@ function AppShell() {
     <>
       <a href="#main" className="skip-link">Zum Inhalt springen</a>
       <header className="topbar">
-        <Link to="/" className="brand" translate="no" aria-label="dock, zur Startseite">dock</Link>
+        <Link to="/" className="brand" translate="no" aria-label="Dock, zur Startseite">Dock</Link>
         <nav className="topnav" aria-label="Hauptnavigation">
           <NavLink to="/inbox/tasks">
             Aufgaben <Badge n={counts.tasks} label="offen" />
@@ -109,7 +109,9 @@ function AppShell() {
         </button>
       </header>
       <main className="page" id="main" tabIndex={-1}>
-        <Outlet />
+        <div key={location.pathname} className="page-enter">
+          <Outlet />
+        </div>
       </main>
       <nav className="tabbar" aria-label="Hauptnavigation mobil">
         <NavLink to="/" end>
