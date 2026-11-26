@@ -13,6 +13,7 @@ import {
   type FlatBlock, type NewBlock, childrenOf, deleteBlock, firstTextId, insertBlock, moveBlock, renameDocument,
   templatesFor, updateBlock,
 } from "./blockOps";
+import "./blocks"; // trägt die Blocktypen aus P3/P4 in BLOCK_COMPONENTS ein
 import { BLOCK_COMPONENTS } from "./blocks/registry";
 import { DocContext, type DocContextValue, requestFocus, useDoc } from "./docContext";
 import { TextBlock } from "./TextBlock";
