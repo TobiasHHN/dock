@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db.session import SessionLocal
 from app.domain import references
+from app.imports.store import take_ops
 from app.ops.context import VERSIONED, OpContext
 from app.ops.errors import PipelineError
 from app.ops.handlers import HANDLERS, load_handlers
@@ -155,23 +156,7 @@ async def _expand_includes(ctx: OpContext, ops: Iterable[Op]) -> tuple[list[Op],
 
 
 async def _take_import(ctx: OpContext, import_id: str) -> list[dict[str, Any]]:
-    row = (await ctx.session.execute(
-        text("""SELECT ops, actor, used_at, created_at > now() - interval '1 hour' AS fresh
-                FROM imports WHERE id = :id AND workspace_id = :ws FOR UPDATE"""),
-        {"id": import_id, "ws": ctx.workspace_id})).mappings().first()
-    if row is None:
-        raise PipelineError("IMPORT_INVALID", f"Import '{import_id}' existiert nicht")
-    if row["used_at"] is not None:
-        raise PipelineError("IMPORT_USED", f"Import '{import_id}' wurde bereits verwendet")
-    if not row["fresh"]:
-        raise PipelineError("IMPORT_INVALID", f"Import '{import_id}' ist abgelaufen")
-    owner = row["actor"]
-    owner = json.loads(owner) if isinstance(owner, str) else owner
-    if ctx.actor.type != "system" and owner and owner.get("id") != ctx.actor.id:
-        raise PipelineError("FORBIDDEN", f"Import '{import_id}' gehört einem anderen Akteur")
-    await ctx.session.execute(text("UPDATE imports SET used_at = now() WHERE id = :id"), {"id": import_id})
-    ops = row["ops"]
-    return json.loads(ops) if isinstance(ops, str) else ops
+    return await take_ops(ctx, import_id, ctx.actor)
 
 
 # ── Rechte (L 5.8, Demo-Vereinfachung) ───────────────────────────────────────
