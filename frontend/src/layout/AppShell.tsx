@@ -85,7 +85,7 @@ function AppShell() {
     <>
       <a href="#main" className="skip-link">Zum Inhalt springen</a>
       <header className="topbar">
-        <Link to="/" className="brand" translate="no" aria-label="dock, zur Startseite">dock</Link>
+        <Link to="/" className="brand" translate="no" aria-label="Dock, zur Startseite">Dock</Link>
         <nav className="topnav" aria-label="Hauptnavigation">
           <NavLink to="/inbox/tasks">
             Aufgaben <Badge n={counts.tasks} label="offen" />

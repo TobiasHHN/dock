@@ -23,7 +23,7 @@ function AuthLayout({ title, subtitle, children, footer }: {
 }) {
   return (
     <div className="auth-wrap">
-      <div className="auth-brand brand" translate="no">dock</div>
+      <div className="auth-brand brand" translate="no">Dock</div>
       <main className="auth-card">
         <div className="auth-head">
           <h1>{title}</h1>

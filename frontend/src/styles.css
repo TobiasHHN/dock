@@ -280,6 +280,7 @@ input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; accen
 }
 .brand {
   display: inline-flex; align-items: baseline; flex: none;
+  font-family: "Space Grotesk", "Inter", system-ui, sans-serif;
   font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--text);
 }
 .brand::after { content: ""; width: 0.28em; height: 0.28em; margin-left: 0.06em; border-radius: 50%; background: #f97316; }
