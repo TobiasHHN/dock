@@ -2,10 +2,10 @@
 // Kennzeichnung des Autors (Mensch, Agent „im Auftrag von“, Workflow), Präsenz-Avatare (2.5).
 // `DocumentView` ist eigenständig nutzbar (z. B. als Schritt-Dokument in der Run-Ansicht, Task 4.6).
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Actor } from "../api";
 import { canEditStructure, useAuth } from "../api/client";
-import { sync, useChannel, useSync } from "../sync/store";
+import { submit, sync, useChannel, useSync } from "../sync/store";
 import { Avatar, actorLabel, useUsers } from "../ui/actors";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
@@ -29,6 +29,7 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
   const channel = `doc:${docId}`;
   const ch = useChannel(channel);
   const me = useAuth((s) => s.user);
+  const navigate = useNavigate();
   const users = useUsers();
   const doc = ch?.view?.documents?.[0];
   const blocks: FlatBlock[] = useMemo(() => doc?.blocks ?? [], [doc?.blocks]);
@@ -76,6 +77,19 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
       </div>
     );
 
+  const deleteDocument = async () => {
+    if (!window.confirm(`Dokument „${doc.title || "Ohne Titel"}“ löschen?`)) return;
+    try {
+      await submit([{ op: "doc.delete", doc: docId } as never]);
+      toast("Dokument gelöscht");
+      navigate("/");
+    } catch (err) {
+      // z. B. IN_USE: Die Meldung nennt, wo das Dokument noch verwendet wird
+      const msg = (err as { error?: { message: string } })?.error?.message ?? (err as Error).message;
+      toast(`Löschen nicht möglich: ${msg}`, "error");
+    }
+  };
+
   return (
     <DocContext.Provider value={ctx}>
       <div className="doc-toolbar">
@@ -86,6 +100,11 @@ export function DocumentView({ docId, readOnly = false, run }: { docId: string; 
         </nav>
         <span className="spacer" />
         {mayEdit && <SaveState />}
+        {mayEdit && !run && (
+          <button className="danger" onClick={deleteDocument}>
+            <Icon name="trash" size={14} />Dokument löschen
+          </button>
+        )}
         {others.length > 0 && (
           <div className="presence" aria-label={`${others.length} weitere im Dokument`}>
             {others.map((p, i) => (

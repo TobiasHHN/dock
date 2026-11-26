@@ -1,7 +1,7 @@
 // Tabellen-Editor (Task 3.1, F5, L 2, L 3.4): Spalten und Typen anlegen, Zeilen hinzufügen und löschen, Zellen sofort
 // speichern, Filter und Sortierung, neue Zeilen kurz hervorheben. Alles Live über den Kanal `table:<id>`.
 import { useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { canEditStructure, useAuth } from "../api/client";
 import { newId, submit } from "../sync/store";
 import { useUsers } from "../ui/actors";
@@ -20,6 +20,7 @@ export function TableEditorPage() {
 
 export function TableEditor({ tableId }: { tableId: string }) {
   const me = useAuth((s) => s.user);
+  const navigate = useNavigate();
   const users = useUsers();
   const [filterRows, setFilterRows] = useState<FilterRow[]>([]);
   const [sort, setSort] = useState<SortSpec[]>([]);
@@ -59,6 +60,19 @@ export function TableEditor({ tableId }: { tableId: string }) {
     submit([{ op: "column.delete", table: table.id, column: col.id } as never]).catch(() => undefined);
   };
 
+  const deleteTable = async () => {
+    if (!window.confirm(`Tabelle „${table.name}“ mit allen ${total} Einträgen löschen?`)) return;
+    try {
+      await submit([{ op: "table.delete", table: table.id } as never]);
+      toast(`Tabelle „${table.name}“ gelöscht`);
+      navigate("/");
+    } catch (err) {
+      // z. B. IN_USE: Die Meldung nennt, wo die Tabelle noch verwendet wird
+      const msg = (err as { error?: { message: string } })?.error?.message ?? (err as Error).message;
+      toast(`Löschen nicht möglich: ${msg}`, "error");
+    }
+  };
+
   return (
     <>
       <nav className="breadcrumb" aria-label="Brotkrumen">
@@ -81,6 +95,11 @@ export function TableEditor({ tableId }: { tableId: string }) {
           {mayStructure && (
             <button onClick={() => setPanel(panel === "column" ? null : "column")} aria-expanded={panel === "column"}>
               <Icon name="plus" size={14} />Spalte
+            </button>
+          )}
+          {mayStructure && (
+            <button className="danger" onClick={deleteTable}>
+              <Icon name="trash" size={14} />Tabelle löschen
             </button>
           )}
         </div>
