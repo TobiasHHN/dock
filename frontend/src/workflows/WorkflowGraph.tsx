@@ -38,7 +38,9 @@ function StepNode({ data }: NodeProps<Node<StepNodeData>>) {
 
   return (
     <div className={cls}>
-      <Handle type="target" position={Position.Left} className="wf-handle" />
+      <Handle type="target" id="in-left" position={Position.Left} className="wf-handle" />
+      <Handle type="target" id="in-top" position={Position.Top} className="wf-handle" />
+      <Handle type="target" id="in-bottom" position={Position.Bottom} className="wf-handle" />
       <div className="wf-node-head">
         <span className={`wf-dot wf-dot-${data.state}`} aria-hidden="true" />
         <span className="wf-node-title">{data.label}</span>
@@ -57,7 +59,9 @@ function StepNode({ data }: NodeProps<Node<StepNodeData>>) {
         </div>
       )}
       {data.state === "pending" && <div className="wf-node-meta">Offen</div>}
-      <Handle type="source" position={Position.Right} className="wf-handle" />
+      <Handle type="source" id="out-right" position={Position.Right} className="wf-handle" />
+      <Handle type="source" id="out-top" position={Position.Top} className="wf-handle" />
+      <Handle type="source" id="out-bottom" position={Position.Bottom} className="wf-handle" />
     </div>
   );
 }
@@ -71,7 +75,9 @@ function EndNode({ data }: NodeProps<Node<EndNodeData>>) {
         : "wf-node-pending";
   return (
     <div className={`wf-node wf-node-end ${tone}`}>
-      <Handle type="target" position={Position.Left} className="wf-handle" />
+      <Handle type="target" id="in-left" position={Position.Left} className="wf-handle" />
+      <Handle type="target" id="in-top" position={Position.Top} className="wf-handle" />
+      <Handle type="target" id="in-bottom" position={Position.Bottom} className="wf-handle" />
       <span className="wf-node-title">Ende</span>
     </div>
   );
@@ -133,10 +139,17 @@ export function WorkflowGraph({
       source: e.source,
       target: e.target,
       label: e.label || undefined,
-      type: e.isBackEdge ? "smoothstep" : "default",
+      sourceHandle: e.sourceHandle,
+      targetHandle: e.targetHandle,
+      type: "smoothstep",
+      pathOptions: { borderRadius: 12, offset: e.route === "forward" ? 20 : 36 },
+      labelBgPadding: [6, 3],
+      labelBgBorderRadius: 4,
+      labelBgStyle: { fill: "var(--surface)", fillOpacity: 0.95 },
+      labelStyle: { fill: "var(--text-2)", fontSize: 12 },
       animated: current?.step === e.source && runStatus === "active",
       markerEnd: { type: MarkerType.ArrowClosed, width: 16, height: 16 },
-      style: e.isBackEdge ? { strokeDasharray: "5 4" } : undefined,
+      style: e.route === "back" ? { strokeDasharray: "5 4" } : undefined,
     }));
 
     return { nodes: rfNodes, edges: rfEdges };
