@@ -25,6 +25,7 @@ services:
       FASTEMBED_CACHE_PATH: /cache/fastembed
     volumes:
       - ./backend:/srv
+      - ./demo:/srv/demo:ro  # MCP-Import per file_path über HTTP (B11): demo/Bestelluebersicht.xlsx
       - model_cache:/cache
     ports:
       - "8000:8000"

@@ -23,7 +23,7 @@ EXPECTED_TOOLS = {
     "get_workflow", "create_workflow", "update_workflow", "validate_workflow", "publish_workflow", "start_run",
     "list_runs", "get_run", "cancel_run", "comment_run", "list_tasks", "get_task", "claim_task", "release_task",
     "reassign_task", "complete_task", "list_roles", "list_users", "create_role", "set_user_roles",
-    "set_agent_roles", "apply_ops",
+    "set_agent_roles", "apply_ops", "describe_schema",
 }
 
 COL = {"key": "name", "name": "Name", "type": {"kind": "text"}}
@@ -71,6 +71,7 @@ CALLS = [
     ("release_task", {"task": "tsk_2"}),
     ("reassign_task", {"task": "tsk_2", "assignees": [{"kind": "role", "role": "chef"}]}),
     ("complete_task", {"task": "tsk_2", "button": "approve", "values": {"kommentar": "Passt."}}),
+    ("describe_schema", {"topic": "ops"}),
     ("list_roles", {}),
     ("list_users", {"role": "chef"}),
     ("create_role", {"key": "r", "name": "R"}),
@@ -266,7 +267,32 @@ async def test_exact_tool_set():
         tools = (await client.list_tools()).tools
     assert {t.name for t in tools} == EXPECTED_TOOLS
     apply = next(t for t in tools if t.name == "apply_ops")
-    assert "row.update" in json.dumps(apply.inputSchema)  # Schema stammt aus dem Pydantic-Vertrag
+    assert "describe_schema" in json.dumps(apply.inputSchema)  # schlankes Schema verweist auf die Doku (B12)
+
+
+async def test_big_tool_schemas_stay_small():
+    async with create_connected_server_and_client_session(mcp._mcp_server) as client:
+        tools = {t.name: t for t in (await client.list_tools()).tools}
+    for name in ("apply_ops", "edit_document", "create_document"):
+        assert len(json.dumps(tools[name].inputSchema)) < 5000, name
+
+
+async def test_describe_schema():
+    res = await _call("describe_schema", {"topic": "ops"})
+    assert not res.isError and "row.update" in _text(res) and "block.insert" in _text(res)
+    res = await _call("describe_schema", {"topic": "blocks"})
+    assert not res.isError and "form" in _text(res) and "paragraph" in _text(res)
+    res = await _call("describe_schema", {"topic": "row.update"})
+    assert not res.isError and "values" in _text(res)
+    res = await _call("describe_schema", {"topic": "form"})
+    assert not res.isError and "props" in _text(res)
+    res = await _call("describe_schema", {"topic": "gibtsnicht"})
+    assert res.isError and "NOT_FOUND" in _text(res)
+
+
+async def test_invalid_op_is_readable_error():
+    res = await _call("apply_ops", {"batch": {"batch_id": "b", "ops": [{"op": "row.explode"}]}})
+    assert res.isError and "VALIDATION at ops" in _text(res)
 
 
 async def test_all_tools_against_stubs():
@@ -314,7 +340,15 @@ async def test_import_argument_errors():
     res = await _call("import_xlsx", {})
     assert res.isError and "file_path|content_base64" in _text(res)
     res = await _call("import_docx", {"file_path": "/nicht/da.docx"})
-    assert res.isError and "NOT_FOUND" in _text(res)
+    assert res.isError and "NOT_FOUND" in _text(res) and "content_base64" in _text(res)  # B11: Hinweis auf Ausweg
+
+
+async def test_file_path_falls_back_to_demo_dir(monkeypatch):
+    from app.mcp.server import _read_upload
+
+    monkeypatch.setenv("DOCK_DEMO_DIR", str(FILES))  # Host-Pfad existiert nicht, gleicher Dateiname im demo-Verzeichnis
+    name, content = _read_upload(r"C:\Users\x\demo\uebersicht.xlsx", None, None)
+    assert name == "uebersicht.xlsx" and content == (FILES / "uebersicht.xlsx").read_bytes()
 
 
 async def test_error_paths_are_readable():
