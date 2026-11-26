@@ -1,5 +1,4 @@
 // Workflow-Detailseite `/workflows/:id` (Task 4.6, L 5.5): Graph, Startknopf nur für Berechtigte und Run-Liste.
-import { EmbedInDocumentButton } from "../documents/SheetBar";
 import { useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -107,7 +106,6 @@ export function WorkflowDetail({ workflowId, embedded = false }: { workflowId: s
               <Icon name="trash" size={14} />Workflow löschen
             </button>
           )}
-          {!embedded && <EmbedInDocumentButton sheet={{ kind: "workflow", id: wf.id }} />}
           {mayStart && (
             <button type="button" className="primary" disabled={starting} aria-busy={starting} onClick={startRun}>
               {starting && <span className="spinner" aria-hidden="true" />}

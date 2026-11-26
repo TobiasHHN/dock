@@ -151,7 +151,7 @@ Sortiert nach Priorität.
 Alle Fixes per Unit-Tests geprüft (Backend 396 grün, Frontend 392 grün), **noch nicht im Browser**. Offen bzw. nachzuprüfen:
 
 - **B5:** „Neue Tabelle“ im Einbetten-Dialog legt die Tabelle sofort an. Bricht man danach ab, bleibt eine ungenutzte Tabelle übrig. Ob das Backend die neuen `table_view`- und `workflow`-Props annimmt, ist im Browser zu prüfen.
-- **B8:** Getroffene Entscheidungen: Workflows bekommen ein eigenes Blatt mit Graph. Eine Tabelle hat keinen Besitzer und erscheint in jedem Dokument, das sie einbettet. Nicht eingebettete Tabellen (z. B. nach dem Import) sind über `/tables/:id` erreichbar und bieten „In Dokument einbetten …“ an. Der Hinweis „Eingebettet in: …“ fehlt, weil es keine API für die Rückwärtssuche gibt.
+- **B8:** Getroffene Entscheidungen: Workflows bekommen ein eigenes Blatt mit Graph. Eine Tabelle hat keinen Besitzer und erscheint in jedem Dokument, das sie einbettet. Nicht eingebettete Tabellen (z. B. nach dem Import) sind über `/tables/:id` erreichbar (der Button „In Dokument einbetten …“ dort wurde mit B28 wieder entfernt; einbetten geht über „Block hinzufügen“ im Dokument). Der Hinweis „Eingebettet in: …“ fehlt, weil es keine API für die Rückwärtssuche gibt.
 - **B10:** In der mobilen Tab-Leiste bleibt „Home“, weil das Logo dort nicht sichtbar ist.
 - **B11:** Zusätzlich sucht `_read_upload` eine nicht gefundene Datei per Dateiname in `demo/`. Der Backend-Container muss neu gestartet werden, damit der Mount `./demo:/srv/demo:ro` greift.
 - **B12:** Agenten holen Op- und Blockfelder jetzt über das neue Tool `describe_schema`. **Annas Agent-Flow (3.F1) neu proben.**
