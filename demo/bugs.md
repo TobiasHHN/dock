@@ -29,17 +29,17 @@ Sortiert nach Priorität.
 | ID | Titel | Art | Bereich | Priorität | Gefunden in | Owner | Status | Fix |
 |---|---|---|---|---|---|---|---|---|
 | B1 | Snapshot von `user:` und `run:` scheitert, sobald Benachrichtigungen oder Run-Events existieren | Bug | Echtzeit | Blocker | 2.I2 (E2E-Skript) | P1 | behoben | `task/2.I-integration`, `f1b4077` |
-| B2 | Umlaute (ä, ö, ü) kaputt in Benachrichtigungen, Schrittnamen und Dokumenttiteln („auslÃ¶sen“) | Bug | Demo-Daten | Blocker | 2.I2 (Browser) | P5 | offen | |
-| B3 | Workflow-Ansicht: Buttons +, − und Vollbild sind weiß auf weiß | Bug | Workflow | Hoch | 2.I2 (Browser) | P4 | offen | |
-| B4 | Workflow-Graph: Pfeile laufen teilweise durch die Schritt-Kästen | Bug | Workflow | Hoch | 2.I2 (Browser) | P4 | offen | |
-| B5 | Tabellen-Ansicht (`table_view`) lässt sich im Browser nicht in ein Dokument einfügen | Feature | Frontend, Tabellen | Hoch | 2.I2 (Browser) | P3 | offen | |
-| B11 | MCP über HTTP: `import_xlsx`/`import_docx` mit `file_path` liefern `NOT_FOUND`, weil der Pfad im Backend-Container gesucht wird | Bug | MCP/Agent, Import | Hoch (Blocker, falls die Demo über HTTP läuft) | 3.F1-Probe | P5 | offen | |
-| B6 | Dokument-Editor: Blöcke per Drag & Drop verschieben statt über Buttons, Design allgemein verbessern | UX | Frontend | Mittel | 2.I2 (Browser) | P2 | offen | |
-| B7 | Live-Updates beim gemeinsamen Bearbeiten von Dokumenten wirken unruhig, sollen ruhiger und klarer werden | UX | Frontend, Echtzeit | Mittel | 2.I2 (Browser) | P2 | offen | |
-| B8 | Ein Dokument als Arbeitsmappe: Tabellen und Workflows eingebettet, Tabellen als eigene Blätter wie in Excel, Blatt 1 = Dokument | UX | Frontend | Mittel | 2.I2 (Browser) | P2 + P3 + P4 | offen | |
-| B12 | MCP-Tool-Schemas von `apply_ops`, `edit_document`, `create_document` sind sehr groß (je mehrere zehn KB) | UX | MCP/Agent | Mittel | 3.F1-Probe | P5 | offen | |
-| B9 | Löschen-Button bei Dokumenten und Tabellen ist zu präsent | UX | Frontend | Niedrig | 2.I2 (Browser) | P3 | offen | |
-| B10 | „Home“ aus der Topbar entfernen, Klick auf das Logo „dock“ führt schon nach Home | UX | Frontend | Niedrig | 2.I2 (Browser) | P2 | offen | |
+| B2 | Umlaute (ä, ö, ü) kaputt in Benachrichtigungen, Schrittnamen und Dokumenttiteln („auslÃ¶sen“) | Bug | Demo-Daten | Blocker | 2.I2 (Browser) | P5 | behoben | `task/3.F5-backend-mcp`, `ae8cd5a` |
+| B3 | Workflow-Ansicht: Buttons +, − und Vollbild sind weiß auf weiß | Bug | Workflow | Hoch | 2.I2 (Browser) | P4 | behoben | `task/3.F5-workflow-graph`, `4d68124` |
+| B4 | Workflow-Graph: Pfeile laufen teilweise durch die Schritt-Kästen | Bug | Workflow | Hoch | 2.I2 (Browser) | P4 | behoben | `task/3.F5-workflow-graph`, `9f31591` |
+| B5 | Tabellen-Ansicht (`table_view`) lässt sich im Browser nicht in ein Dokument einfügen | Feature | Frontend, Tabellen | Hoch | 2.I2 (Browser) | P3 | behoben | `task/3.F5-frontend-docs`, `ee732e0` |
+| B11 | MCP über HTTP: `import_xlsx`/`import_docx` mit `file_path` liefern `NOT_FOUND`, weil der Pfad im Backend-Container gesucht wird | Bug | MCP/Agent, Import | Hoch (Blocker, falls die Demo über HTTP läuft) | 3.F1-Probe | P5 | behoben | `task/3.F5-backend-mcp`, `2152670` |
+| B6 | Dokument-Editor: Blöcke per Drag & Drop verschieben statt über Buttons, Design allgemein verbessern | UX | Frontend | Mittel | 2.I2 (Browser) | P2 | behoben | `task/3.F5-frontend-docs`, `99bb5d6` |
+| B7 | Live-Updates beim gemeinsamen Bearbeiten von Dokumenten wirken unruhig, sollen ruhiger und klarer werden | UX | Frontend, Echtzeit | Mittel | 2.I2 (Browser) | P2 | behoben | `task/3.F5-frontend-docs`, `df9c5dc` |
+| B8 | Ein Dokument als Arbeitsmappe: Tabellen und Workflows eingebettet, Tabellen als eigene Blätter wie in Excel, Blatt 1 = Dokument | UX | Frontend | Mittel | 2.I2 (Browser) | P2 + P3 + P4 | behoben | `task/3.F5-workbook`, `6302837` |
+| B12 | MCP-Tool-Schemas von `apply_ops`, `edit_document`, `create_document` sind sehr groß (je mehrere zehn KB) | UX | MCP/Agent | Mittel | 3.F1-Probe | P5 | behoben | `task/3.F5-backend-mcp`, `2152670` |
+| B9 | Löschen-Button bei Dokumenten und Tabellen ist zu präsent | UX | Frontend | Niedrig | 2.I2 (Browser) | P3 | behoben | `task/3.F5-frontend-docs`, `ac6f93d` |
+| B10 | „Home“ aus der Topbar entfernen, Klick auf das Logo „dock“ führt schon nach Home | UX | Frontend | Niedrig | 2.I2 (Browser) | P2 | behoben | `task/3.F5-frontend-docs`, `b3a456f` |
 
 ## Details
 
@@ -136,6 +136,16 @@ Sortiert nach Priorität.
   - Ops und Blöcke im Tool-Schema nur als `object` beschreiben und auf eine Doku-Ressource verweisen (z. B. MCP-Resource mit L 6.1 und den Blocktypen). Die Validierung bleibt serverseitig, Fehler kommen wie bisher als lesbare Tool-Fehler zurück.
   - Das volle Schema nur an `apply_ops` hängen, `edit_document` und `create_document` schlank halten (Markdown statt Blockbaum, L 8.2).
 - **Achtung:** Der API-Vertrag in `backend/app/schemas/` bleibt unverändert, es geht nur um die Darstellung im MCP-Tool. Nach dem Umbau Annas Agent-Flow (3.F1) erneut proben, damit die Agenten den Batch weiterhin fehlerfrei bauen.
+
+### Stand nach 3.F5 (Sammel-Branch `task/3.F5-bugfixes`)
+
+Alle Fixes per Unit-Tests geprüft (Backend 396 grün, Frontend 392 grün), **noch nicht im Browser**. Offen bzw. nachzuprüfen:
+
+- **B5:** „Neue Tabelle“ im Einbetten-Dialog legt die Tabelle sofort an. Bricht man danach ab, bleibt eine ungenutzte Tabelle übrig. Ob das Backend die neuen `table_view`- und `workflow`-Props annimmt, ist im Browser zu prüfen.
+- **B8:** Getroffene Entscheidungen: Workflows bekommen ein eigenes Blatt mit Graph. Eine Tabelle hat keinen Besitzer und erscheint in jedem Dokument, das sie einbettet. Nicht eingebettete Tabellen (z. B. nach dem Import) sind über `/tables/:id` erreichbar und bieten „In Dokument einbetten …“ an. Der Hinweis „Eingebettet in: …“ fehlt, weil es keine API für die Rückwärtssuche gibt.
+- **B10:** In der mobilen Tab-Leiste bleibt „Home“, weil das Logo dort nicht sichtbar ist.
+- **B11:** Zusätzlich sucht `_read_upload` eine nicht gefundene Datei per Dateiname in `demo/`. Der Backend-Container muss neu gestartet werden, damit der Mount `./demo:/srv/demo:ro` greift.
+- **B12:** Agenten holen Op- und Blockfelder jetzt über das neue Tool `describe_schema`. **Annas Agent-Flow (3.F1) neu proben.**
 
 <!-- Vorlage für neue Details:
 

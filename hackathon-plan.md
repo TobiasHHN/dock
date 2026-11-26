@@ -290,7 +290,7 @@ Hier lässt sich nicht parallelisieren. Ohne den gemeinsamen Vertrag arbeiten al
 | 3.F2 | Bens Agent-Flow: Suche → `start_run` → `get_task` → `complete_task` für „erfassen“. Dazu Chef-Agent im Auftrag: `list_tasks` → `get_task` → `complete_task` mit „Genehmigt“ (L 10.3). | P5 + P3 |
 | 3.F3 | Kennzeichnung in Verlauf, Tabellenzeilen und Blöcken: „von Agent im Auftrag von X“, „von Workflow“ | P1 + P2 |
 | 3.F4 | Live-Effekte: Toast bei neuer Aufgabe, Zähler an der Navigation, Graph-Knoten färben sich, neue Zeilen werden hervorgehoben | P2 + P4 |
-| 3.F5 | Fehler-Blocker aus 2.I3 | jeweilige Owner |
+| 3.F5 🚧 | Fehler-Blocker aus 2.I3 | jeweilige Owner (🚧 B2–B12 behoben auf `task/3.F5-bugfixes`, Unit-Tests grün. **Offen: Browser-Check** und Probe 3.F1 wegen B12, siehe `demo/bugs.md`) |
 | 3.F6 | **Stretch**, nur wenn alles läuft, in dieser Reihenfolge: F15 gleichzeitiges Tippen (L 7.5) ✅ (vorgezogen mit 2.5, Branch `task/2-frontend-shell`), Fristen mit `overdue` (L 5.9), Umverteilen, F17 Unter-Workflows (L 5.6), Workflow-Editor im React-Flow-Canvas, Agent mit eigener Identität als Zuständiger, F16 Undo | P1 / P4 / P2 |
 
 ---
