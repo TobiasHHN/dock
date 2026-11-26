@@ -6,7 +6,7 @@ import { createSyncStore } from "../sync/store";
 import {
   type Col, type TRow, activeFilters, buildColumnAdd, columnType, deleteRowOp, displayValue, fieldErrors, filterValue,
   hasExpression, inputText, insertRowOp, insertedRowIds, opsFor, overlayRows, parseInput, queryErrorText, slugKey, sortRows,
-  uniqueKey, updateCellOp,
+  uniqueKey, updateCellOp, columnLetter, gridMove, isMultiCellPaste, parseClipboard, pasteOps,
 } from "./tableModel";
 
 const col = (id: string, key: string, type: object, extra: object = {}): Col =>
@@ -212,5 +212,45 @@ describe("Tabelle im Sync-Store", () => {
     expect(rows().map((r) => r.id)).toEqual(["r1", "r9"]);
     void s.submit([deleteRowOp("tbl_1", "r9")]).catch(() => undefined);
     expect(rows().map((r) => r.id)).toEqual(["r1"]);
+  });
+});
+
+describe("Excel-artige Bedienung", () => {
+  const cols = [
+    { id: "c1", key: "name", name: "Name", type: { kind: "text" }, position: "a" },
+    { id: "c2", key: "anz", name: "Anzahl", type: { kind: "integer" }, position: "b" },
+  ] as Col[];
+  const rows = [{ id: "r1", position: "a", values: { c1: "Alt", c2: 1 } }] as TRow[];
+
+  it("benennt Spalten wie Excel", () => {
+    expect([0, 1, 25, 26, 27, 701, 702].map(columnLetter)).toEqual(["A", "B", "Z", "AA", "AB", "ZZ", "AAA"]);
+  });
+
+  it("liest Zwischenablage mit Tabs, Zeilenumbrüchen, Anführungszeichen und ß", () => {
+    expect(parseClipboard("Straße\t3\r\nMaß \"x\"\t4\r\n")).toEqual([["Straße", "3"], ['Maß "x"', "4"]]);
+    expect(parseClipboard('"a\tb"\tc')).toEqual([["a\tb", "c"]]);
+    expect(isMultiCellPaste("nur ein Wert\n")).toBe(false);
+    expect(isMultiCellPaste("a\tb")).toBe(true);
+  });
+
+  it("aktualisiert bestehende Zeilen und hängt neue an", () => {
+    let n = 0;
+    const { ops, skipped } = pasteOps("tbl", [["Neu", "2"], ["Zwei", "x"], ["Drei", "3"]], rows, cols, 0, 0, true, () => `new${++n}`);
+    expect(skipped).toBe(1);
+    expect(ops).toEqual([
+      updateCellOp("tbl", "r1", "c1", "Neu"), updateCellOp("tbl", "r1", "c2", 2),
+      insertRowOp("tbl", "new1", { c1: "Zwei" }, "r1"), insertRowOp("tbl", "new2", { c1: "Drei", c2: 3 }, "new1"),
+    ]);
+    expect(pasteOps("tbl", [["a"], ["b"]], rows, cols, 0, 1, false, () => "x").ops).toHaveLength(0); // "a" ist keine Zahl, keine neuen Zeilen
+  });
+
+  it("bewegt die aktive Zelle mit Pfeilen und Enter", () => {
+    const size = { rows: 3, cols: 2 };
+    const mid = { atStart: false, atEnd: false };
+    expect(gridMove("ArrowDown", false, mid, { r: 0, c: 0 }, size)).toEqual({ r: 1, c: 0 });
+    expect(gridMove("Enter", true, mid, { r: 0, c: 0 }, size)).toEqual({ r: 0, c: 0 });
+    expect(gridMove("ArrowRight", false, mid, { r: 0, c: 0 }, size)).toBeNull();
+    expect(gridMove("ArrowRight", false, { atStart: false, atEnd: true }, { r: 0, c: 0 }, size)).toEqual({ r: 0, c: 1 });
+    expect(gridMove("a", false, mid, { r: 0, c: 0 }, size)).toBeNull();
   });
 });

@@ -1,14 +1,15 @@
 // Tabellen-Raster (Task 3.1, L 3.4): wird vom Tabellen-Editor und vom `table_view`-Block gemeinsam genutzt.
 // Zellen speichern sofort über den Sync-Store (optimistisch, kein Speichern-Button), neue Zeilen blinken kurz.
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { UserOut } from "../api/client";
 import { sync, newId, submit, useChannel } from "../sync/store";
 import type { Json } from "../sync/tableRules";
 import { Icon } from "../ui/icons";
 import { toast } from "../ui/toasts";
 import {
-  type Col, type FilterCond, type SortSpec, type TRow, deleteRowOp, displayValue, fieldErrors, inputText, insertRowOp,
-  insertedRowIds, overlayRows, parseInput, sortRows, sortedColumns, sortedRows, updateCellOp,
+  type Col, type FilterCond, type SortSpec, type TRow, columnLetter, deleteRowOp, displayValue, fieldErrors, gridMove, inputText,
+  insertRowOp, insertedRowIds, isMultiCellPaste, overlayRows, parseClipboard, parseInput, pasteOps, sortRows, sortedColumns,
+  sortedRows, updateCellOp,
 } from "./tableModel";
 import { type RowQuery, useRowQuery } from "./useRowQuery";
 
@@ -146,16 +147,18 @@ export function CellInput({ col, value, users, disabled, invalid, label, onCommi
   );
 }
 
-function Cell({ table, row, col, users, editable }: { table: string; row: TRow; col: Col; users: Record<string, UserOut>; editable: boolean }) {
+function Cell({ table, row, col, users, editable, r, c }: {
+  table: string; row: TRow; col: Col; users: Record<string, UserOut>; editable: boolean; r: number; c: number;
+}) {
   const [error, setError] = useState<string | null>(null);
   const value = row.values[col.id] ?? null;
   const save = (v: Json) => {
     if (v === value) return;
     submit([updateCellOp(table, row.id, col.id, v)]).catch((e) => setError(fieldErrors(e?.error).message));
   };
-  if (!editable) return <td>{displayValue(value, col.type, users)}</td>;
+  if (!editable) return <td data-r={r} data-c={c}>{displayValue(value, col.type, users)}</td>;
   return (
-    <td className={`cell ${error ? "cell-error" : ""}`} title={error ?? undefined}>
+    <td className={`cell ${error ? "cell-error" : ""}`} title={error ?? undefined} data-r={r} data-c={c}>
       <CellInput
         col={col} value={value} users={users} invalid={!!error}
         label={`${col.name}`}
@@ -184,17 +187,76 @@ type GridProps = {
   newRows: Set<string>;
   /** Zusätzlicher Inhalt in der Kopfzelle einer Spalte (Löschen, Sortieren). */
   headerExtra?: (col: Col) => React.ReactNode;
+  /** Excel-Optik: Zeilennummern, Spaltenbuchstaben, Gitterlinien (Tabellen-Editor). */
+  sheet?: boolean;
 };
 
-export function TableGrid({ tableId, columns, allColumns, rows, users, editable, allowAdd, allowDelete, newRows, headerExtra }: GridProps) {
+/** Eingabeelement der Zelle (r, c) im Raster, falls fokussierbar. */
+function cellControl(root: HTMLElement | null, r: number, c: number): HTMLInputElement | HTMLSelectElement | null {
+  return root?.querySelector<HTMLInputElement | HTMLSelectElement>(`td[data-r="${r}"][data-c="${c}"] :is(input, select)`) ?? null;
+}
+
+/** Steht der Cursor am Anfang/Ende (oder ist alles markiert)? Dann gehören Pfeil links/rechts dem Raster. */
+function caretOf(el: HTMLElement): { atStart: boolean; atEnd: boolean } {
+  if (!(el instanceof HTMLInputElement) || el.type === "checkbox") return { atStart: true, atEnd: true };
+  try {
+    const s = el.selectionStart, e = el.selectionEnd, len = el.value.length;
+    if (s === null || e === null) return { atStart: false, atEnd: false };
+    const all = s === 0 && e === len;
+    return { atStart: all || (s === 0 && e === 0), atEnd: all || (s === len && e === len) };
+  } catch {
+    return { atStart: false, atEnd: false };
+  }
+}
+
+export function TableGrid({ tableId, columns, allColumns, rows, users, editable, allowAdd, allowDelete, newRows, headerExtra, sheet }: GridProps) {
   const actionsCol = editable && (allowAdd || allowDelete);
+  const tableRef = useRef<HTMLTableElement>(null);
+  const rowCount = rows.length + (allowAdd && editable ? 1 : 0);
+
+  // Tastatur wie in Excel: Pfeil hoch/runter und Enter wechseln die Zeile, links/rechts am Textrand die Spalte, Tab bleibt nativ.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLTableElement>) => {
+    const el = e.target as HTMLElement;
+    const td = el.closest<HTMLElement>("td[data-r]");
+    if (!td || e.altKey || e.ctrlKey || e.metaKey) return;
+    if (el instanceof HTMLSelectElement && e.key !== "Enter") return;
+    if (el instanceof HTMLInputElement && (el.type === "date" || el.type === "datetime-local") && e.key.startsWith("Arrow")) return;
+    const pos = { r: Number(td.dataset.r), c: Number(td.dataset.c) };
+    const to = gridMove(e.key, e.shiftKey, caretOf(el), pos, { rows: rowCount, cols: columns.length });
+    if (!to || (to.r === pos.r && to.c === pos.c)) return;
+    const next = cellControl(tableRef.current, to.r, to.c);
+    if (!next) return;
+    e.preventDefault();
+    next.focus();
+    if (next instanceof HTMLInputElement && next.type !== "checkbox") next.select();
+  };
+
+  // Mehrere Zellen aus Excel/Sheets einfügen: ab der aktiven Zelle, überzählige Zeilen werden angehängt.
+  const onPaste = (e: React.ClipboardEvent<HTMLTableElement>) => {
+    if (!editable) return;
+    const td = (e.target as HTMLElement).closest<HTMLElement>("td[data-r]");
+    const text = e.clipboardData.getData("text/plain");
+    if (!td || !isMultiCellPaste(text)) return;
+    e.preventDefault();
+    const { ops, skipped } = pasteOps(tableId, parseClipboard(text), rows, columns, Number(td.dataset.r), Number(td.dataset.c), allowAdd, () => newId("row"));
+    if (!ops.length) {
+      if (skipped) toast(`${skipped} Werte passen nicht zum Spaltentyp, nichts eingefügt`, "error");
+      return;
+    }
+    submit(ops)
+      .then(() => { if (skipped) toast(`${skipped} Werte übersprungen (passen nicht zum Spaltentyp)`, "error"); })
+      .catch((err) => toast(`Nicht eingefügt: ${fieldErrors(err?.error).message}`, "error"));
+  };
+
   return (
-    <div className="table-wrap">
-      <table className="simple grid">
+    <div className={`table-wrap ${sheet ? "sheet-wrap" : ""}`}>
+      <table className={`simple grid ${sheet ? "sheet" : ""}`} ref={tableRef} onKeyDown={onKeyDown} onPaste={onPaste}>
         <thead>
           <tr>
-            {columns.map((c) => (
+            {sheet && <th className="row-num" aria-label="Zeilennummer" />}
+            {columns.map((c, ci) => (
               <th key={c.id} scope="col">
+                {sheet && <span className="col-letter" aria-hidden>{columnLetter(ci)}</span>}
                 <span className="th-inner">
                   <span>{c.name}{c.required ? <span className="req" title="Pflichtfeld"> *</span> : null}</span>
                   {headerExtra?.(c)}
@@ -205,9 +267,10 @@ export function TableGrid({ tableId, columns, allColumns, rows, users, editable,
           </tr>
         </thead>
         <tbody>
-          {rows.map((r) => (
+          {rows.map((r, ri) => (
             <tr key={r.id} className={newRows.has(r.id) ? "flash" : undefined}>
-              {columns.map((c) => <Cell key={c.id} table={tableId} row={r} col={c} users={users} editable={editable} />)}
+              {sheet && <th scope="row" className="row-num">{ri + 1}</th>}
+              {columns.map((c, ci) => <Cell key={c.id} table={tableId} row={r} col={c} users={users} editable={editable} r={ri} c={ci} />)}
               {actionsCol && (
                 <td className="col-actions">
                   {allowDelete && <button
@@ -220,7 +283,7 @@ export function TableGrid({ tableId, columns, allColumns, rows, users, editable,
               )}
             </tr>
           ))}
-          {allowAdd && editable && <NewRowLine tableId={tableId} columns={columns} allColumns={allColumns} users={users} lastRow={rows.at(-1)?.id} />}
+          {allowAdd && editable && <NewRowLine tableId={tableId} columns={columns} allColumns={allColumns} users={users} lastRow={rows.at(-1)?.id} rowIndex={rows.length} sheet={sheet} />}
         </tbody>
       </table>
       {rows.length === 0 && <p className="empty">Keine Zeilen.</p>}
@@ -229,8 +292,8 @@ export function TableGrid({ tableId, columns, allColumns, rows, users, editable,
 }
 
 /** Letzte Zeile: Werte eintragen, „Hinzufügen“ legt die Zeile an. Fehler stehen an der jeweiligen Spalte. */
-function NewRowLine({ tableId, columns, allColumns, users, lastRow }: {
-  tableId: string; columns: Col[]; allColumns: Col[]; users: Record<string, UserOut>; lastRow?: string;
+function NewRowLine({ tableId, columns, allColumns, users, lastRow, rowIndex, sheet }: {
+  tableId: string; columns: Col[]; allColumns: Col[]; users: Record<string, UserOut>; lastRow?: string; rowIndex: number; sheet?: boolean;
 }) {
   const [values, setValues] = useState<Record<string, string | Json>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -265,8 +328,9 @@ function NewRowLine({ tableId, columns, allColumns, users, lastRow }: {
 
   return (
     <tr className="new-row">
-      {columns.map((c) => (
-        <td key={c.id} className={`cell ${errors[c.key] ? "cell-error" : ""}`}>
+      {sheet && <th scope="row" className="row-num" title="Neue Zeile">+</th>}
+      {columns.map((c, ci) => (
+        <td key={c.id} className={`cell ${errors[c.key] ? "cell-error" : ""}`} data-r={rowIndex} data-c={ci}>
           <CellInput
             col={c} value={values[c.id] ?? null} users={users}
             label={`Neue Zeile: ${c.name}`} invalid={!!errors[c.key]}

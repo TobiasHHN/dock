@@ -254,3 +254,87 @@ export function fieldErrors(error: { message: string; details?: Json } | undefin
   const fields = e && typeof e === "object" ? (e as Record<string, string>) : {};
   return { fields, message: error?.message ?? "Nicht gespeichert" };
 }
+
+// ── Excel-artige Bedienung: Spaltenbuchstaben, Einfügen aus der Zwischenablage, Tastatur ─────────────────────
+
+/** Spaltenbuchstabe wie in Excel: 0 → A, 25 → Z, 26 → AA. */
+export function columnLetter(index: number): string {
+  let s = "";
+  for (let n = index + 1; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + ((n - 1) % 26)) + s;
+  return s;
+}
+
+/** Zwischenablage aus Excel/Sheets (Tabs und Zeilenumbrüche, Felder in Anführungszeichen) als Matrix. */
+export function parseClipboard(text: string): string[][] {
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let cell = "";
+  let quoted = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (quoted) {
+      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+      else if (ch === '"') quoted = false;
+      else cell += ch;
+    } else if (ch === '"' && cell === "") quoted = true;
+    else if (ch === "\t") { row.push(cell); cell = ""; }
+    else if (ch === "\n" || ch === "\r") {
+      if (ch === "\r" && text[i + 1] === "\n") i++;
+      row.push(cell); rows.push(row); row = []; cell = "";
+    } else cell += ch;
+  }
+  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+
+/** Ist das ein Block aus mehreren Zellen (dann übernimmt das Raster das Einfügen)? */
+export const isMultiCellPaste = (text: string): boolean => /[\t\n]/.test(text.replace(/[\r\n]+$/, ""));
+
+/**
+ * Ops für einen eingefügten Block ab Zelle (rowIndex, colIndex). Bestehende Zeilen werden aktualisiert,
+ * überzählige Zeilen neu angehängt (nur mit `allowAdd`). Ungültige Werte werden übersprungen und gezählt.
+ */
+export function pasteOps(
+  tableId: string, matrix: string[][], rows: TRow[], columns: Col[], rowIndex: number, colIndex: number,
+  allowAdd: boolean, makeId: () => string,
+): { ops: Op[]; skipped: number } {
+  const ops: Op[] = [];
+  let skipped = 0;
+  let after = rows.at(-1)?.id;
+  matrix.forEach((cells, i) => {
+    const values: Record<string, Json> = {};
+    cells.forEach((raw, j) => {
+      const col = columns[colIndex + j];
+      if (!col) return;
+      const r = raw.trim() === "" ? { value: null } : parseInput(raw.trim(), col.type);
+      if ("error" in r) skipped++;
+      else values[col.id] = r.value;
+    });
+    const target = rows[rowIndex + i];
+    if (target) {
+      for (const [col, v] of Object.entries(values)) if ((target.values[col] ?? null) !== v) ops.push(updateCellOp(tableId, target.id, col, v));
+    } else if (allowAdd) {
+      const filled = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== null));
+      if (!Object.keys(filled).length) return;
+      const id = makeId();
+      ops.push(insertRowOp(tableId, id, filled, after));
+      after = id;
+    }
+  });
+  return { ops, skipped };
+}
+
+/** Ziel einer Pfeil-/Enter-Taste im Raster, oder null, wenn die Taste dem Eingabefeld gehört. */
+export function gridMove(
+  key: string, shift: boolean, caret: { atStart: boolean; atEnd: boolean }, pos: { r: number; c: number }, size: { rows: number; cols: number },
+): { r: number; c: number } | null {
+  const clamp = (r: number, c: number) => ({ r: Math.max(0, Math.min(size.rows - 1, r)), c: Math.max(0, Math.min(size.cols - 1, c)) });
+  switch (key) {
+    case "ArrowUp": return clamp(pos.r - 1, pos.c);
+    case "ArrowDown": return clamp(pos.r + 1, pos.c);
+    case "Enter": return clamp(pos.r + (shift ? -1 : 1), pos.c);
+    case "ArrowLeft": return caret.atStart ? clamp(pos.r, pos.c - 1) : null;
+    case "ArrowRight": return caret.atEnd ? clamp(pos.r, pos.c + 1) : null;
+    default: return null;
+  }
+}

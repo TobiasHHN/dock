@@ -130,6 +130,7 @@ export function TableEditor({ tableId, embedded = false }: { tableId: string; em
         rows={rows}
         users={users}
         editable
+        sheet
         allowAdd
         allowDelete
         newRows={newRows}
