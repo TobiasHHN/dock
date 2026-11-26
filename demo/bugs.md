@@ -45,6 +45,7 @@ Sortiert nach Priorität.
 | B15 | Absende-Button „Einreichen“ statt „Eingereicht“ | UX | Workflow, Demo-Daten | Mittel | 3.F5 (Browser) | P4 | behoben | `task/3.F5-bugfixes` |
 | B16 | Verlauf eines Runs unter dem Schritt-Dokument statt daneben | UX | Workflow | Mittel | 3.F5 (Browser) | P4 | behoben | `task/3.F5-bugfixes` |
 | B17 | Tabellen-Editor mehr wie Excel | UX | Tabellen | Mittel | 3.F5 (Browser) | P3 | behoben | `task/3.F5-bugfixes` |
+| B18 | Beim Ausfüllen von Dokumenten zu viele Kästen in Kästen | UX | Frontend, Formulare | Mittel | 3.F5 (Browser) | P2 | behoben | `task/3.F5-bugfixes`, `0a0d19e` |
 
 ## Details
 
