@@ -84,7 +84,8 @@ def test_expression_fixture(name, fx):
 def test_import_fixture(name, fx):
     parser = _optional(f"app.imports.{fx['source']}", f"parse_{fx['source']}")
     data = (FIXTURE_ROOT / fx["file"]).read_bytes()
-    result = parser(data, **fx["params"]) if parser else None
+    extra = {"tables": fx["state"]["tables"]} if fx["source"] == "docx" and "state" in fx else {}
+    result = parser(data, **fx["params"], **extra) if parser else None
     if result is None:
         pytest.skip(f"parse_{fx['source']} noch nicht implementiert (Task 3.6/3.7)")
     res = asdict(result) if is_dataclass(result) else result
