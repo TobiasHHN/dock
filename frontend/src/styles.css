@@ -1088,3 +1088,34 @@ table.grid.sheet td.cell-error { box-shadow: inset 0 0 0 1px var(--danger); }
 table.grid.sheet tr.new-row td, table.grid.sheet tr.new-row th { border-top: 0; }
 table.grid.sheet .col-actions { padding: 0 6px; }
 /* --- Ende Excel-Optik --- */
+
+/* --- Dokumente ausfüllen: flacher, weniger Kästen in Kästen --- */
+/* Ohne Bearbeitungsrechte gibt es keine Block-Werkzeuge, also auch keine leere 64-px-Spalte pro Ebene. */
+.doc-static .block > .gutter { display: none; }
+.doc-static.doc-body { padding-left: 24px; }
+/* Verschachtelte Blöcke (Felder im Formular, Listenpunkte): Werkzeuge schweben links daneben statt einzurücken. */
+.block .block > .gutter { position: absolute; right: 100%; top: 0; width: auto; padding-right: 2px; z-index: 2; }
+/* Dokument im Schritt-Panel: das Panel ist der einzige Rahmen. */
+.panel .doc-body, .doc-embedded-body { background: transparent; border: 0; box-shadow: none; border-radius: 0; padding: 8px 8px 8px 24px; }
+/* Formular: kein eigener Kasten, nur eine ruhige Fläche mit Abstand. */
+.form-block { margin: 4px 0 8px; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.form-note { padding: 0; background: transparent; margin: 0 0 14px; font-size: 0.8rem; }
+.form-buttons { margin-top: 20px; padding-top: 16px; }
+.field { margin: 0 0 16px; }
+.field label { font-size: 0.8rem; color: var(--muted); }
+/* Zeilenliste: dezente Tabelle, Zellen ohne eigene Eingabekästen (Rahmen erst bei Hover/Fokus). */
+.line-items { margin: 4px 0 18px; }
+.line-items > .table-wrap { box-shadow: none; border-radius: var(--radius); }
+.line-items table.simple th { padding: 8px 10px; text-transform: none; letter-spacing: 0; font-size: 0.78rem; font-weight: 500; background: transparent; }
+.line-items table.simple td { padding: 2px 4px; }
+.line-items table.simple td.col-actions { padding: 2px 6px; }
+.line-items td input:not([type="checkbox"]), .line-items td select {
+  border-color: transparent; background: transparent; box-shadow: none; border-radius: var(--radius-sm);
+}
+.line-items td input:not([type="checkbox"]):hover:not(:disabled), .line-items td select:hover:not(:disabled) { border-color: var(--border); }
+.line-items td input:focus-visible, .line-items td select:focus-visible { border-color: var(--accent); background: var(--surface); }
+.line-items table.simple tbody tr:hover { background: transparent; }
+.line-items-head { font-size: 0.8rem; color: var(--muted); }
+/* Platzhalter (z. B. Feld außerhalb eines Formulars): kein gestrichelter Kasten, nur ein Hinweis. */
+.placeholder-block { border: 0; background: transparent; padding: 4px 0; }
+/* --- Ende Dokumente ausfüllen --- */

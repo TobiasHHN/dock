@@ -102,7 +102,7 @@ function RunDocumentView({
   return (
     <DocContext.Provider value={ctx}>
       <div className="doc-embedded">
-        <div className="doc-body doc-embedded-body">
+        <div className={`doc-body doc-embedded-body ${ctx.editable ? "" : "doc-static"}`}>
           <BlockChildren parent={null} />
         </div>
       </div>
@@ -277,9 +277,9 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
             <DocTitle docId={docId} title={doc.title} editable={mayEdit} />
           </div>
           {!mayEdit && !readOnly && (
-            <div className="readonly-hint"><Icon name="info" />Nur lesen: Dokumente ändern darf in der Demo die Rolle Einkauf.</div>
+            <div className="readonly-hint"><Icon name="info" />Nur lesen: Schritt-Dokumente eines Workflows ändert in der Demo die Rolle Einkauf.</div>
           )}
-          <div className="doc-body">
+          <div className={`doc-body ${mayEdit ? "" : "doc-static"}`}>
             <BlockChildren parent={null} />
             {mayEdit && <AddBlockButton />}
           </div>
