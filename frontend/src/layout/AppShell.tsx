@@ -88,9 +88,9 @@ function AppShell() {
         <Link to="/" className="brand" translate="no" aria-label="Dock, zur Startseite">Dock</Link>
         <nav className="topnav" aria-label="Hauptnavigation">
           <NavLink to="/inbox/tasks">
-            Aufgaben <Badge n={counts.tasks} label="offen" />
+            Zu erledigen <Badge n={counts.tasks} label="offen" />
           </NavLink>
-          <NavLink to="/inbox/requests">Meine Anträge</NavLink>
+          <NavLink to="/inbox/requests">Meine Vorgänge</NavLink>
         </nav>
         <SearchBox />
         <span className="spacer" />
@@ -120,12 +120,12 @@ function AppShell() {
         </NavLink>
         <NavLink to="/inbox/tasks">
           <Icon name="tasks" size={22} />
-          <span>Aufgaben</span>
+          <span>Zu erledigen</span>
           <Badge n={counts.tasks} label="offen" />
         </NavLink>
         <NavLink to="/inbox/requests">
           <Icon name="inbox" size={22} />
-          <span>Anträge</span>
+          <span>Vorgänge</span>
         </NavLink>
       </nav>
     </>

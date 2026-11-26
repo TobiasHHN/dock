@@ -65,7 +65,7 @@ export function InboxTasksPage() {
     <div>
       <div className="page-head">
         <div>
-          <h1>Meine Aufgaben</h1>
+          <h1>Zu erledigen</h1>
           <p className="muted">Aufgaben, die dir oder deiner Rolle zugewiesen sind.</p>
         </div>
         <div className="segmented" role="tablist" aria-label="Aufgabenstatus">
