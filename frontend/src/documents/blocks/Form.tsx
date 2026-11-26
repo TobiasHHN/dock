@@ -14,6 +14,7 @@ import { BatchRejected, newId, submit, useChannel } from "../../sync/store";
 import { confirmDialog } from "../../ui/confirm";
 import { Icon } from "../../ui/icons";
 import { toast } from "../../ui/toasts";
+import { normalizeSubmittedValues } from "../../workflows/layout";
 import type { FlatBlock } from "../blockOps";
 import { useDoc } from "../docContext";
 import { BlockChildren } from "../DocumentView";
@@ -22,16 +23,18 @@ import { BLOCK_COMPONENTS } from "./registry";
 export function FormBlock({ block }: { block: FlatBlock }) {
   const doc = useDoc();
   const me = useAuth((s) => s.user);
-  const docCh = useChannel(doc.channel);
+  const docCh = useChannel(doc.channel || null);
   const runCh = useChannel(doc.run ? `run:${doc.run}` : null);
+  const wsCh = useChannel("workspace");
   const draft = useDraft(block.id, doc.run);
   const [errors, setErrorsState] = useState<FormErrors>(noErrors());
   const [busy, setBusy] = useState<string | null>(null);
 
-  const owner = docCh?.view?.document?.owner ?? null; // { workflow, step } bei Schritt-Dokumenten (Snapshot `doc:<id>`)
-  const step: string | null = owner?.step ?? null;
+  const owner = doc.owner ?? docCh?.view?.document?.owner ?? null; // { workflow, step } bei Schritt-Dokumenten
+  const step: string | null = doc.stepKey ?? owner?.step ?? null;
   const state = formState({
     me, readOnly: doc.readOnly, run: doc.run, step, owner,
+    workspaceRoles: wsCh?.view?.roles as { id: string; key: string }[] | undefined,
     info: doc.run ? { loading: !runCh || runCh.status === "loading", run: runCh?.view?.run, task: runCh?.view?.task } : undefined,
   });
   const inputs = useMemo(() => inputBlocks(doc.blocks, block.id), [doc.blocks, block.id]);
@@ -65,8 +68,15 @@ export function FormBlock({ block }: { block: FlatBlock }) {
     }
   };
 
+  const submittedValues = useMemo(() => {
+    if (!doc.run || state.fillable || !step) return null;
+    const raw = runCh?.view?.run?.steps?.[step]?.values;
+    if (!raw || typeof raw !== "object") return null;
+    return normalizeSubmittedValues(doc.blocks, raw as Record<string, unknown>);
+  }, [doc.run, doc.blocks, state.fillable, step, runCh?.view?.run?.steps]);
+
   const ctx = {
-    formId: block.id, scope: draft.scope, values: draft.values, errors, setErrors: (fn: (e: FormErrors) => FormErrors) => setErrorsState(fn),
+    formId: block.id, scope: draft.scope, values: submittedValues ?? draft.values, errors, setErrors: (fn: (e: FormErrors) => FormErrors) => setErrorsState(fn),
     fillable: state.fillable && draft.ready, busy: busy !== null,
   };
 

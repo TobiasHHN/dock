@@ -110,7 +110,10 @@ export function useChannelInvalidate(channel: string | null, queryKeys: readonly
   const keySig = JSON.stringify(queryKeys);
   useEffect(() => {
     if (!channel) return;
-    return sync.listen(channel, () => {
+    return sync.listen(channel, (ev) => {
+      if (ev.type === "ops" && ev.ops.length > 0 && ev.ops.every((o) => typeof o.op === "string" && o.op.startsWith("draft."))) {
+        return;
+      }
       for (const k of queryKeys) qc.invalidateQueries({ queryKey: [...k] });
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

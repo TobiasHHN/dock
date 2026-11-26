@@ -2,3 +2,4 @@
 import "./TableView";
 import "./Form";
 import "./FormFields";
+import "./WorkflowBlock";
