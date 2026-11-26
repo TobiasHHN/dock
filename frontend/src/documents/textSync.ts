@@ -145,6 +145,7 @@ export class TextSync {
       if (!hadLocal && !this.inflight) this.port.setUnits(this.shadow);
       return;
     }
+    if (e.type !== "ops") return;
     let touched = false;
     for (const op of e.ops) {
       if (op.block !== this.blockId) continue;

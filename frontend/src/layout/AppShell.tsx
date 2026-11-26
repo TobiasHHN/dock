@@ -4,6 +4,7 @@
 import { useEffect } from "react";
 import { Link, Navigate, NavLink, Outlet, useLocation } from "react-router-dom";
 import { authApi, useAuth } from "../api/client";
+import { NotificationBell, useNotificationToasts } from "../inbox/Notifications";
 import { SearchBox } from "../search/SearchBox";
 import { sync, useChannel, useSync } from "../sync/store";
 import { initials } from "../ui/actors";
@@ -78,6 +79,7 @@ function AppShell() {
   }, [setUser]);
 
   useChannel("workspace");
+  useNotificationToasts(user?.id);
   const counts = useInboxCounts();
   const live = status === "open";
   const liveLabel = live ? "Live verbunden" : "Verbindung wird aufgebaut …";
@@ -101,15 +103,7 @@ function AppShell() {
           <span className="live-text">{live ? "Live" : "Verbinde …"}</span>
           <span className="sr-only">{liveLabel}</span>
         </span>
-        <Link
-          to="/inbox/tasks"
-          className="icon-button bell"
-          aria-label={counts.unread > 0 ? `Benachrichtigungen, ${counts.unread} ungelesen` : "Benachrichtigungen"}
-          title="Benachrichtigungen"
-        >
-          <Icon name="bell" size={20} strokeWidth={1.8} />
-          {counts.unread > 0 && <span className="dot" aria-hidden="true" />}
-        </Link>
+        <NotificationBell />
         {user && (
           <span className="profile">
             <span className="avatar" aria-hidden="true">{initials(user.name)}</span>

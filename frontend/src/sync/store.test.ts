@@ -153,4 +153,29 @@ describe("Sync-Store", () => {
     t.push({ type: "reject", batch_id: "subscribe:run:run_9", error: { code: "FORBIDDEN", message: "Kein Zugriff" } });
     expect(s.store.getState().channels["run:run_9"].status).toBe("error");
   });
+
+  it("Live-Benachrichtigung auf user:<id> aktualisiert view.notifications und benachrichtigt Listener", () => {
+    s.subscribe("user:usr_anna");
+    t.push({ type: "snapshot", channel: "user:usr_anna", seq: 1, data: { tasks: [], runs: [], notifications: [], drafts: [] } });
+    const listener = vi.fn();
+    s.listen("user:usr_anna", listener);
+
+    const note = {
+      id: "ntf_1",
+      recipient_id: "usr_anna",
+      run_id: "run_1",
+      task_id: "tsk_1",
+      type: "step_entered",
+      payload: { run_title: "Bestellung 1", step_name: "Genehmigung" },
+      created_at: "2026-11-26T10:00:00Z",
+      read_at: null,
+    };
+    t.push({ type: "notification", channel: "user:usr_anna", notification: note });
+    t.push({ type: "notification", channel: "user:usr_anna", notification: note }); // Duplikat wird ignoriert
+
+    const notes = s.store.getState().channels["user:usr_anna"].view.notifications;
+    expect(notes).toHaveLength(1);
+    expect(notes[0].id).toBe("ntf_1");
+    expect(listener).toHaveBeenCalledWith({ type: "notification", notification: note });
+  });
 });
