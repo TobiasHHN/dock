@@ -955,6 +955,10 @@ async def enter_step(ctx: Any, run_id: str, step: str) -> str:
         },
     )
 
+    new_title = await evaluate_run_title(ctx, definition, wf_name, run, fallback=run["title"])
+    if new_title != run["title"]:
+        await ctx.session.execute(text("UPDATE runs SET title = :t WHERE id = :id"), {"t": new_title, "id": run_id})
+
     system_actor = Actor(type="system", id="workflow", name="Workflow")
     await record_run_event(ctx, run_id, "step_entered", system_actor, step=step, task_id=task_id)
     if unassigned:
@@ -962,10 +966,6 @@ async def enter_step(ctx: Any, run_id: str, step: str) -> str:
             ctx, run_id, "unassigned", system_actor, step=step, task_id=task_id,
             text_val=f"Keine auflösbaren Zuständigen für Schritt '{step}', an Manager übergeben",
         )
-
-    new_title = await evaluate_run_title(ctx, definition, wf_name, run, fallback=run["title"])
-    if new_title != run["title"]:
-        await ctx.session.execute(text("UPDATE runs SET title = :t WHERE id = :id"), {"t": new_title, "id": run_id})
 
     channels = [f"run:{run_id}", *await T.user_channels_for_candidates(
         ctx, candidates, excluded, [run["started_by_id"]])]

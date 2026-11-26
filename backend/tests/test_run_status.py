@@ -321,6 +321,7 @@ async def test_notifications_and_live_websocket_delivery_to_role(env):
         n2 = await wait_notification(s_chef2)
         assert n1["notification"]["type"] == "step_entered"
         assert n1["notification"]["run_id"] == run_id
+        assert n1["notification"]["payload"]["title"] == "Bestellung KS 4711 – Ben Mitarbeiter"
         assert n2["notification"]["type"] == "step_entered"
 
         # Ben (Antragsteller) hat Benachrichtigung für step_completed bekommen
