@@ -279,10 +279,10 @@ input[type="checkbox"] { width: 16px; height: 16px; padding: 0; margin: 0; accen
   border-bottom: 1px solid var(--border);
 }
 .brand {
-  display: inline-flex; align-items: center; gap: 8px; flex: none;
+  display: inline-flex; align-items: baseline; flex: none;
   font-weight: 700; font-size: 1.1rem; letter-spacing: -0.02em; color: var(--text);
 }
-.brand::before { content: ""; width: 22px; height: 22px; border-radius: 7px; background: var(--text); }
+.brand::after { content: ""; width: 0.28em; height: 0.28em; margin-left: 0.06em; border-radius: 50%; background: #f97316; }
 a.brand:hover { color: var(--text); }
 a.brand { padding: 4px 8px; margin-left: -8px; border-radius: var(--radius-sm); transition: background 0.15s; }
 a.brand:hover { background: var(--surface-2); }
@@ -373,7 +373,6 @@ main.page:focus { outline: none; } /* nur Sprungziel des Skip-Links, nicht inter
   animation: fade-in 280ms var(--ease);
 }
 .auth-brand { font-size: 1.3rem; }
-.auth-brand::before { width: 28px; height: 28px; border-radius: 8px; }
 .auth-card {
   width: 100%; max-width: 400px;
   display: flex; flex-direction: column; gap: 24px;

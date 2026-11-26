@@ -380,7 +380,9 @@ async def create_workflow(key: str, name: str, definition: WorkflowDefinition, d
     """Legt einen Workflow-Entwurf an (op `workflow.create`). Erst `list_roles` aufrufen, um gültige Rollen für die
     Zuständigen zu kennen. Besser: zusammen mit Dokumenten in EINEM `apply_ops`-Batch anlegen, dann
     `validate_workflow`, dann `publish_workflow`. Das Backend legt automatisch ein Übersichtsdokument an
-    (`description` + Workflow-Block, Owner `{workflow, step: null}`); die Schritt-Dokumente erscheinen darunter."""
+    (`description` + Workflow-Block, Owner `{workflow, step: null}`); die Schritt-Dokumente erscheinen darunter.
+    Schritt-Dokumente (`doc.create` mit Owner `{workflow, step}`): der `title` wird automatisch als Kopf angezeigt,
+    deshalb NICHT als erste Überschrift in die Blöcke schreiben."""
     wf_id = new_id("wf")
     op = {"op": "workflow.create", "id": wf_id, "key": key, "name": name, "definition": _dump(definition)}
     if description:
@@ -551,7 +553,9 @@ async def apply_ops(batch: Annotated[dict[str, Any], Field(description=BATCH_HIN
     {"op":"import.include","import_id":…} plus Ergänzungen (Rollen, Spalten, Actions/Buttons per block.update,
     workflow.create, workflow.publish). Fehler (CONFLICT, IN_USE, BLOCK_IN_USE, VALIDATION mit Pfad) lesen und den
     Batch korrigiert erneut senden. `batch_id` und alle IDs (Präfix + ULID) erzeugt der Aufrufer.
-    Felder der einzelnen Ops und Blöcke: `describe_schema` (z. B. topic="ops", topic="row.update")."""
+    Felder der einzelnen Ops und Blöcke: `describe_schema` (z. B. topic="ops", topic="row.update").
+    Bei `doc.create` (auch Schritt-Dokumente von Workflows) steht der `title` schon als Kopf über dem Dokument: den Titel
+    NICHT als erste Überschrift oder ersten Absatz in die Blöcke schreiben."""
     return await _post_batch(ctx, batch)
 
 
@@ -576,7 +580,7 @@ async def describe_schema(topic: str = "ops") -> Any:
     """Beschreibt Ops und Blöcke für `apply_ops`, `edit_document` und `create_document` (die Tool-Schemas dort sind
     absichtlich schlank, der Server validiert strikt und meldet Fehler mit Pfad). `topic`: `ops` = alle Op-Typen mit
     Feldnamen (`?` = optional), `blocks` = alle Blocktypen mit Feldern, ein Op-Name (z. B. `row.update`) oder ein
-    Blocktyp (z. B. `form`) = vollständiges JSON-Schema dieses einen Typs."""
+    Blocktyp (z. B. `form`) = vollständiges JSON-Schema dieses einen Typs. Dokumenttitel nie als ersten Block wiederholen."""
     ops, blocks = _variants(Op, "op"), _variants(BlockIn, "type")
     if topic == "ops":
         return {"ops": _summary(ops), "hint": "Details je Op: describe_schema(topic=<op>). Batch = {batch_id, base?, ops:[…]}"}
