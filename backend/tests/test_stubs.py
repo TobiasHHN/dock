@@ -32,25 +32,13 @@ def _stub_pipeline(monkeypatch):
     monkeypatch.setattr(routers, "apply_batch", fake)
 
 GET_PATHS = [
-    "/api/health", "/api/me", "/api/runs", "/api/runs/run_42", "/api/tasks", "/api/notifications",
-    "/api/schema/ws-messages",
+    "/api/health", "/api/me", "/api/schema/ws-messages",
 ]
 
 
 def test_get_stubs_respond_200():
     for p in GET_PATHS:
         assert client.get(p).status_code == 200, p
-
-
-def test_chef_sees_task_ben_not():
-    app.dependency_overrides[current_user] = lambda: CurrentUser(
-        id="usr_chef", name="Chef", email="chef@example.local", roles=["chef"]
-    )
-    assert len(client.get("/api/tasks").json()) == 1
-    app.dependency_overrides[current_user] = lambda: CurrentUser(
-        id="usr_ben", name="Ben", email="ben@example.local", roles=["mitarbeiter"]
-    )
-    assert client.get("/api/tasks").json() == []
 
 
 def test_apply_ops_stub_validates_batch():

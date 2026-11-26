@@ -58,6 +58,7 @@ class OpContext:
     reference_sources: dict[tuple[str, str], list[tuple[str, str, str]]] = field(default_factory=dict)
     inverse_ops: list[dict[str, Any]] = field(default_factory=list)
     pending_refs: dict[tuple[str, str, str | None], str] = field(default_factory=dict)
+    post_commit_events: list[tuple[str, dict[str, Any]]] = field(default_factory=list)
     _roles: list[str] | None = None
 
     # ── Meldungen der Handler ────────────────────────────────────────────────
@@ -88,6 +89,10 @@ class OpContext:
 
     def add_inverse(self, op: dict[str, Any]) -> None:
         self.inverse_ops.append(op)
+
+    def emit(self, channel: str, event: dict[str, Any]) -> None:
+        """Flüchtiges Echtzeit-Ereignis (ohne Op-Log), wird nach erfolgreichem Commit über `hub.publish` gesendet."""
+        self.post_commit_events.append((channel, event))
 
     async def lock_channel(self, channel: str) -> int:
         """Sperrt den Kanal und vergibt seine nächste `seq` (T 2.5). Mehrfachaufrufe sind harmlos.

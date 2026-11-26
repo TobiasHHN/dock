@@ -209,8 +209,43 @@ def _stub_reads(monkeypatch):
     async def validate_form_in_db(s, doc_id, block):
         return {"ok": True, "warnings": []}
 
-    from app.domain import forms
+    from app.domain import forms, run_status
+    from app.schemas.workflows import ButtonInfo, Notification, TaskDetail, TaskListItem
     monkeypatch.setattr(forms, "validate_form_in_db", validate_form_in_db)
+
+    async def list_runs(s, viewer, workflow=None, started_by="me", status=None):
+        return D.RUN_LIST
+
+    async def build_status_view(ctx, run_id, viewer):
+        return D.RUN_STATUS
+
+    async def list_tasks(s, viewer, assigned_to="me", status="open", workflow=None):
+        can = viewer.id != D.ANNA.id
+        return [TaskListItem(task=D.TASK_OPEN, run_title=D.RUN_STATUS.title, step_name="Genehmigung",
+                             workflow_name="Bestellprozess", can_act=can)] if can else []
+
+    async def get_task_detail(s, task_id, user):
+        return TaskDetail(
+            task=D.TASK_OPEN, run_title=D.RUN_STATUS.title, document_id="doc_s2",
+            document_markdown="# Genehmigung {#blk_s2_h}\n\nBestellung von Ben Mitarbeiter für Kostenstelle 4711.",
+            form_block="blk_s2_form",
+            buttons=[ButtonInfo(id="approve", label="Genehmigt", style="primary", outcome="approved"),
+                     ButtonInfo(id="reject", label="Abgelehnt", style="danger", outcome="rejected",
+                                require=["kommentar"])],
+            fields=[{"key": "kommentar", "label": "Kommentar", "input": "textarea", "required": False}],
+            can_act="chef" in user.roles,
+        )
+
+    async def list_notifications(s, viewer, unread=False):
+        return []
+
+    async def mark_notification_read(s, nid, viewer):
+        return Notification(id=nid, recipient_id=viewer.id, type="step_entered", created_at=D.T1, read_at=D.T1)
+
+    for name, fn in [("list_runs", list_runs), ("build_status_view", build_status_view),
+                     ("list_tasks", list_tasks), ("get_task_detail", get_task_detail),
+                     ("list_notifications", list_notifications), ("mark_notification_read", mark_notification_read)]:
+        monkeypatch.setattr(run_status, name, fn)
 
 
 @pytest.fixture(autouse=True)

@@ -705,26 +705,15 @@ def parse_iso_duration(raw: str) -> "timedelta":
 
 async def record_run_event(ctx: Any, run_id: str, event_type: str, actor: Actor, *,
                            step: str | None = None, outcome: str | None = None,
-                           label: str | None = None, text_val: str | None = None) -> str:
-    """Schreibt ein Ereignis in `run_events` (L 5.10)."""
-    from app.domain.ids import new_id
+                           label: str | None = None, text_val: str | None = None,
+                           task_id: str | None = None) -> str:
+    """Schreibt ein Ereignis in `run_events` und erzeugt Benachrichtigungen (L 5.10)."""
+    from app.domain import run_status as RS
 
-    evt_id = new_id("event")
-    await ctx.session.execute(
-        text("""INSERT INTO run_events (id, run_id, actor, type, step, outcome, label, text)
-                VALUES (:id, :run_id, CAST(:actor AS jsonb), :type, :step, :outcome, :label, :text)"""),
-        {
-            "id": evt_id,
-            "run_id": run_id,
-            "actor": json.dumps(actor.model_dump(mode="json", exclude_none=True)),
-            "type": event_type,
-            "step": step,
-            "outcome": outcome,
-            "label": label,
-            "text": text_val,
-        },
+    return await RS.record_event(
+        ctx, run_id, event_type, actor,
+        step=step, outcome=outcome, label=label, text=text_val, task_id=task_id,
     )
-    return evt_id
 
 
 async def load_run_bundle(ctx: Any, run_id: str, *, for_update: bool = False
@@ -966,17 +955,17 @@ async def enter_step(ctx: Any, run_id: str, step: str) -> str:
         },
     )
 
-    system_actor = Actor(type="system", id="workflow", name="Workflow")
-    await record_run_event(ctx, run_id, "step_entered", system_actor, step=step)
-    if unassigned:
-        await record_run_event(
-            ctx, run_id, "unassigned", system_actor, step=step,
-            text_val=f"Keine auflösbaren Zuständigen für Schritt '{step}', an Manager übergeben",
-        )
-
     new_title = await evaluate_run_title(ctx, definition, wf_name, run, fallback=run["title"])
     if new_title != run["title"]:
         await ctx.session.execute(text("UPDATE runs SET title = :t WHERE id = :id"), {"t": new_title, "id": run_id})
+
+    system_actor = Actor(type="system", id="workflow", name="Workflow")
+    await record_run_event(ctx, run_id, "step_entered", system_actor, step=step, task_id=task_id)
+    if unassigned:
+        await record_run_event(
+            ctx, run_id, "unassigned", system_actor, step=step, task_id=task_id,
+            text_val=f"Keine auflösbaren Zuständigen für Schritt '{step}', an Manager übergeben",
+        )
 
     channels = [f"run:{run_id}", *await T.user_channels_for_candidates(
         ctx, candidates, excluded, [run["started_by_id"]])]
