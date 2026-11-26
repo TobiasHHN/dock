@@ -5,7 +5,9 @@ import { DocumentPage } from "./documents/DocumentView";
 import { Home } from "./home/Home";
 import { TableEditorPage } from "./tables/TableEditor";
 import { RequireAuth } from "./layout/AppShell";
-import { InboxRequestsPage, InboxTasksPage, RunPage, WorkflowPage } from "./layout/Placeholders";
+import { InboxTasksPage } from "./inbox/TaskList";
+import { InboxRequestsPage } from "./inbox/MyRequests";
+import { RunPage, WorkflowPage } from "./layout/Placeholders";
 
 export function App() {
   return (

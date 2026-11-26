@@ -1,6 +1,9 @@
 // REST-Client mit Bearer-Token (Task 2.1). Nicht-live Daten (Listen, Suche) laufen über React Query,
 // alles Live über den Sync-Store (sync/store.ts).
 import { create } from "zustand";
+import type {
+  DocumentOut, Notification, RunListItem, RunStatusView, TaskDetail, TaskListItem, Workflow,
+} from "./index";
 import type { components } from "./types";
 
 type S = components["schemas"];
@@ -120,4 +123,29 @@ export const listApi = {
   tables: () => api<TableSummary[]>("/api/tables"),
   workflows: () => api<WorkflowSummary[]>("/api/workflows"),
   search: (q: string) => api<SearchResponse>(`/api/search?q=${encodeURIComponent(q)}&limit=8`),
+};
+
+function qs(params: Record<string, string | boolean | undefined>): string {
+  const sp = new URLSearchParams();
+  for (const [k, v] of Object.entries(params)) {
+    if (v !== undefined && v !== "") sp.set(k, String(v));
+  }
+  const s = sp.toString();
+  return s ? `?${s}` : "";
+}
+
+export const workflowApi = {
+  tasks: (params: { status?: string; workflow?: string } = {}) =>
+    api<TaskListItem[]>(`/api/tasks${qs(params)}`),
+  task: (id: string) => api<TaskDetail>(`/api/tasks/${encodeURIComponent(id)}`),
+  runs: (params: { workflow?: string; started_by?: "me" | "any"; status?: string } = {}) =>
+    api<RunListItem[]>(`/api/runs${qs(params)}`),
+  run: (id: string) => api<RunStatusView>(`/api/runs/${encodeURIComponent(id)}`),
+  workflow: (id: string) => api<Workflow>(`/api/workflows/${encodeURIComponent(id)}`),
+  documentInRun: (docId: string, runId: string) =>
+    api<DocumentOut>(`/api/documents/${encodeURIComponent(docId)}?run=${encodeURIComponent(runId)}`),
+  notifications: (unread?: boolean) =>
+    api<Notification[]>(`/api/notifications${unread ? "?unread=true" : ""}`),
+  markNotificationRead: (id: string) =>
+    api<Notification>(`/api/notifications/${encodeURIComponent(id)}/read`, { method: "POST" }),
 };

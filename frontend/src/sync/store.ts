@@ -14,7 +14,7 @@ import { useEffect } from "react";
 import { ulid } from "ulid";
 import { useStore } from "zustand";
 import { createStore } from "zustand/vanilla";
-import type { Actor, ApiError, Op, OpBatch, WsServerMessage } from "../api";
+import type { Actor, ApiError, Notification, Op, OpBatch, WsServerMessage } from "../api";
 import { OpError } from "./apply";
 import {
   type Pending, applyToChannel, channelsFor, computeView, fromSnapshot, isOptimistic, parseChannel,
@@ -70,7 +70,8 @@ function touchedIds(op: Json): string[] {
 
 export type ChannelEvent =
   | { type: "ops"; batch_id: string; actor: Actor; ops: Json[] }
-  | { type: "snapshot" };
+  | { type: "snapshot" }
+  | { type: "notification"; notification: Notification };
 
 export function createSyncStore(transport: Transport) {
   const store = createStore<SyncState>(() => ({ status: "idle", channels: {}, pending: [] }));
@@ -205,18 +206,35 @@ export function createSyncStore(transport: Transport) {
     if (p || w) rejectListener(err);
   }
 
+  function onNotification(channel: string, notification: Notification) {
+    const ch = get().channels[channel];
+    if (ch && ch.confirmed && typeof ch.confirmed === "object") {
+      const existing: Notification[] = Array.isArray(ch.confirmed.notifications) ? ch.confirmed.notifications : [];
+      if (!existing.some((n) => n.id === notification.id)) {
+        setChannel(channel, {
+          confirmed: { ...ch.confirmed, notifications: [notification, ...existing] },
+        });
+        recompute([channel]);
+      }
+    }
+    emit(channel, { type: "notification", notification });
+  }
+
   transport.onMessage = (msg) => {
-    switch (msg.type) {
+    const raw = msg as WsServerMessage | { type: "notification"; channel: string; notification: Notification };
+    switch (raw.type) {
       case "snapshot":
-        return onSnapshot(msg.channel, msg.seq, msg.data);
+        return onSnapshot(raw.channel, raw.seq, raw.data);
       case "ops":
-        return onOps(msg);
+        return onOps(raw);
       case "ack":
-        return onAck(msg);
+        return onAck(raw);
       case "reject":
-        return onReject(msg);
+        return onReject(raw);
       case "presence":
-        return setChannel(msg.channel, { presence: msg.actors as PresenceEntry[] });
+        return setChannel(raw.channel, { presence: raw.actors as PresenceEntry[] });
+      case "notification":
+        return onNotification(raw.channel, raw.notification);
     }
   };
 

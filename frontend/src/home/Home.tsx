@@ -100,7 +100,7 @@ function WaitingForYou() {
             const due = isDueSoon(t);
             return (
               <li key={t.id}>
-                <Link to="/inbox/tasks" className="task-row">
+                <Link to={t.run_id ? `/runs/${t.run_id}` : "/inbox/tasks"} className="task-row">
                   <span className={`task-icon ${due ? "warn" : ""}`}><Icon name={due ? "clock" : "file"} size={18} strokeWidth={1.8} /></span>
                   <span className="task-body">
                     <span className="task-title">Schritt „{t.step ?? "Aufgabe"}“</span>
