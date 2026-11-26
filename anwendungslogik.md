@@ -1157,7 +1157,7 @@ Der Agent prüft zuerst mit `list_roles`, welche Rollen es gibt, und schickt dan
                 } }
             ],
             "buttons": [
-              { "id": "submit", "label": "Eingereicht", "style": "primary",
+              { "id": "submit", "label": "Einreichen", "style": "primary",
                 "actions": ["order", "items"], "outcome": "submitted" }
             ]
           },
@@ -1265,7 +1265,7 @@ Der Agent prüft zuerst mit `list_roles`, welche Rollen es gibt, und schickt dan
 
 Hinweise:
 
-- Die Button-Labels („Eingereicht“, „Genehmigt“, „Abgelehnt“, „Bestellt“) sind bewusst als Ergebnis formuliert. Sie erscheinen im Verlauf und als `run.result` beim Antragsteller.
+- Der Absende-Button im ersten Schritt heißt „Einreichen“ (Aufforderung an den Antragsteller). Die Entscheidungs-Buttons („Genehmigt“, „Abgelehnt“, „Bestellt“) sind bewusst als Ergebnis formuliert. Alle Labels erscheinen im Verlauf, die Entscheidungen zusätzlich als `run.result` beim Antragsteller.
 - Soll statt einer Rolle eine **bestimmte Person** genehmigen, ersetzt man den Assignee durch `{ "kind": "user", "user": "usr_tom" }`. Soll der **Verantwortliche der Kostenstelle** genehmigen, gibt es eine Tabelle `kostenstellen` mit einer Spalte `verantwortlich` (Typ `user`) und den Assignee `{ "kind": "expr", "expr": "{{lookup(\"kostenstellen\", \"nummer\", run.steps.erfassen.values.kostenstelle, \"verantwortlich\")}}" }`.
 - Statt Tabelle `bestellungen` und Schritt-Dokument 1 von Hand zu beschreiben, kann der Agent sie aus der bestehenden Excel-Übersicht und dem Word-Formular importieren (8.3). Er nimmt beide Importe mit `import.include` in denselben Batch auf und ergänzt Actions, Buttons, Workflow und die übrigen Schritt-Dokumente.
 - Das Formular in Schritt 2 hat ein optionales Kommentarfeld, das nur beim Ablehnen Pflicht ist (`require`).
@@ -1277,7 +1277,7 @@ Hinweise:
    → run.start { id: run_42, workflow: wf_best }
    → Run v1, Aufgabe tsk_1 (erfassen, Kandidat: Anna), Event started, step_entered
 
-2. Anna füllt doc_s1 aus und klickt "Eingereicht"
+2. Anna füllt doc_s1 aus und klickt "Einreichen"
    → Transaktion:
        order: row.insert tbl_best { name, kostenstelle, status: eingereicht, besteller: Anna, run: run_42 } → row_B1
        items: row.insert tbl_art  { …, bestellung: row_B1 } × Anzahl Artikel

@@ -93,7 +93,7 @@
           } }
       ],
       "buttons": [
-        { "id": "submit", "label": "Eingereicht", "style": "primary", "actions": ["order", "items"], "outcome": "submitted" }
+        { "id": "submit", "label": "Einreichen", "style": "primary", "actions": ["order", "items"], "outcome": "submitted" }
       ] } },
 
     { "op": "doc.create", "id": "doc_s2", "title": "Genehmigung",

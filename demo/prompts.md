@@ -33,7 +33,7 @@ Erwartetes Agent-Verhalten (L 8.3, L 10.1): `import_xlsx` und `import_docx` aufr
 
 > Bestelle 2× Dell-Monitor für Kostenstelle 4711.
 
-Erwartet: `search` findet den Bestellprozess → `start_run` → `get_task` → `complete_task` im Schritt „erfassen“ (Button „Eingereicht“). Die Bestellung erscheint live in der Tabelle, der Run wartet auf Genehmigung.
+Erwartet: `search` findet den Bestellprozess → `start_run` → `get_task` → `complete_task` im Schritt „erfassen“ (Button „Einreichen“). Die Bestellung erscheint live in der Tabelle, der Run wartet auf Genehmigung.
 
 ### Schritt 3: Genehmigen (Chef, Browser, optional Agent)
 
