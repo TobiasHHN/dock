@@ -282,7 +282,7 @@ function LiveDocumentView({ docId, readOnly = false }: { docId: string; readOnly
       ) : (
         <>
           <div className="doc-head">
-            {doc.owner && <span className="pill pill-success">Schritt „{doc.owner.step}“ eines Workflows</span>}
+            {doc.owner?.step && <span className="pill pill-success">Schritt „{doc.owner.step}“ eines Workflows</span>}
             <DocTitle docId={docId} title={doc.title} editable={mayEdit} />
           </div>
           {!mayEdit && !readOnly && (

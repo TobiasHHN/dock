@@ -293,7 +293,7 @@ class Block(BaseModel):
 
 class DocumentOwner(Strict):
     workflow: str
-    step: str
+    step: str | None = None  # None = Übersichtsdokument des Workflows (B27), wie DocOwnerIn
 
 
 class Document(BaseModel):
